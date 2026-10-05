@@ -1,19 +1,22 @@
 # PROJECT_STATE
 
 **Última actualización:** 2026-10-05
-**Fase actual:** TEST · F0 a F6 fusionados (PR #1 a #9); QA y PWA en PR.
+**Fase actual:** DELIVER · F0 a F6 y QA/PWA fusionados (PR #1 a #10); documentación y release en revisión.
+**Release:** versión candidata `0.1.0`, sin publicar. **No está lista para producción** (RELEASE_READINESS.md).
 
 ## Proceso
 
-| Fase                        | Estado                 | Evidencia                                            |
-| --------------------------- | ---------------------- | ---------------------------------------------------- |
-| DISCOVER                    | ✅ Hecho               | API_SOURCE_OF_TRUTH.md                               |
-| DEFINE                      | ✅ Hecho               | GAPS.md, TRACEABILITY.md                             |
-| ARCHITECT                   | ✅ Aprobado 2026-10-05 | ARCHITECTURE_PROPOSAL.md, DECISIONS.md (D-P01…D-P16) |
-| DESIGN                      | ○ Pendiente            |                                                      |
-| IMPLEMENT                   | ✅ F0–F6 fusionados    | Repo `Ferchoner/base-ecomm-admin`                    |
-| TEST                        | ✱ QA y PWA en PR       | TESTING_STRATEGY.md, QA_REPORT.md, PWA_STRATEGY.md   |
-| REVIEW · DOCUMENT · DELIVER | ○ Pendiente            |                                                      |
+| Fase      | Estado                            | Evidencia                                                          |
+| --------- | --------------------------------- | ------------------------------------------------------------------ |
+| DISCOVER  | ✅ Hecho                          | API_SOURCE_OF_TRUTH.md                                             |
+| DEFINE    | ✅ Hecho                          | GAPS.md, TRACEABILITY.md                                           |
+| ARCHITECT | ✅ Aprobado 2026-10-05            | ARCHITECTURE_PROPOSAL.md, DECISIONS.md (D-P01…D-P16)               |
+| DESIGN    | ✅ Nuxt UI como sistema de diseño | DESIGN_SYSTEM.md, INFORMATION_ARCHITECTURE.md, SCREEN_INVENTORY.md |
+| IMPLEMENT | ✅ F0–F6 fusionados               | Repo `Ferchoner/base-ecomm-admin`                                  |
+| TEST      | ✅ QA y PWA fusionados            | TESTING_STRATEGY.md, QA_REPORT.md, PWA_STRATEGY.md                 |
+| REVIEW    | ✅ Hecho (en PR)                  | FINAL_TECHNICAL_REVIEW.md: 0 CRITICAL, 1 HIGH, 3 MEDIUM            |
+| DOCUMENT  | ✅ Hecho (en PR)                  | Docs sincronizados con el código; HANDOVER.md                      |
+| DELIVER   | ⚠️ Solo local                     | RELEASE_READINESS.md, DEPLOYMENT.md, RELEASE_CHECKLIST.md          |
 
 ## Hallazgos clave
 
@@ -85,13 +88,21 @@
 - Auditoría (`/auditoria`): filtros de acción (código o prefijo `.*`), tipo de actor, resultado, recurso y fechas en la URL; "Cargar más" por cursor; detalle con cambios, motivo, IP y correlación; ver lo que hizo un actor o el historial de un recurso.
 - Calidad: 79 pruebas unitarias, 45 E2E × 2 viewports.
 
-## QA y PWA — en PR
+## QA y PWA — fusionado (PR #10)
 
 - PWA online-first: instalable (manifest e iconos), shell disponible sin conexión, aviso de versión nueva que el usuario aplica, franja de sin conexión. Nunca cachea la API (PWA_STRATEGY.md).
 - Sin conexión una mutación falla de inmediato y no se envía al reconectar (QA-01, D-057).
 - Accesibilidad: axe sin violaciones WCAG 2.1 A/AA en login, 19 pantallas (tema claro y oscuro) y 3 diálogos; navegación con teclado. Se corrigió el contraste de color (QA-02) y una región con scroll sin teclado (QA-03).
 - Documentos: TESTING_STRATEGY.md, TEST_CASE_MATRIX.md, QA_REPORT.md, PWA_STRATEGY.md.
 - Calidad: 79 pruebas unitarias; 161 ejecuciones E2E (incluye accesibilidad y PWA) en escritorio y móvil.
+
+## Documentación, revisión y release — en PR
+
+- Documentación sincronizada con el código real: PRODUCT_DEFINITION, FRONTEND_SCOPE, INFORMATION_ARCHITECTURE, ROUTE_MAP, SCREEN_INVENTORY, DESIGN_SYSTEM, TECHNOLOGY_DECISION, FRONTEND_ARCHITECTURE, API_FRONTEND_CONTRACT, API_CLIENT_ARCHITECTURE, AUTHENTICATION, AUTHORIZATION_MATRIX, FRONTEND_SECURITY (D-061).
+- DEVELOPER_ONBOARDING, DEPLOYMENT (solo local; hosting NO DOCUMENTADO, D-062), RELEASE_CHECKLIST, `CHANGELOG.md`, HANDOVER.
+- FINAL_TECHNICAL_REVIEW: 0 CRITICAL, 1 HIGH (falta probar contra la API real), 3 MEDIUM (dependencias de build, controles de servidor sin ambiente, pago manual G-02), 5 LOW y 4 INFO abiertos. Se corrigieron dos: referencia de soporte en toasts de error 5xx y el indicador "Próximamente" sobrante (D-064).
+- RELEASE_READINESS: listo para pruebas de aceptación en local; no listo para producción.
+- Calidad: 80 pruebas unitarias; E2E, accesibilidad y PWA en escritorio y móvil.
 
 ## Decisiones del usuario (2026-10-05)
 
@@ -104,4 +115,9 @@ G-01, G-06, G-07, G-09 resueltos; G-02 y G-10 quedan como cambios del backend (D
 
 ## Siguiente paso
 
-Revisión y merge del PR de QA y PWA; después la documentación completa, el release (despliegue, checklist, changelog), la revisión técnica final y el handover.
+1. Revisar y fusionar el PR de documentación y release.
+2. Probar contra la API real de `base-shop` en local (RELEASE_CHECKLIST.md §3; FTR-01).
+3. Con el backend: endpoints del pago manual (G-02) y correcciones del OpenAPI (G-10, G-11).
+4. Para producción: decidir hosting, dominios y pipeline (G-07) y aplicar HTTPS y CSP (FTR-03).
+
+Pendientes clasificados en RELEASE_READINESS.md.

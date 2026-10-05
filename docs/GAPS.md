@@ -121,7 +121,7 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 
 - **Evidencia:** `USelectMenu` marca una opción deshabilitada con `disabled` y `data-disabled` en un `div` con `role="option"`, sin `aria-disabled`; un lector de pantalla puede no anunciarla como deshabilitada.
 - **Workaround (F5):** el campo explica la regla ("Solo puedes dar roles cuyos permisos tienes") y la API responde 403 si se intenta.
-- **Siguiente paso:** revisar en la fase de QA si una versión nueva de Nuxt UI lo corrige.
+- **Revisión de QA (2026-10-05):** sigue igual en Nuxt UI 4.11.3, la versión instalada. Queda abierto (FINAL_TECHNICAL_REVIEW FTR-08); revisar al actualizar Nuxt UI y en la prueba manual con lector de pantalla.
 
 ### G-15 · Reintento masivo con tipo de evento y manejador a la vez — ASSUMPTION
 

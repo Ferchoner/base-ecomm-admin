@@ -36,10 +36,15 @@ npm run dev -- --port 3001
 
 ## Despliegue
 
-`npm run build` genera archivos estáticos en `.output/public`. El servidor debe devolver `200.html` (o `index.html`) para cualquier ruta desconocida (fallback SPA). Se recomienda una CSP estricta con `connect-src` limitado al origen de la API.
+`npm run build` genera archivos estáticos en `.output/public`. El servidor debe devolver `200.html` (o `index.html`) para cualquier ruta desconocida (fallback SPA). Encabezados, CSP y caché en [DEPLOYMENT](docs/DEPLOYMENT.md). El MVP corre solo en local (G-07).
 
 ## Documentación
 
-- [Estado del proyecto](docs/PROJECT_STATE.md)
-- [Arquitectura](docs/ARCHITECTURE_PROPOSAL.md) y [decisiones](docs/DECISIONS.md)
-- [Fuente de verdad de la API](docs/API_SOURCE_OF_TRUTH.md), [gaps](docs/GAPS.md) y [trazabilidad](docs/TRACEABILITY.md)
+Todo en [`docs/`](docs/). Para empezar:
+
+- [Handover](docs/HANDOVER.md): índice de la documentación, estado y pendientes
+- [Onboarding](docs/DEVELOPER_ONBOARDING.md): levantar la API y el backoffice
+- [Arquitectura](docs/FRONTEND_ARCHITECTURE.md), [decisiones](docs/DECISIONS.md) y [contrato con la API](docs/API_FRONTEND_CONTRACT.md)
+- [Estado del proyecto](docs/PROJECT_STATE.md) y [preparación del release](docs/RELEASE_READINESS.md)
+- [Gaps](docs/GAPS.md) y [trazabilidad](docs/TRACEABILITY.md)
+- [Changelog](CHANGELOG.md)

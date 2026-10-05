@@ -32,7 +32,7 @@ El backoffice es **online-first**. Se puede instalar y abre su interfaz sin cone
 - `sw.js` y `manifest.webmanifest` sin caché larga en el servidor (`Cache-Control: no-cache`), para que las versiones nuevas se detecten. Los archivos de `/_nuxt/` llevan hash y pueden cachearse por un año.
 - El fallback SPA del servidor (`200.html`) sigue siendo necesario para la primera carga de una ruta profunda antes de que el service worker esté activo.
 
-Ver DEPLOYMENT.md cuando exista (fase de release).
+Detalle del servidor en DEPLOYMENT.md y FRONTEND_SECURITY.md.
 
 ## Evidencia
 

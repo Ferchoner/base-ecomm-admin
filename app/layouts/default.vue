@@ -9,12 +9,7 @@ const route = useRoute()
 const navItems = computed<NavigationMenuItem[][]>(() =>
   visibleNavigation(session.can).map((group) => [
     ...(group.label ? [{ label: group.label, type: 'label' as const }] : []),
-    // Las secciones de fases pendientes se ven atenuadas y sin enlace.
-    ...group.items.map((item) =>
-      item.available
-        ? { label: item.label, icon: item.icon, to: item.to }
-        : { label: item.label, icon: item.icon, disabled: true },
-    ),
+    ...group.items.map((item) => ({ label: item.label, icon: item.icon, to: item.to })),
   ]),
 )
 

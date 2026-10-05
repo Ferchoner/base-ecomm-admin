@@ -1,3 +1,4 @@
+import { notifyProblem } from '~/shared/api/feedback'
 import { describe, expect, it } from 'vitest'
 import {
   ApiProblem,
@@ -89,4 +90,29 @@ describe('isRetryableRead', () => {
 
 it('problemTypeFromUri toma el último segmento', () => {
   expect(problemTypeFromUri('/problems/insufficient-stock')).toBe('insufficient-stock')
+})
+
+describe('notifyProblem', () => {
+  const added: Array<{ title?: string; description?: string }> = []
+  const toast = { add: (t: { title?: string; description?: string }) => added.push(t) } as never
+
+  it('muestra la referencia de soporte solo en errores del servidor', () => {
+    added.length = 0
+    notifyProblem(
+      toast,
+      new ApiProblem({ type: 'internal-error', status: 500, title: 'Error', correlationId: 'c-1' }),
+    )
+    notifyProblem(
+      toast,
+      new ApiProblem({
+        type: 'duplicate-value',
+        status: 409,
+        title: 'Duplicado',
+        detail: 'Ya existe.',
+        correlationId: 'c-2',
+      }),
+    )
+    expect(added[0]?.description).toBe('Referencia: c-1')
+    expect(added[1]?.description).toBe('Ya existe.')
+  })
 })

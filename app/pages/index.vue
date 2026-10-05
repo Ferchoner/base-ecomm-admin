@@ -146,9 +146,6 @@ const counts = computed(() => {
           >
             <UIcon :name="item.icon" class="size-5 text-primary" />
             <span class="font-medium">{{ item.label }}</span>
-            <UBadge v-if="!item.available" color="neutral" variant="subtle" class="ms-auto"
-              >Próximamente</UBadge
-            >
           </NuxtLink>
         </li>
       </ul>

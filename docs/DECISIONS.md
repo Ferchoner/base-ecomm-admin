@@ -110,6 +110,15 @@ El usuario aprobó en el hilo todas las propuestas D-P01…D-P17 ("La 1, y se ap
 | D-059 | Para cumplir el contraste AA se oscurecen en el tema claro los colores semánticos de Nuxt UI (primario 600; info y error 700; éxito y advertencia 800) y los textos atenuados; en el oscuro, el texto atenuado usa el tono 400                                                                                        | QA-02; tokens en `app/assets/css/main.css`, sin tocar componentes                      |
 | D-060 | Los E2E bloquean el service worker (`serviceWorkers: 'block'`); solo `pwa.spec.ts` lo permite                                                                                                                                                                                                                         | El service worker no debe interponerse en la API simulada                              |
 
+## Decisiones de documentación y release (2026-10-05)
+
+| ID    | Decisión                                                                                                                                                                                                   | Motivo                                                             |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| D-061 | La documentación del frontend describe el código real; ARCHITECTURE_PROPOSAL.md queda como histórico y FRONTEND_ARCHITECTURE.md y ROUTE_MAP.md listan las diferencias                                      | Prompt 70: no documentar como terminado lo que no existe           |
+| D-062 | DEPLOYMENT.md describe los requisitos del build y la ejecución local; hosting, dominios y pipeline quedan NO DOCUMENTADOS hasta que se decidan                                                             | D-035 (solo local); prompt 80: no inventar infraestructura         |
+| D-063 | Versión candidata `0.1.0` sin publicar; `CHANGELOG.md` en la raíz con formato Keep a Changelog. No se declara lista para producción sin la prueba contra la API real y un ambiente con HTTPS y CSP         | Prompt 81; RELEASE_READINESS.md                                    |
+| D-064 | En la revisión técnica se corrigen solo hallazgos LOW e INFO de bajo riesgo (referencia de soporte en toasts de error 5xx, indicador `available` sobrante); los demás quedan registrados con recomendación | Mantener el PR de documentación acotado; FINAL_TECHNICAL_REVIEW.md |
+
 ## Dependencias descartadas (no se instalan)
 
 | Dependencia                           | Motivo                                                                |

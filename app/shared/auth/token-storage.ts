@@ -1,6 +1,6 @@
 /**
  * Refresh token en localStorage (DECISIONS D-P03). El token de acceso nunca se guarda: vive en memoria.
- * Todas las pestañas comparten el mismo refresh token; se renueva de una en una (ver session-refresh.ts).
+ * Todas las pestañas comparten el mismo refresh token; se renueva de una en una (ver session.store.ts).
  */
 export const REFRESH_TOKEN_KEY = 'backoffice.refreshToken'
 

@@ -116,7 +116,7 @@ test('un conflicto de versión recarga el producto sin sobrescribir', async ({ p
   api.touchProduct(id)
   await page.getByLabel('Título').fill('Taza grande')
   await page.getByRole('button', { name: 'Guardar cambios' }).click()
-  await expect(page.getByText('Otro usuario modificó este registro')).toBeVisible()
+  await expect(page.getByText('Otro usuario modificó este registro', { exact: true })).toBeVisible()
   await expect(page.getByLabel('Título')).toHaveValue('Taza (editado)')
   expect(api.products[0]!.title).toBe('Taza (editado)')
 })

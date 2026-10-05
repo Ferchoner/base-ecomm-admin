@@ -64,6 +64,8 @@ export interface OperationsSeed {
   >
   /** Cuántos registros de auditoría hay; se sirven de 2 en 2 con cursor. */
   auditEntries?: number
+  /** `false` deja los listados de pedidos, envíos y stock a otros mocks. */
+  countLists?: boolean
 }
 
 export async function mockOperationsApi(page: Page, seed: OperationsSeed = {}) {
@@ -228,6 +230,8 @@ export async function mockOperationsApi(page: Page, seed: OperationsSeed = {}) {
       meta: { limit: Number(p.get('limit') ?? 50), nextCursor: next },
     })
   })
+
+  if (seed.countLists === false) return { calls, method, deliveries }
 
   // Listados que cuenta el tablero: solo importa `meta.totalItems`.
   const counted = (key: keyof NonNullable<OperationsSeed['counts']>) => seed.counts?.[key] ?? 0

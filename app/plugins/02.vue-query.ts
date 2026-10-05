@@ -30,7 +30,9 @@ export default defineNuxtPlugin({
             failureCount < 1 && error instanceof ApiProblem && isRetryableRead(error),
           refetchOnWindowFocus: true,
         },
-        mutations: { retry: false },
+        // Sin conexión una mutación falla de inmediato en vez de quedar en pausa y enviarse sola al
+        // reconectar: las operaciones administrativas no se reintentan solas (PWA online-first).
+        mutations: { retry: false, networkMode: 'always' },
       },
     })
 

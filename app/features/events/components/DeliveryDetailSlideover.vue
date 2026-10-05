@@ -53,6 +53,8 @@ const open = defineModel<boolean>('open', { required: true })
           </p>
           <pre
             class="overflow-x-auto rounded-md bg-elevated p-3 text-xs"
+            role="region"
+            tabindex="0"
             aria-label="Contenido del evento"
             >{{ JSON.stringify(delivery.event, null, 2) }}</pre>
         </section>

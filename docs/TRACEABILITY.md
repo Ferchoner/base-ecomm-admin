@@ -2,7 +2,7 @@
 
 Trazabilidad endpoint → módulo frontend → pantalla → estado. Fuente: `openapi/v1.json` de base-shop, commit `a46829b`; permisos tomados de `x-required-permissions`.
 
-Evidencia de DONE: pruebas en `tests/unit` y en `tests/e2e/` (`auth`, `account`, `catalog`, `pricing-inventory`, `sales`, `identity` y `operations`) del repo `base-ecomm-admin`.
+Evidencia de DONE: pruebas en `tests/unit` y en `tests/e2e/` (`auth`, `account`, `catalog`, `pricing-inventory`, `sales`, `identity`, `operations`, `a11y` y `pwa`) del repo `base-ecomm-admin`.
 
 Estados: PLANNED (en plan, sin código) · IN_PROGRESS · DONE (implementado + test) · NOT_PLANNED (fuera de alcance) · UNAVAILABLE (documentado, no implementado en API).
 

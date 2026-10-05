@@ -12,6 +12,8 @@ const types = {
   '.json': 'application/json',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
+  '.png': 'image/png',
+  '.webmanifest': 'application/manifest+json',
 }
 
 createServer((req, res) => {

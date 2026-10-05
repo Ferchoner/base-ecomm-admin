@@ -11,6 +11,8 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',
+    // El service worker de la PWA no debe interponerse en las rutas simuladas; pwa.spec.ts lo activa.
+    serviceWorkers: 'block',
     // Opcional: Chromium ya instalado en la máquina (por ejemplo, en entornos sin descarga).
     launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
       ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE }

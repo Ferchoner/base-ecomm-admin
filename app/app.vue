@@ -4,6 +4,8 @@ import { es } from '@nuxt/ui/locale'
 
 <template>
   <UApp :locale="es">
+    <NuxtPwaManifest />
+    <PwaStatus />
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>

@@ -1,18 +1,19 @@
 # PROJECT_STATE
 
 **Última actualización:** 2026-10-05
-**Fase actual:** IMPLEMENT · F0 a F5 fusionados (PR #1 a #8); F6 Auditoría, Eventos, Método de envío y Dashboard en PR.
+**Fase actual:** TEST · F0 a F6 fusionados (PR #1 a #9); QA y PWA en PR.
 
 ## Proceso
 
-| Fase                               | Estado                       | Evidencia                                            |
-| ---------------------------------- | ---------------------------- | ---------------------------------------------------- |
-| DISCOVER                           | ✅ Hecho                     | API_SOURCE_OF_TRUTH.md                               |
-| DEFINE                             | ✅ Hecho                     | GAPS.md, TRACEABILITY.md                             |
-| ARCHITECT                          | ✅ Aprobado 2026-10-05       | ARCHITECTURE_PROPOSAL.md, DECISIONS.md (D-P01…D-P16) |
-| DESIGN                             | ○ Pendiente                  |                                                      |
-| IMPLEMENT                          | ✱ F0–F5 fusionados; F6 en PR | Repo `Ferchoner/base-ecomm-admin`                    |
-| TEST · REVIEW · DOCUMENT · DELIVER | ○ Pendiente                  |                                                      |
+| Fase                        | Estado                 | Evidencia                                            |
+| --------------------------- | ---------------------- | ---------------------------------------------------- |
+| DISCOVER                    | ✅ Hecho               | API_SOURCE_OF_TRUTH.md                               |
+| DEFINE                      | ✅ Hecho               | GAPS.md, TRACEABILITY.md                             |
+| ARCHITECT                   | ✅ Aprobado 2026-10-05 | ARCHITECTURE_PROPOSAL.md, DECISIONS.md (D-P01…D-P16) |
+| DESIGN                      | ○ Pendiente            |                                                      |
+| IMPLEMENT                   | ✅ F0–F6 fusionados    | Repo `Ferchoner/base-ecomm-admin`                    |
+| TEST                        | ✱ QA y PWA en PR       | TESTING_STRATEGY.md, QA_REPORT.md, PWA_STRATEGY.md   |
+| REVIEW · DOCUMENT · DELIVER | ○ Pendiente            |                                                      |
 
 ## Hallazgos clave
 
@@ -76,13 +77,21 @@
 - Roles (`/roles`): alta y edición con permisos agrupados por área; solo se agregan permisos propios y el superadministrador conserva todos. Eliminar solo roles sin usuarios.
 - Calidad: 69 pruebas unitarias, 39 E2E × 2 viewports.
 
-## F6 Auditoría, Eventos, Método de envío y Dashboard — en PR
+## F6 Auditoría, Eventos, Método de envío y Dashboard — fusionado (PR #9)
 
 - Inicio: conteos de lo pendiente según los permisos (pedidos por cobrar, esperando surtido y con reembolso pendiente; envíos por despachar; variantes con stock bajo con el umbral de cada usuario; entregas de eventos fallidas). Cada tarjeta abre el listado con el mismo filtro (D-054).
 - Método de envío (`/configuracion/envio`): nombre, costo fijo con IVA, envío gratis opcional a partir de un monto y plazo en días hábiles. Solo lectura sin `shipping.configure`; un 409 recarga los datos.
 - Eventos (`/operacion/eventos`): entregas fallidas por defecto, filtros de estado, tipo de evento y manejador, y orden en la URL; detalle con el último error y el evento; reintentar una o todas las fallidas del filtro, con confirmación (G-15).
 - Auditoría (`/auditoria`): filtros de acción (código o prefijo `.*`), tipo de actor, resultado, recurso y fechas en la URL; "Cargar más" por cursor; detalle con cambios, motivo, IP y correlación; ver lo que hizo un actor o el historial de un recurso.
 - Calidad: 79 pruebas unitarias, 45 E2E × 2 viewports.
+
+## QA y PWA — en PR
+
+- PWA online-first: instalable (manifest e iconos), shell disponible sin conexión, aviso de versión nueva que el usuario aplica, franja de sin conexión. Nunca cachea la API (PWA_STRATEGY.md).
+- Sin conexión una mutación falla de inmediato y no se envía al reconectar (QA-01, D-057).
+- Accesibilidad: axe sin violaciones WCAG 2.1 A/AA en login, 19 pantallas (tema claro y oscuro) y 3 diálogos; navegación con teclado. Se corrigió el contraste de color (QA-02) y una región con scroll sin teclado (QA-03).
+- Documentos: TESTING_STRATEGY.md, TEST_CASE_MATRIX.md, QA_REPORT.md, PWA_STRATEGY.md.
+- Calidad: 79 pruebas unitarias; 161 ejecuciones E2E (incluye accesibilidad y PWA) en escritorio y móvil.
 
 ## Decisiones del usuario (2026-10-05)
 
@@ -95,4 +104,4 @@ G-01, G-06, G-07, G-09 resueltos; G-02 y G-10 quedan como cambios del backend (D
 
 ## Siguiente paso
 
-Revisión y merge del PR de F6; después la fase de QA, PWA, documentación y release.
+Revisión y merge del PR de QA y PWA; después la documentación completa, el release (despliegue, checklist, changelog), la revisión técnica final y el handover.

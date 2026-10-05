@@ -63,13 +63,17 @@ export function useUpdateWarehouse() {
   })
 }
 
-export function useStockItems(params: MaybeRefOrGetter<StockListParams>) {
+export function useStockItems(
+  params: MaybeRefOrGetter<StockListParams>,
+  options: { enabled?: MaybeRefOrGetter<boolean> } = {},
+) {
   const api = useApi()
   return useQuery<StockItemPage, ApiProblem>({
     queryKey: computed(() => inventoryKeys.stockList(toValue(params))),
     queryFn: ({ signal }) =>
       api<StockItemPage>(`${BASE}/stock-items`, { query: { ...toValue(params) }, signal }),
     placeholderData: keepPreviousData,
+    enabled: computed(() => toValue(options.enabled ?? true)),
   })
 }
 

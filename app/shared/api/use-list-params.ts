@@ -50,6 +50,13 @@ export function useListParams<K extends string>(options: ListParamsOptions<K>) {
     return replaceQuery({ [key]: value ?? undefined, page: undefined })
   }
 
+  /** Varios filtros a la vez; los que no se nombran se conservan. */
+  function setFilters(values: Partial<Record<K, string | null | undefined>>) {
+    const next: Record<string, string | undefined> = { page: undefined }
+    for (const [key, value] of Object.entries(values)) next[key] = (value as string) ?? undefined
+    return replaceQuery(next)
+  }
+
   function setPage(value: number) {
     return replaceQuery({ page: value })
   }
@@ -59,5 +66,5 @@ export function useListParams<K extends string>(options: ListParamsOptions<K>) {
     return replaceQuery({ ...cleared, page: undefined })
   }
 
-  return { page, pageSize, filters, setFilter, setPage, resetFilters }
+  return { page, pageSize, filters, setFilter, setFilters, setPage, resetFilters }
 }

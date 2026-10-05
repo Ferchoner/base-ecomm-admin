@@ -27,3 +27,19 @@ export interface ShipmentListParams {
   createdTo?: string
   sort?: string
 }
+
+/** Método de envío activo (API_SPEC §17, UC-SHI-02). */
+export type ShippingMethod = Schemas['ShippingMethodDto']
+
+/**
+ * `PUT /v1/admin/shipping/method` (UpdateShippingMethodDto): montos en centavos y
+ * `freeShippingThreshold` siempre presente, `null` sin envío gratis (T-196).
+ */
+export interface ShippingMethodInput {
+  name: string
+  flatFee: number
+  freeShippingThreshold: number | null
+  deliveryMinBusinessDays: number
+  deliveryMaxBusinessDays: number
+  version: number
+}

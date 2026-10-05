@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { pesosTextToCents, priceSchema } from '~/features/pricing/schemas'
+import { priceSchema } from '~/features/pricing/schemas'
+import { pesosTextToCents } from '~/shared/utils/money'
 
 describe('precios', () => {
   it('convierte pesos escritos a centavos sin errores de coma flotante', () => {

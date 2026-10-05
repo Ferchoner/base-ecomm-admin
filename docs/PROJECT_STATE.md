@@ -1,18 +1,18 @@
 # PROJECT_STATE
 
 **Última actualización:** 2026-10-05
-**Fase actual:** IMPLEMENT · F0 a F4 fusionados (PR #1 a #7); F5 Clientes, Staff y Roles en PR.
+**Fase actual:** IMPLEMENT · F0 a F5 fusionados (PR #1 a #8); F6 Auditoría, Eventos, Método de envío y Dashboard en PR.
 
 ## Proceso
 
-| Fase                               | Estado                                     | Evidencia                                            |
-| ---------------------------------- | ------------------------------------------ | ---------------------------------------------------- |
-| DISCOVER                           | ✅ Hecho                                   | API_SOURCE_OF_TRUTH.md                               |
-| DEFINE                             | ✅ Hecho                                   | GAPS.md, TRACEABILITY.md                             |
-| ARCHITECT                          | ✅ Aprobado 2026-10-05                     | ARCHITECTURE_PROPOSAL.md, DECISIONS.md (D-P01…D-P16) |
-| DESIGN                             | ○ Pendiente                                |                                                      |
-| IMPLEMENT                          | ✱ F0–F4 fusionados; F5 en PR; F6 pendiente | Repo `Ferchoner/base-ecomm-admin`                    |
-| TEST · REVIEW · DOCUMENT · DELIVER | ○ Pendiente                                |                                                      |
+| Fase                               | Estado                       | Evidencia                                            |
+| ---------------------------------- | ---------------------------- | ---------------------------------------------------- |
+| DISCOVER                           | ✅ Hecho                     | API_SOURCE_OF_TRUTH.md                               |
+| DEFINE                             | ✅ Hecho                     | GAPS.md, TRACEABILITY.md                             |
+| ARCHITECT                          | ✅ Aprobado 2026-10-05       | ARCHITECTURE_PROPOSAL.md, DECISIONS.md (D-P01…D-P16) |
+| DESIGN                             | ○ Pendiente                  |                                                      |
+| IMPLEMENT                          | ✱ F0–F5 fusionados; F6 en PR | Repo `Ferchoner/base-ecomm-admin`                    |
+| TEST · REVIEW · DOCUMENT · DELIVER | ○ Pendiente                  |                                                      |
 
 ## Hallazgos clave
 
@@ -69,12 +69,20 @@
 - Lo que cambia en segundo plano (pago manual, despacho, entrega, reembolso) avisa de la demora y se vuelve a consultar (D-040). El 403 de pago manual deshabilitado se explica (G-02).
 - Calidad: 62 pruebas unitarias, 33 E2E × 2 viewports.
 
-## F5 Clientes, Staff y Roles — en PR
+## F5 Clientes, Staff y Roles — fusionado (PR #8)
 
 - Clientes (`/clientes`): búsqueda por email o nombre, estado, verificación, fechas de registro y orden en la URL. Detalle con cuenta, direcciones y conteo de pedidos con enlace a Pedidos. Suspender y reactivar con motivo; anonimizar con referencia ARCO y confirmación, explicando los pedidos sin concluir. Anonimizar pedidos de invitado con email y código.
 - Staff (`/staff`): búsqueda, estado, rol y orden. Alta con roles; la contraseña temporal se muestra una sola vez con botón de copiar. Detalle con cambio de roles, suspender (no a uno mismo) y reactivar (nueva contraseña temporal).
 - Roles (`/roles`): alta y edición con permisos agrupados por área; solo se agregan permisos propios y el superadministrador conserva todos. Eliminar solo roles sin usuarios.
 - Calidad: 69 pruebas unitarias, 39 E2E × 2 viewports.
+
+## F6 Auditoría, Eventos, Método de envío y Dashboard — en PR
+
+- Inicio: conteos de lo pendiente según los permisos (pedidos por cobrar, esperando surtido y con reembolso pendiente; envíos por despachar; variantes con stock bajo con el umbral de cada usuario; entregas de eventos fallidas). Cada tarjeta abre el listado con el mismo filtro (D-054).
+- Método de envío (`/configuracion/envio`): nombre, costo fijo con IVA, envío gratis opcional a partir de un monto y plazo en días hábiles. Solo lectura sin `shipping.configure`; un 409 recarga los datos.
+- Eventos (`/operacion/eventos`): entregas fallidas por defecto, filtros de estado, tipo de evento y manejador, y orden en la URL; detalle con el último error y el evento; reintentar una o todas las fallidas del filtro, con confirmación (G-15).
+- Auditoría (`/auditoria`): filtros de acción (código o prefijo `.*`), tipo de actor, resultado, recurso y fechas en la URL; "Cargar más" por cursor; detalle con cambios, motivo, IP y correlación; ver lo que hizo un actor o el historial de un recurso.
+- Calidad: 79 pruebas unitarias, 45 E2E × 2 viewports.
 
 ## Decisiones del usuario (2026-10-05)
 
@@ -87,4 +95,4 @@ G-01, G-06, G-07, G-09 resueltos; G-02 y G-10 quedan como cambios del backend (D
 
 ## Siguiente paso
 
-Revisión y merge del PR de F5; después F6 Auditoría, Eventos, Método de envío y Dashboard.
+Revisión y merge del PR de F6; después la fase de QA, PWA, documentación y release.

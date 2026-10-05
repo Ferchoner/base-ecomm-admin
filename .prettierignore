@@ -1,0 +1,9 @@
+.nuxt
+.output
+node_modules
+package-lock.json
+openapi/v1.json
+app/shared/api/generated
+coverage
+playwright-report
+test-results

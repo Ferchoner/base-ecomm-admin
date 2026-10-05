@@ -9,6 +9,7 @@ import { STOCK_SORT_OPTIONS } from '~/features/inventory/status'
 import type { StockItem } from '~/features/inventory/types'
 import { useListParams } from '~/shared/api/use-list-params'
 import { useSessionStore } from '~/shared/auth/session.store'
+import { usePreferencesStore } from '~/shared/preferences/preferences.store'
 import { formatDateTime } from '~/shared/utils/dates'
 import { useDebounced } from '~/shared/utils/debounce'
 
@@ -24,7 +25,11 @@ const search = ref(filters.value.q ?? '')
 const debouncedSearch = useDebounced(search)
 watch(debouncedSearch, (q) => list.setFilter('q', q.trim() || undefined))
 
-// "Disponibles hasta N": el umbral de stock bajo no está documentado, lo escribe el usuario (G-06).
+// "Disponibles hasta N". El atajo "Stock bajo" usa el umbral de cada usuario (G-06, Mi cuenta).
+const prefs = usePreferencesStore()
+function showLowStock() {
+  threshold.value = String(prefs.lowStockThreshold)
+}
 const threshold = ref(filters.value.availableMax ?? '')
 const debouncedThreshold = useDebounced(threshold)
 watch(debouncedThreshold, (v) => {
@@ -153,6 +158,14 @@ function clearFilters() {
           placeholder="Sin límite"
         />
       </UFormField>
+      <UButton
+        color="neutral"
+        variant="outline"
+        icon="i-lucide-triangle-alert"
+        :aria-pressed="filters.availableMax === String(prefs.lowStockThreshold)"
+        @click="showLowStock"
+        >Stock bajo (≤ {{ prefs.lowStockThreshold }})</UButton
+      >
       <USelect
         :model-value="filters.sort ?? 'sku'"
         :items="STOCK_SORT_OPTIONS"

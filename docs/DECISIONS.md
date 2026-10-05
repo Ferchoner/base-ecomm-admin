@@ -66,6 +66,17 @@ El usuario aprobó en el hilo todas las propuestas D-P01…D-P17 ("La 1, y se ap
 | D-030 | La importación CSV exige revisar (`dryRun`) antes de habilitar "Importar"                                                                                            | Es todo o nada y masiva; el usuario ve el conteo antes de guardar   |
 | D-031 | El catálogo geográfico (`/v1/geo`) vive en `app/shared/api/geo.ts`                                                                                                   | Lo usan varias features (almacén ahora; pedidos y clientes después) |
 
+## Decisiones del usuario sobre GAPS (2026-10-05)
+
+| ID    | Decisión                                                                                                                                            | Origen |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| D-032 | El enlace de recuperación de contraseña usa por ahora la URL de este backoffice; la tienda tendrá su propia URL cuando exista                       | G-01   |
+| D-033 | El backend agregará endpoints para consultar y activar o desactivar el pago manual; solo un superadministrador lo modifica                          | G-02   |
+| D-034 | El umbral de stock bajo es una preferencia de cada usuario (valor inicial 5), guardada en el navegador por cuenta en un store Pinia de preferencias | G-06   |
+| D-035 | El MVP corre solo en ambientes locales; sin dominios ni hosting real                                                                                | G-07   |
+| D-036 | Solo español (es-MX) y pesos mexicanos en el MVP                                                                                                    | G-09   |
+| D-037 | El backend corregirá `CursorMetaDto` y los parámetros de cursor en el OpenAPI; mientras tanto se usa API_SPEC §5.2                                  | G-10   |
+
 ## Dependencias descartadas (no se instalan)
 
 | Dependencia                           | Motivo                                                                |

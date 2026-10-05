@@ -188,6 +188,32 @@ test('inventario: filtro de disponibles, entrada y ajuste', async ({ page }) => 
   })
 })
 
+test('inventario: "Stock bajo" usa el umbral de cada usuario (G-06)', async ({ page }) => {
+  await mockAuthApi(page, staff(['inventory.read']))
+  await mockPricingInventoryApi(page, {
+    stock: [
+      { variantId: V1, sku: 'CAM-M', productTitle: 'Camisa de lino', onHand: 10, reserved: 2 },
+      { variantId: V2, sku: 'CAM-L', productTitle: 'Camisa de lino', onHand: 3 },
+    ],
+  })
+  await login(page)
+  await page.goto('/inventario/stock')
+  await page.getByRole('button', { name: 'Stock bajo (≤ 5)' }).click()
+  await expect(page).toHaveURL(/availableMax=5/)
+  await expect(page.getByRole('row', { name: /CAM-M/ })).toHaveCount(0)
+  await expect(page.getByRole('row', { name: /CAM-L/ })).toBeVisible()
+
+  await page.goto('/cuenta')
+  await page.getByLabel('Umbral de stock bajo').fill('8')
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click()
+  await expect(page.getByText('Preferencia guardada', { exact: true })).toBeVisible()
+
+  await page.goto('/inventario/stock')
+  await page.getByRole('button', { name: 'Stock bajo (≤ 8)' }).click()
+  await expect(page).toHaveURL(/availableMax=8/)
+  await expect(page.getByRole('row', { name: /CAM-M/ })).toBeVisible()
+})
+
 test('inventario: movimientos con paginación por cursor', async ({ page }) => {
   await mockAuthApi(page, staff(['inventory.read']))
   await mockPricingInventoryApi(page, {

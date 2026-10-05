@@ -94,7 +94,20 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 
 - **Evidencia:** en `openapi/v1.json`, `CursorMetaDto` no declara propiedades; API_SPEC §5.2 define `{ limit, nextCursor }`.
 - **Resolución:** por prioridad de fuentes, se usa API_SPEC §5.2 (tipo `CursorMeta` declarado a mano en `app/shared/api/types.ts`). Afecta auditoría y movimientos de stock.
+- **También (F3):** el OpenAPI no declara los parámetros `cursor` y `limit` en `GET …/stock-items/{id}/movements` (ni en auditoría); se envían según API_SPEC §5.2.
 - **Pregunta pendiente:** ¿se corrige el DTO en el backend para que el OpenAPI lo declare?
+
+### G-11 · `AdjustmentDto` sin `quantity` en el OpenAPI — DOCUMENTATION CONFLICT
+
+- **Evidencia:** `AdjustmentDto` en `openapi/v1.json` declara `variantId`, `warehouseId`, `reasonCode` y `note`, pero no `quantity`; API_SPEC §13 la exige (entero con signo, distinto de 0, ±1 a ±100,000).
+- **Resolución:** por prioridad de fuentes se envía `quantity` (tipo `AdjustmentInput` en `app/features/inventory/types.ts`).
+- **Pregunta pendiente:** ¿se agrega la propiedad al DTO del backend?
+
+### G-12 · Precios por variante requieren permiso de catálogo — GAP (relacionado con G-04)
+
+- **Evidencia:** Pricing no lista variantes ni precios en bloque; para llegar a una variante hay que buscarla en `GET /v1/admin/catalog/products` (`catalog.read`).
+- **Impacto:** un rol con `pricing.read` pero sin `catalog.read` solo puede cambiar precios con la importación CSV (por SKU). Lo mismo para entradas de variantes sin existencias en Inventario.
+- **Workaround:** la pantalla lo explica y ofrece la importación CSV.
 
 ## Comportamientos que el frontend debe respetar (no son gaps)
 

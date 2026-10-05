@@ -57,6 +57,15 @@ El usuario aprobó en el hilo todas las propuestas D-P01…D-P17 ("La 1, y se ap
 | D-026 | Patrón CRUD compartido: `QueryState` (carga/error/vacío), `ListPagination`, `StatusBadge` (valor desconocido en neutro), `ConfirmDialog`/`useConfirm`, `notifyProblem`/`notifySuccess` y `problemFieldErrors` (lleva `errors[]`, `duplicate-value.field` y `field-locked.fields` al campo) | PROMPT 43; misma experiencia en todas las features                                                                            |
 | D-027 | Las imágenes se suben una a una y no se valida el tamaño en el cliente                                                                                                                                                                                                                     | El límite (`IMAGE_MAX_BYTES`, 5 MB por defecto) es configurable en la API; se muestra el `maxBytes` del 413                   |
 
+## Decisiones de implementación (F3, 2026-10-05)
+
+| ID    | Decisión                                                                                                                                                             | Motivo                                                              |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| D-028 | Las páginas componen features: Precios e Inventario usan el buscador de productos del catálogo (`ProductPicker`) desde la página, sin que una feature importe a otra | Regla D-P17; Pricing e Inventory no listan variantes (G-12)         |
+| D-029 | Los montos se escriben en pesos como texto y se convierten a centavos sin coma flotante (`pesosTextToCents`)                                                         | API_SPEC §8.1: centavos enteros                                     |
+| D-030 | La importación CSV exige revisar (`dryRun`) antes de habilitar "Importar"                                                                                            | Es todo o nada y masiva; el usuario ve el conteo antes de guardar   |
+| D-031 | El catálogo geográfico (`/v1/geo`) vive en `app/shared/api/geo.ts`                                                                                                   | Lo usan varias features (almacén ahora; pedidos y clientes después) |
+
 ## Dependencias descartadas (no se instalan)
 
 | Dependencia                           | Motivo                                                                |

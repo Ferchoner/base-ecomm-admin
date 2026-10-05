@@ -55,7 +55,7 @@ const problem = (route: Route, status: number, type: string, title: string) =>
     }),
   })
 
-const json = (route: Route, status: number, body: unknown) =>
+export const json = (route: Route, status: number, body: unknown) =>
   route.fulfill({
     status,
     contentType: 'application/json',
@@ -144,4 +144,13 @@ export async function mockAuthApi(
     }
   })
   return { calls }
+}
+
+/** Inicia sesión por la pantalla de login con la cuenta simulada. */
+export async function login(page: Page) {
+  await page.goto('/login')
+  await page.getByLabel('Email').fill('ana@example.com')
+  await page.getByLabel('Contraseña').fill('correcta')
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await page.getByRole('heading', { name: /^Hola,/ }).waitFor()
 }

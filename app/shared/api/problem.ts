@@ -19,6 +19,8 @@ export type ProblemType =
   | 'version-conflict'
   | 'invalid-state-transition'
   | 'duplicate-value'
+  | 'field-locked'
+  | 'image-limit-reached'
   | 'resource-in-use'
   | 'insufficient-stock'
   | 'idempotency-request-in-progress'

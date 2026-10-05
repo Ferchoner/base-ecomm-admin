@@ -24,7 +24,10 @@ const fullName = computed(() =>
 
 const userMenu = computed<DropdownMenuItem[][]>(() => [
   [{ label: session.account?.email ?? '', type: 'label' }],
-  [{ label: 'Cambiar contraseña', icon: 'i-lucide-key-round', to: '/cambiar-contrasena' }],
+  [
+    { label: 'Mi cuenta', icon: 'i-lucide-circle-user', to: '/cuenta' },
+    { label: 'Cambiar contraseña', icon: 'i-lucide-key-round', to: '/cambiar-contrasena' },
+  ],
   [{ label: 'Cerrar sesión', icon: 'i-lucide-log-out', onSelect: () => logout() }],
 ])
 

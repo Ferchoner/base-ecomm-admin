@@ -1,18 +1,18 @@
 # PROJECT_STATE
 
 **Última actualización:** 2026-10-05
-**Fase actual:** IMPLEMENT · F0 Bootstrap entregado en PR (pendiente de revisión).
+**Fase actual:** IMPLEMENT · F0 fusionado (PR #1); F1 Auth y cuenta en PR.
 
 ## Proceso
 
-| Fase                               | Estado                                 | Evidencia                                                   |
-| ---------------------------------- | -------------------------------------- | ----------------------------------------------------------- |
-| DISCOVER                           | ✅ Hecho                               | API_SOURCE_OF_TRUTH.md                                      |
-| DEFINE                             | ✅ Hecho                               | GAPS.md, TRACEABILITY.md                                    |
-| ARCHITECT                          | ✅ Aprobado 2026-10-05                 | ARCHITECTURE_PROPOSAL.md, DECISIONS.md (D-P01…D-P16)        |
-| DESIGN                             | ○ Pendiente                            |                                                             |
-| IMPLEMENT                          | ✱ F0 Bootstrap en PR; F1–F6 pendientes | Repo `Ferchoner/base-ecomm-admin`, rama `feat/f0-bootstrap` |
-| TEST · REVIEW · DOCUMENT · DELIVER | ○ Pendiente                            |                                                             |
+| Fase                               | Estado                                     | Evidencia                                            |
+| ---------------------------------- | ------------------------------------------ | ---------------------------------------------------- |
+| DISCOVER                           | ✅ Hecho                                   | API_SOURCE_OF_TRUTH.md                               |
+| DEFINE                             | ✅ Hecho                                   | GAPS.md, TRACEABILITY.md                             |
+| ARCHITECT                          | ✅ Aprobado 2026-10-05                     | ARCHITECTURE_PROPOSAL.md, DECISIONS.md (D-P01…D-P16) |
+| DESIGN                             | ○ Pendiente                                |                                                      |
+| IMPLEMENT                          | ✱ F0 fusionado; F1 en PR; F2–F6 pendientes | Repo `Ferchoner/base-ecomm-admin`                    |
+| TEST · REVIEW · DOCUMENT · DELIVER | ○ Pendiente                                |                                                      |
 
 ## Hallazgos clave
 
@@ -21,7 +21,7 @@
 - Autenticación por Bearer + refresh token rotado en el cuerpo, sin cookies; renovaciones concurrentes revocan la sesión.
 - No hay endpoint de métricas; el dashboard solo puede mostrar conteos operativos.
 
-## F0 Bootstrap — entregado
+## F0 Bootstrap — fusionado (PR #1, 2026-10-05)
 
 - Nuxt 4 SPA (`ssr: false`, `nuxt generate`), TypeScript estricto (+ `noUncheckedIndexedAccess`), Nuxt UI 4 + Tailwind 4, Pinia, TanStack Query, Zod.
 - Tipos generados del contrato (`openapi/v1.json` → `app/shared/api/generated/openapi.d.ts`).
@@ -30,7 +30,14 @@
 - Guards: login obligatorio, cambio de contraseña forzado, permiso por página.
 - Pantallas: login, cambio de contraseña (forzado y voluntario), inicio con secciones según permisos, layout con sidebar responsive, página de error 403/404.
 - Calidad: ESLint + Prettier, 33 pruebas unitarias, 7 E2E × 2 viewports (escritorio y móvil), CI en GitHub Actions.
-- **Pendiente para F1:** perfil (`/cuenta`), recuperación de contraseña (depende de G-01).
+
+## F1 Auth y cuenta — en PR
+
+- `/cuenta`: datos, roles y permisos de `GET /v1/me` (se vuelven a leer al entrar), cambiar contraseña y cerrar sesión.
+- `/recuperar-contrasena`: solicitud con mensaje único exista o no la cuenta (API_SPEC §9.8).
+- `/reset-password?token=…`: la ruta que fija la API; errores de política por campo y enlace vencido con opción de pedir otro. El enlace solo llega al backoffice si se resuelve G-01.
+- Política de contraseña compartida (`app/shared/auth/password-policy.ts`).
+- Calidad: 35 pruebas unitarias, 12 E2E × 2 viewports.
 
 ## Pendiente del usuario
 
@@ -39,4 +46,4 @@
 
 ## Siguiente paso
 
-Revisión y merge del PR de F0; después F1 Auth y cuenta, y F2 Catálogo.
+Revisión y merge del PR de F1; después F2 Catálogo (productos, variantes, imágenes, categorías, marcas) con el patrón CRUD reutilizable.

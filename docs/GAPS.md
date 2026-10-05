@@ -44,6 +44,7 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 - **Impacto:** un staff que pide recuperación recibe un enlace a la tienda, no al backoffice.
 - **Workaround:** (a) que la tienda implemente `/reset-password` y sirva a ambos tipos de cuenta; (b) que el backend añada una URL base para staff; (c) el backoffice implementa `/reset-password` y se despliega en el dominio de `FRONTEND_BASE_URL` (no recomendado).
 - **Bloqueo:** no bloquea el MVP; la pantalla de solicitud y la de confirmación pueden existir, pero el enlace no llegará al backoffice.
+- **Estado (F1):** el backoffice ya tiene la ruta `/reset-password?token=…` que espera la API, así que la opción (c) o un `FRONTEND_BASE_URL` que apunte al backoffice funcionan sin más cambios en el frontend.
 - **Pregunta pendiente:** ¿qué opción se adopta?
 
 ### G-02 · No hay forma de saber si el pago manual está habilitado — UNKNOWN

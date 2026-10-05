@@ -1,18 +1,18 @@
 # PROJECT_STATE
 
 **Última actualización:** 2026-10-05
-**Fase actual:** IMPLEMENT · F0 fusionado (PR #1); F1 Auth y cuenta en PR.
+**Fase actual:** IMPLEMENT · F0 fusionado (PR #1); F1 Auth y cuenta en PR #2; F2 Catálogo en PR.
 
 ## Proceso
 
-| Fase                               | Estado                                     | Evidencia                                            |
-| ---------------------------------- | ------------------------------------------ | ---------------------------------------------------- |
-| DISCOVER                           | ✅ Hecho                                   | API_SOURCE_OF_TRUTH.md                               |
-| DEFINE                             | ✅ Hecho                                   | GAPS.md, TRACEABILITY.md                             |
-| ARCHITECT                          | ✅ Aprobado 2026-10-05                     | ARCHITECTURE_PROPOSAL.md, DECISIONS.md (D-P01…D-P16) |
-| DESIGN                             | ○ Pendiente                                |                                                      |
-| IMPLEMENT                          | ✱ F0 fusionado; F1 en PR; F2–F6 pendientes | Repo `Ferchoner/base-ecomm-admin`                    |
-| TEST · REVIEW · DOCUMENT · DELIVER | ○ Pendiente                                |                                                      |
+| Fase                               | Estado                                          | Evidencia                                            |
+| ---------------------------------- | ----------------------------------------------- | ---------------------------------------------------- |
+| DISCOVER                           | ✅ Hecho                                        | API_SOURCE_OF_TRUTH.md                               |
+| DEFINE                             | ✅ Hecho                                        | GAPS.md, TRACEABILITY.md                             |
+| ARCHITECT                          | ✅ Aprobado 2026-10-05                          | ARCHITECTURE_PROPOSAL.md, DECISIONS.md (D-P01…D-P16) |
+| DESIGN                             | ○ Pendiente                                     |                                                      |
+| IMPLEMENT                          | ✱ F0 fusionado; F1 y F2 en PR; F3–F6 pendientes | Repo `Ferchoner/base-ecomm-admin`                    |
+| TEST · REVIEW · DOCUMENT · DELIVER | ○ Pendiente                                     |                                                      |
 
 ## Hallazgos clave
 
@@ -39,6 +39,18 @@
 - Política de contraseña compartida (`app/shared/auth/password-policy.ts`).
 - Calidad: 35 pruebas unitarias, 12 E2E × 2 viewports.
 
+## F2 Catálogo — en PR
+
+- Marcas (`/catalogo/marcas`): listado con búsqueda, estado y orden en la URL; alta, edición, desactivar, reactivar y eliminar.
+- Categorías (`/catalogo/categorias`): árbol con sangría y ruta; alta, subcategoría, mover (sin ofrecer destinos que formarían ciclo ni padres inactivos), desactivar, reactivar, eliminar.
+- Productos (`/catalogo/productos`): listado con búsqueda por título o SKU, filtros de estado, marca y categoría, orden y paginación en la URL; visibilidad en tienda (`storeVisibility`).
+- Alta en borrador y detalle con pestañas Datos, Variantes e Imágenes; publicar, archivar y reactivar con confirmación; slug, SKU y opciones bloqueados tras la primera publicación.
+- Variantes: alta y edición (SKU, hasta 3 opciones con los mismos nombres en todas, peso y medidas), descontinuar y reactivar.
+- Imágenes: subir (JPEG/PNG/WebP), texto alternativo, variante, reordenar y eliminar; mensajes de 413/415/409 del contrato.
+- Toda edición de producto envía la `version` leída; un 409 `version-conflict` recarga el producto y avisa, sin reenviar (D-024).
+- Permisos: lectura con `catalog.read`; acciones solo con `catalog.write`.
+- Calidad: 45 pruebas unitarias, 19 E2E × 2 viewports.
+
 ## Pendiente del usuario
 
 1. Elegir opción para G-01 (enlace de recuperación de staff) y G-02 (indicador de pago manual), o aceptarlos como limitación.
@@ -46,4 +58,4 @@
 
 ## Siguiente paso
 
-Revisión y merge del PR de F1; después F2 Catálogo (productos, variantes, imágenes, categorías, marcas) con el patrón CRUD reutilizable.
+Revisión y merge de los PR de F1 y F2; después F3 Precios + Inventario.

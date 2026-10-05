@@ -8,6 +8,7 @@ export interface MockAccount {
   firstNames: string
   permissions: string[]
   mustChangePassword?: boolean
+  roles?: Array<{ id: string; name: string }>
 }
 
 export const staff = (permissions: string[], extra: Partial<MockAccount> = {}): MockAccount => ({
@@ -25,7 +26,7 @@ const account = (a: MockAccount) => ({
   lastNames: 'Pérez',
   emailVerified: true,
   mustChangePassword: a.mustChangePassword ?? false,
-  roles: [],
+  roles: a.roles ?? [],
   permissions: a.permissions,
   createdAt: '2026-10-01T00:00:00.000Z',
 })
@@ -61,6 +62,9 @@ const json = (route: Route, status: number, body: unknown) =>
     headers: { 'Access-Control-Allow-Origin': '*' },
     body: body === undefined ? '' : JSON.stringify(body),
   })
+
+export const VALID_RESET_TOKEN = 'q8Xz3Lr0VbN7kT2mWc9YhD4sFj6Ae1Pu5Gi8Ko0RnSv'
+export const COMMON_PASSWORD = 'contraseña común de prueba'
 
 /** Simula los endpoints de autenticación de API_SPEC §9 con el contrato del OpenAPI. */
 export async function mockAuthApi(
@@ -102,6 +106,36 @@ export async function mockAuthApi(
         return json(route, 204, undefined)
       case 'GET /v1/me':
         return json(route, 200, account(current))
+      case 'POST /v1/auth/password-reset/request':
+        return json(route, 202, undefined)
+      case 'POST /v1/auth/password-reset/confirm': {
+        const body = request.postDataJSON() as { token: string; newPassword: string }
+        if (body.token !== VALID_RESET_TOKEN) {
+          return problem(route, 400, 'invalid-or-expired-token', 'Enlace inválido o vencido')
+        }
+        if (body.newPassword === COMMON_PASSWORD) {
+          return route.fulfill({
+            status: 400,
+            contentType: 'application/problem+json',
+            headers: { 'Access-Control-Allow-Origin': '*' },
+            body: JSON.stringify({
+              type: '/problems/password-policy-violation',
+              title: 'La contraseña no cumple la política',
+              status: 400,
+              detail: 'Elige otra contraseña.',
+              correlationId: 'e2e-correlation',
+              errors: [
+                {
+                  field: 'newPassword',
+                  code: 'commonPassword',
+                  message: 'Es una contraseña demasiado común.',
+                },
+              ],
+            }),
+          })
+        }
+        return json(route, 204, undefined)
+      }
       case 'POST /v1/me/password':
         current = { ...current, mustChangePassword: false }
         return json(route, 204, undefined)

@@ -78,6 +78,9 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       </UFormField>
 
       <UButton type="submit" block :loading="submitting">Entrar</UButton>
+      <UButton to="/recuperar-contrasena" color="neutral" variant="link" block>
+        ¿Olvidaste tu contraseña?
+      </UButton>
     </UForm>
   </UCard>
 </template>

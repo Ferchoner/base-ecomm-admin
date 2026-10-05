@@ -3,6 +3,12 @@ import type { FormSubmitEvent } from '@nuxt/ui'
 import { z } from 'zod'
 import { toApiProblem } from '~/shared/api/problem'
 import type { ApiProblem } from '~/shared/api/problem'
+import {
+  NEW_PASSWORD_HELP,
+  newPasswordField,
+  PASSWORDS_MISMATCH,
+  passwordsMatch,
+} from '~/shared/auth/password-policy'
 import { useSessionStore } from '~/shared/auth/session.store'
 import { splitFieldErrors } from '~/shared/utils/form-errors'
 
@@ -12,21 +18,17 @@ const session = useSessionStore()
 const toast = useToast()
 const forced = computed(() => session.mustChangePassword)
 
-// ChangePasswordDto: la nueva tiene de 15 a 64 caracteres; la API valida además que no sea común
-// ni igual a la actual (password-policy-violation), y cuenta los caracteres tras normalizar a NFKC.
+// ChangePasswordDto; la política de la contraseña nueva está en password-policy.ts.
 const schema = z
   .object({
     currentPassword: z
       .string()
       .min(1, 'Escribe tu contraseña actual.')
       .max(256, 'Máximo 256 caracteres.'),
-    newPassword: z.string().min(15, 'Mínimo 15 caracteres.').max(64, 'Máximo 64 caracteres.'),
+    newPassword: newPasswordField,
     confirmPassword: z.string(),
   })
-  .refine((v) => v.newPassword === v.confirmPassword, {
-    path: ['confirmPassword'],
-    message: 'Las contraseñas no coinciden.',
-  })
+  .refine(passwordsMatch, PASSWORDS_MISMATCH)
 type Schema = z.output<typeof schema>
 
 const state = reactive<Partial<Schema>>({
@@ -108,12 +110,7 @@ async function logout() {
           />
         </UFormField>
 
-        <UFormField
-          label="Contraseña nueva"
-          name="newPassword"
-          help="De 15 a 64 caracteres. Una frase larga es buena opción."
-          required
-        >
+        <UFormField label="Contraseña nueva" name="newPassword" :help="NEW_PASSWORD_HELP" required>
           <UInput
             v-model="state.newPassword"
             type="password"

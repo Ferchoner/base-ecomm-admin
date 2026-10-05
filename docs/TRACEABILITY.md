@@ -2,7 +2,7 @@
 
 Trazabilidad endpoint → módulo frontend → pantalla → estado. Fuente: `openapi/v1.json` de base-shop, commit `a46829b`; permisos tomados de `x-required-permissions`.
 
-Evidencia de DONE: pruebas en `tests/unit` y `tests/e2e/auth.spec.ts` del repo `base-ecomm-admin`.
+Evidencia de DONE: pruebas en `tests/unit` y `tests/e2e/auth.spec.ts` y `tests/e2e/account.spec.ts` del repo `base-ecomm-admin`.
 
 Estados: PLANNED (en plan, sin código) · IN_PROGRESS · DONE (implementado + test) · NOT_PLANNED (fuera de alcance) · UNAVAILABLE (documentado, no implementado en API).
 
@@ -94,8 +94,8 @@ Se listan solo las operaciones que usa el backoffice (89 de 126). Las rutas de t
 | T-080 | POST   | `/v1/admin/shipping/shipments/{shipmentId}/return`                                    | shipping.manage     | Envíos                | Marcar un envío como devuelto                            | PLANNED                                                             |
 | T-081 | POST   | `/v1/auth/login`                                                                      | público             | Auth / Cuenta         | Iniciar sesión                                           | DONE (F0)                                                           |
 | T-082 | POST   | `/v1/auth/logout`                                                                     | token               | Auth / Cuenta         | Cerrar sesión                                            | DONE (F0)                                                           |
-| T-083 | POST   | `/v1/auth/password-reset/confirm`                                                     | público             | Auth / Cuenta         | Restablecer la contraseña                                | PLANNED                                                             |
-| T-084 | POST   | `/v1/auth/password-reset/request`                                                     | público             | Auth / Cuenta         | Pedir un enlace para restablecer la contraseña           | PLANNED                                                             |
+| T-083 | POST   | `/v1/auth/password-reset/confirm`                                                     | público             | Auth / Cuenta         | Restablecer la contraseña                                | DONE (F1)                                                           |
+| T-084 | POST   | `/v1/auth/password-reset/request`                                                     | público             | Auth / Cuenta         | Pedir un enlace para restablecer la contraseña           | DONE (F1)                                                           |
 | T-085 | POST   | `/v1/auth/refresh`                                                                    | público             | Auth / Cuenta         | Renovar la sesión                                        | DONE (F0)                                                           |
 | T-086 | GET    | `/v1/geo/states`                                                                      | público             | Soporte (direcciones) | Estados de México (catálogo del INEGI)                   | PLANNED                                                             |
 | T-087 | GET    | `/v1/geo/states/{stateCode}/municipalities`                                           | público             | Soporte (direcciones) | Municipios activos de un estado                          | PLANNED                                                             |

@@ -23,6 +23,8 @@ export type ProblemType =
   | 'image-limit-reached'
   | 'resource-in-use'
   | 'insufficient-stock'
+  | 'restock-not-allowed'
+  | 'source-cart-unavailable'
   | 'idempotency-request-in-progress'
   | 'idempotency-key-mismatch'
   | 'payload-too-large'

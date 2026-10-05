@@ -1,7 +1,7 @@
 # PROJECT_STATE
 
 **Última actualización:** 2026-10-05
-**Fase actual:** IMPLEMENT · F0, F1 y F2 fusionados (PR #1, #2, #3/#4); F3 Precios e Inventario en PR.
+**Fase actual:** IMPLEMENT · F0 a F3 fusionados (PR #1 a #6); F4 Pedidos, Pagos y Envíos en PR.
 
 ## Proceso
 
@@ -11,7 +11,7 @@
 | DEFINE                             | ✅ Hecho                                       | GAPS.md, TRACEABILITY.md                             |
 | ARCHITECT                          | ✅ Aprobado 2026-10-05                         | ARCHITECTURE_PROPOSAL.md, DECISIONS.md (D-P01…D-P16) |
 | DESIGN                             | ○ Pendiente                                    |                                                      |
-| IMPLEMENT                          | ✱ F0–F2 fusionados; F3 en PR; F4–F6 pendientes | Repo `Ferchoner/base-ecomm-admin`                    |
+| IMPLEMENT                          | ✱ F0–F3 fusionados; F4 en PR; F5–F6 pendientes | Repo `Ferchoner/base-ecomm-admin`                    |
 | TEST · REVIEW · DOCUMENT · DELIVER | ○ Pendiente                                    |                                                      |
 
 ## Hallazgos clave
@@ -51,7 +51,7 @@
 - Permisos: lectura con `catalog.read`; acciones solo con `catalog.write`.
 - Calidad: 45 pruebas unitarias, 19 E2E × 2 viewports.
 
-## F3 Precios e Inventario — en PR
+## F3 Precios e Inventario — fusionado (PR #5 y #6)
 
 - Precios (`/precios`): lista general con IVA incluido; buscar un producto y ver el precio vigente de cada variante (una llamada por variante, G-04); por variante, precio desde ahora, programado (fecha futura), precio "antes", historial y cancelar programados.
 - Importación CSV: "Revisar archivo" (`dryRun=true`) y luego "Importar"; errores por línea (`rows[n].columna`); todo o nada.
@@ -59,6 +59,15 @@
 - Almacén (`/inventario/almacen`): nombre y dirección con estados y municipios del INEGI.
 - Sin `catalog.read`, Precios ofrece solo la importación CSV (G-12). `quantity` del ajuste se envía según API_SPEC aunque el OpenAPI no la declare (G-11).
 - Calidad: 53 pruebas unitarias, 26 E2E × 2 viewports.
+
+## F4 Pedidos, Pagos y Envíos — en PR
+
+- Pedidos (`/pedidos`): búsqueda por número, código o email; estado, clientes o invitados, fechas, reembolso pendiente y orden en la URL. Los datos bloqueados o anonimizados no se muestran.
+- Detalle del pedido: líneas y totales, comprador y dirección, historial, pago, envío y fechas. Acciones según estado y permisos: registrar pago en tienda, reintentar surtido, cancelar (avisa del reembolso; reintegro opcional en PAID con `inventory.write`), reintegrar stock por línea con `Idempotency-Key`, volver a comprar y ver datos bloqueados con motivo.
+- Pagos (`/pagos`): listado con estado, medio, fechas de cobro y orden; detalle con intentos y reembolsos; registrar reembolso manual con la `version` del pago.
+- Envíos (`/envios`): por defecto los pendientes; capturar, cambiar o quitar la guía; despachar por paquetería o entrega propia; entregar, entrega fallida y devolución con nota.
+- Lo que cambia en segundo plano (pago manual, despacho, entrega, reembolso) avisa de la demora y se vuelve a consultar (D-040). El 403 de pago manual deshabilitado se explica (G-02).
+- Calidad: 62 pruebas unitarias, 33 E2E × 2 viewports.
 
 ## Decisiones del usuario (2026-10-05)
 
@@ -71,4 +80,4 @@ G-01, G-06, G-07, G-09 resueltos; G-02 y G-10 quedan como cambios del backend (D
 
 ## Siguiente paso
 
-Revisión y merge del PR de F3; después F4 Pedidos + Pagos + Envíos.
+Revisión y merge del PR de F4; después F5 Clientes, Staff y Roles.

@@ -53,7 +53,7 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 - **Impacto:** el botón "Registrar pago" puede mostrarse y fallar.
 - **Workaround:** mostrar la acción según permiso `payments.manage` y manejar el 403 con un mensaje claro.
 - **Decisión del usuario (2026-10-05):** el backend agregará un endpoint para consultar si el pago manual está habilitado y otro para activarlo o desactivarlo; solo un superadministrador podrá modificarlo (DECISIONS D-033).
-- **Mientras no exista (F4):** se aplica el workaround. La pantalla para activarlo y el uso del indicador se construyen cuando esos endpoints estén en API_SPEC y en el OpenAPI; su ruta, campos y permiso no se inventan.
+- **Mientras no exista (F4, implementado):** se aplica el workaround: "Registrar pago" y "Registrar reembolso" se muestran con `payments.manage` y el 403 explica que un superadministrador debe activarlo. La pantalla para activarlo y el uso del indicador se construyen cuando esos endpoints estén en API_SPEC y en el OpenAPI; su ruta, campos y permiso no se inventan.
 
 ### G-03 · Sin endpoint de métricas para dashboard — PARTIAL
 
@@ -110,6 +110,12 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 - **Evidencia:** Pricing no lista variantes ni precios en bloque; para llegar a una variante hay que buscarla en `GET /v1/admin/catalog/products` (`catalog.read`).
 - **Impacto:** un rol con `pricing.read` pero sin `catalog.read` solo puede cambiar precios con la importación CSV (por SKU). Lo mismo para entradas de variantes sin existencias en Inventario.
 - **Workaround:** la pantalla lo explica y ofrece la importación CSV.
+
+### G-13 · Actores sin nombre en historiales — GAP menor
+
+- **Evidencia:** `statusHistory[].actorId`, `attempts[].registeredBy` y `refunds[].registeredBy` traen solo el ID de la cuenta. Resolver nombres exige `GET /v1/admin/identity/staff/{id}` (`staff.manage`), que la mayoría de los roles operativos no tiene.
+- **Workaround (F4):** se muestra "Por el staff" o "Automático" (sin actor). La auditoría (F6) es el lugar para saber quién hizo qué.
+- **Pregunta pendiente:** ¿se agrega el nombre del actor a estas respuestas?
 
 ## Comportamientos que el frontend debe respetar (no son gaps)
 

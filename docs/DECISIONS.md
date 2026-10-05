@@ -77,6 +77,18 @@ El usuario aprobó en el hilo todas las propuestas D-P01…D-P17 ("La 1, y se ap
 | D-036 | Solo español (es-MX) y pesos mexicanos en el MVP                                                                                                    | G-09   |
 | D-037 | El backend corregirá `CursorMetaDto` y los parámetros de cursor en el OpenAPI; mientras tanto se usa API_SPEC §5.2                                  | G-10   |
 
+## Decisiones de implementación (F4, 2026-10-05)
+
+| ID    | Decisión                                                                                                                                                                                                                              | Motivo                                                                            |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| D-038 | Pedidos, Pagos y Envíos son tres features (`orders`, `payments`, `shipping`), como los contextos del backend; la página del pedido compone los paneles de pago y envío                                                                | Regla D-P17; `AdminOrder` ya trae el pago y el envío resumidos                    |
+| D-039 | Las etiquetas de estados de pedido, pago, reembolso y envío viven en `app/shared/status/sales.ts`                                                                                                                                     | Las muestran varias features; las transiciones siguen en cada feature             |
+| D-040 | Las llaves de TanStack Query empiezan con una raíz por contexto (`QUERY_ROOT`); una acción invalida las raíces que cambia y, tras 2.5 s, vuelve a consultar lo que cambia en segundo plano, con el aviso "puede tardar unos segundos" | API_SPEC §2.5: nunca suponer el estado final; sin importar una feature desde otra |
+| D-041 | El reintegro de stock usa una `Idempotency-Key` por solicitud: se conserva si el usuario reintenta lo mismo y cambia si cambia el contenido                                                                                           | API_SPEC §15.7 la exige; evita reintegrar dos veces tras un error de red          |
+| D-042 | Los datos personales bloqueados se piden con motivo y solo viven en el modal: no entran en la cache y se descartan al cerrarlo                                                                                                        | ADR-0151: la consulta se audita; no debe quedar en memoria compartida             |
+| D-043 | En Envíos el filtro por defecto es "Por despachar" (la API sin `status` lista PENDING) y "Todos los estados" envía todos los valores                                                                                                  | API_SPEC §17, UC-SHI-08                                                           |
+| D-044 | El método de envío (T-072, T-073) queda para F6, como dice el plan aprobado                                                                                                                                                           | Plan de fases                                                                     |
+
 ## Dependencias descartadas (no se instalan)
 
 | Dependencia                           | Motivo                                                                |

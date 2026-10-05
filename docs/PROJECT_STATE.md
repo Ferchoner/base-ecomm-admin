@@ -55,15 +55,19 @@
 
 - Precios (`/precios`): lista general con IVA incluido; buscar un producto y ver el precio vigente de cada variante (una llamada por variante, G-04); por variante, precio desde ahora, programado (fecha futura), precio "antes", historial y cancelar programados.
 - Importación CSV: "Revisar archivo" (`dryRun=true`) y luego "Importar"; errores por línea (`rows[n].columna`); todo o nada.
-- Inventario (`/inventario/stock`): existencias con búsqueda, "Disponibles hasta N" (G-06) y orden en la URL; entrada y ajuste (motivos que solo restan, nota obligatoria con Otro, vista previa de unidades); movimientos con filtros y "Cargar más" por cursor; registrar movimiento de una variante sin existencias.
+- Inventario (`/inventario/stock`): existencias con búsqueda, "Disponibles hasta N", atajo "Stock bajo (≤ N)" con el umbral de cada usuario (G-06, editable en Mi cuenta, inicial 5) y orden en la URL; entrada y ajuste (motivos que solo restan, nota obligatoria con Otro, vista previa de unidades); movimientos con filtros y "Cargar más" por cursor; registrar movimiento de una variante sin existencias.
 - Almacén (`/inventario/almacen`): nombre y dirección con estados y municipios del INEGI.
 - Sin `catalog.read`, Precios ofrece solo la importación CSV (G-12). `quantity` del ajuste se envía según API_SPEC aunque el OpenAPI no la declare (G-11).
-- Calidad: 50 pruebas unitarias, 25 E2E × 2 viewports.
+- Calidad: 53 pruebas unitarias, 26 E2E × 2 viewports.
 
-## Pendiente del usuario
+## Decisiones del usuario (2026-10-05)
 
-1. Elegir opción para G-01 (enlace de recuperación de staff) y G-02 (indicador de pago manual), o aceptarlos como limitación.
-2. Informar dominios/hosting previstos (G-07).
+G-01, G-06, G-07, G-09 resueltos; G-02 y G-10 quedan como cambios del backend (DECISIONS D-032…D-037).
+
+## Pendiente del backend
+
+1. Endpoints para consultar y activar o desactivar el pago manual, solo superadministrador (G-02).
+2. Declarar `CursorMetaDto` y los parámetros `cursor`/`limit` en el OpenAPI (G-10) y `quantity` en `AdjustmentDto` (G-11).
 
 ## Siguiente paso
 

@@ -1,18 +1,18 @@
 # PROJECT_STATE
 
 **Última actualización:** 2026-10-05
-**Fase actual:** IMPLEMENT · F0 a F3 fusionados (PR #1 a #6); F4 Pedidos, Pagos y Envíos en PR.
+**Fase actual:** IMPLEMENT · F0 a F4 fusionados (PR #1 a #7); F5 Clientes, Staff y Roles en PR.
 
 ## Proceso
 
-| Fase                               | Estado                                         | Evidencia                                            |
-| ---------------------------------- | ---------------------------------------------- | ---------------------------------------------------- |
-| DISCOVER                           | ✅ Hecho                                       | API_SOURCE_OF_TRUTH.md                               |
-| DEFINE                             | ✅ Hecho                                       | GAPS.md, TRACEABILITY.md                             |
-| ARCHITECT                          | ✅ Aprobado 2026-10-05                         | ARCHITECTURE_PROPOSAL.md, DECISIONS.md (D-P01…D-P16) |
-| DESIGN                             | ○ Pendiente                                    |                                                      |
-| IMPLEMENT                          | ✱ F0–F3 fusionados; F4 en PR; F5–F6 pendientes | Repo `Ferchoner/base-ecomm-admin`                    |
-| TEST · REVIEW · DOCUMENT · DELIVER | ○ Pendiente                                    |                                                      |
+| Fase                               | Estado                                     | Evidencia                                            |
+| ---------------------------------- | ------------------------------------------ | ---------------------------------------------------- |
+| DISCOVER                           | ✅ Hecho                                   | API_SOURCE_OF_TRUTH.md                               |
+| DEFINE                             | ✅ Hecho                                   | GAPS.md, TRACEABILITY.md                             |
+| ARCHITECT                          | ✅ Aprobado 2026-10-05                     | ARCHITECTURE_PROPOSAL.md, DECISIONS.md (D-P01…D-P16) |
+| DESIGN                             | ○ Pendiente                                |                                                      |
+| IMPLEMENT                          | ✱ F0–F4 fusionados; F5 en PR; F6 pendiente | Repo `Ferchoner/base-ecomm-admin`                    |
+| TEST · REVIEW · DOCUMENT · DELIVER | ○ Pendiente                                |                                                      |
 
 ## Hallazgos clave
 
@@ -60,7 +60,7 @@
 - Sin `catalog.read`, Precios ofrece solo la importación CSV (G-12). `quantity` del ajuste se envía según API_SPEC aunque el OpenAPI no la declare (G-11).
 - Calidad: 53 pruebas unitarias, 26 E2E × 2 viewports.
 
-## F4 Pedidos, Pagos y Envíos — en PR
+## F4 Pedidos, Pagos y Envíos — fusionado (PR #7)
 
 - Pedidos (`/pedidos`): búsqueda por número, código o email; estado, clientes o invitados, fechas, reembolso pendiente y orden en la URL. Los datos bloqueados o anonimizados no se muestran.
 - Detalle del pedido: líneas y totales, comprador y dirección, historial, pago, envío y fechas. Acciones según estado y permisos: registrar pago en tienda, reintentar surtido, cancelar (avisa del reembolso; reintegro opcional en PAID con `inventory.write`), reintegrar stock por línea con `Idempotency-Key`, volver a comprar y ver datos bloqueados con motivo.
@@ -68,6 +68,13 @@
 - Envíos (`/envios`): por defecto los pendientes; capturar, cambiar o quitar la guía; despachar por paquetería o entrega propia; entregar, entrega fallida y devolución con nota.
 - Lo que cambia en segundo plano (pago manual, despacho, entrega, reembolso) avisa de la demora y se vuelve a consultar (D-040). El 403 de pago manual deshabilitado se explica (G-02).
 - Calidad: 62 pruebas unitarias, 33 E2E × 2 viewports.
+
+## F5 Clientes, Staff y Roles — en PR
+
+- Clientes (`/clientes`): búsqueda por email o nombre, estado, verificación, fechas de registro y orden en la URL. Detalle con cuenta, direcciones y conteo de pedidos con enlace a Pedidos. Suspender y reactivar con motivo; anonimizar con referencia ARCO y confirmación, explicando los pedidos sin concluir. Anonimizar pedidos de invitado con email y código.
+- Staff (`/staff`): búsqueda, estado, rol y orden. Alta con roles; la contraseña temporal se muestra una sola vez con botón de copiar. Detalle con cambio de roles, suspender (no a uno mismo) y reactivar (nueva contraseña temporal).
+- Roles (`/roles`): alta y edición con permisos agrupados por área; solo se agregan permisos propios y el superadministrador conserva todos. Eliminar solo roles sin usuarios.
+- Calidad: 69 pruebas unitarias, 39 E2E × 2 viewports.
 
 ## Decisiones del usuario (2026-10-05)
 
@@ -80,4 +87,4 @@ G-01, G-06, G-07, G-09 resueltos; G-02 y G-10 quedan como cambios del backend (D
 
 ## Siguiente paso
 
-Revisión y merge del PR de F4; después F5 Clientes, Staff y Roles.
+Revisión y merge del PR de F5; después F6 Auditoría, Eventos, Método de envío y Dashboard.

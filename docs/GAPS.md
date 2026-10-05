@@ -117,6 +117,12 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 - **Workaround (F4):** se muestra "Por el staff" o "Automático" (sin actor). La auditoría (F6) es el lugar para saber quién hizo qué.
 - **Pregunta pendiente:** ¿se agrega el nombre del actor a estas respuestas?
 
+### G-14 · Opciones deshabilitadas sin `aria-disabled` en los selectores — limitación de Nuxt UI
+
+- **Evidencia:** `USelectMenu` marca una opción deshabilitada con `disabled` y `data-disabled` en un `div` con `role="option"`, sin `aria-disabled`; un lector de pantalla puede no anunciarla como deshabilitada.
+- **Workaround (F5):** el campo explica la regla ("Solo puedes dar roles cuyos permisos tienes") y la API responde 403 si se intenta.
+- **Siguiente paso:** revisar en la fase de QA si una versión nueva de Nuxt UI lo corrige.
+
 ## Comportamientos que el frontend debe respetar (no son gaps)
 
 - Tolerar enumeraciones desconocidas (mostrar el valor crudo con badge neutro).

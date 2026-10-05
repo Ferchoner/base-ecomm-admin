@@ -23,12 +23,16 @@ export const orderKeys = {
   detail: (id: string) => [...orderKeys.all, 'detail', id] as const,
 }
 
-export function useOrders(params: MaybeRefOrGetter<OrderListParams>) {
+export function useOrders(
+  params: MaybeRefOrGetter<OrderListParams>,
+  options: { enabled?: MaybeRefOrGetter<boolean> } = {},
+) {
   const api = useApi()
   return useQuery<OrderPage, ApiProblem>({
     queryKey: computed(() => orderKeys.list(toValue(params))),
     queryFn: ({ signal }) => api<OrderPage>(BASE, { query: { ...toValue(params) }, signal }),
     placeholderData: keepPreviousData,
+    enabled: computed(() => toValue(options.enabled ?? true)),
   })
 }
 

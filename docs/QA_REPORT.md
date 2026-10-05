@@ -9,7 +9,7 @@
 | `npm run lint`                     | ✅ sin errores                                                                     |
 | `npm run format:check`             | ✅ sin diferencias                                                                 |
 | `npm run typecheck` (TS estricto)  | ✅ 0 errores                                                                       |
-| `npm test` (Vitest)                | ✅ 79 de 79                                                                        |
+| `npm test` (Vitest)                | ✅ 79 de 79 (80 de 80 con la rama de documentación y release)                      |
 | `npm run build` (`nuxt generate`)  | ✅ SPA estática + service worker (136 archivos precacheados)                       |
 | `npm run test:e2e` (Playwright)    | ✅ 161 ejecuciones pasan; 19 omitidas a propósito (tema oscuro solo en escritorio) |
 | Accesibilidad (axe, WCAG 2.1 A/AA) | ✅ 0 violaciones en login, 19 pantallas (tema claro y oscuro) y 3 diálogos         |

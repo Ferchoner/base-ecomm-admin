@@ -19,9 +19,13 @@ export function notifyProblem(toast: Toast, error: unknown, onConflict?: () => v
     return
   }
   const fieldMessages = problem.errors.map((e) => e.message)
+  // Un error del servidor lleva la referencia para soporte, como ProblemAlert.
+  const reference =
+    problem.status >= 500 && problem.correlationId ? `Referencia: ${problem.correlationId}` : null
   toast.add({
     title: problem.title,
-    description: [problem.detail, ...fieldMessages].filter(Boolean).join(' ') || undefined,
+    description:
+      [problem.detail, ...fieldMessages, reference].filter(Boolean).join(' ') || undefined,
     color: 'error',
     icon: 'i-lucide-circle-alert',
   })

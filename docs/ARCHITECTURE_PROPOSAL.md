@@ -1,6 +1,6 @@
 # ARCHITECTURE_PROPOSAL — Backoffice base-shop
 
-**Estado:** PROPUESTA, pendiente de aprobación. No se implementan módulos de negocio hasta aprobarla.
+**Estado:** APROBADA por el usuario el 2026-10-05 e implementada (F0–F6). Documento histórico: la arquitectura real está en FRONTEND_ARCHITECTURE.md, con una tabla de diferencias; rutas reales en ROUTE_MAP.md.
 **Contrato:** API_SOURCE_OF_TRUTH.md (base-shop `a46829b`). Decisiones referidas: DECISIONS.md (D-Pxx).
 
 ## 1. Producto

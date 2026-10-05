@@ -134,6 +134,7 @@ export function useProduct(id: MaybeRefOrGetter<string>) {
   return useQuery<Product, ApiProblem>({
     queryKey: computed(() => catalogKeys.product(toValue(id))),
     queryFn: ({ signal }) => api<Product>(`${BASE}/products/${toValue(id)}`, { signal }),
+    enabled: computed(() => !!toValue(id)),
   })
 }
 

@@ -1,18 +1,18 @@
 # PROJECT_STATE
 
 **Última actualización:** 2026-10-05
-**Fase actual:** IMPLEMENT · F0 fusionado (PR #1); F1 Auth y cuenta en PR #2; F2 Catálogo en PR.
+**Fase actual:** IMPLEMENT · F0, F1 y F2 fusionados (PR #1, #2, #3/#4); F3 Precios e Inventario en PR.
 
 ## Proceso
 
-| Fase                               | Estado                                          | Evidencia                                            |
-| ---------------------------------- | ----------------------------------------------- | ---------------------------------------------------- |
-| DISCOVER                           | ✅ Hecho                                        | API_SOURCE_OF_TRUTH.md                               |
-| DEFINE                             | ✅ Hecho                                        | GAPS.md, TRACEABILITY.md                             |
-| ARCHITECT                          | ✅ Aprobado 2026-10-05                          | ARCHITECTURE_PROPOSAL.md, DECISIONS.md (D-P01…D-P16) |
-| DESIGN                             | ○ Pendiente                                     |                                                      |
-| IMPLEMENT                          | ✱ F0 fusionado; F1 y F2 en PR; F3–F6 pendientes | Repo `Ferchoner/base-ecomm-admin`                    |
-| TEST · REVIEW · DOCUMENT · DELIVER | ○ Pendiente                                     |                                                      |
+| Fase                               | Estado                                         | Evidencia                                            |
+| ---------------------------------- | ---------------------------------------------- | ---------------------------------------------------- |
+| DISCOVER                           | ✅ Hecho                                       | API_SOURCE_OF_TRUTH.md                               |
+| DEFINE                             | ✅ Hecho                                       | GAPS.md, TRACEABILITY.md                             |
+| ARCHITECT                          | ✅ Aprobado 2026-10-05                         | ARCHITECTURE_PROPOSAL.md, DECISIONS.md (D-P01…D-P16) |
+| DESIGN                             | ○ Pendiente                                    |                                                      |
+| IMPLEMENT                          | ✱ F0–F2 fusionados; F3 en PR; F4–F6 pendientes | Repo `Ferchoner/base-ecomm-admin`                    |
+| TEST · REVIEW · DOCUMENT · DELIVER | ○ Pendiente                                    |                                                      |
 
 ## Hallazgos clave
 
@@ -31,7 +31,7 @@
 - Pantallas: login, cambio de contraseña (forzado y voluntario), inicio con secciones según permisos, layout con sidebar responsive, página de error 403/404.
 - Calidad: ESLint + Prettier, 33 pruebas unitarias, 7 E2E × 2 viewports (escritorio y móvil), CI en GitHub Actions.
 
-## F1 Auth y cuenta — en PR
+## F1 Auth y cuenta — fusionado (PR #2)
 
 - `/cuenta`: datos, roles y permisos de `GET /v1/me` (se vuelven a leer al entrar), cambiar contraseña y cerrar sesión.
 - `/recuperar-contrasena`: solicitud con mensaje único exista o no la cuenta (API_SPEC §9.8).
@@ -39,7 +39,7 @@
 - Política de contraseña compartida (`app/shared/auth/password-policy.ts`).
 - Calidad: 35 pruebas unitarias, 12 E2E × 2 viewports.
 
-## F2 Catálogo — en PR
+## F2 Catálogo — fusionado (PR #3 en la rama del F1 y PR #4 a `main`)
 
 - Marcas (`/catalogo/marcas`): listado con búsqueda, estado y orden en la URL; alta, edición, desactivar, reactivar y eliminar.
 - Categorías (`/catalogo/categorias`): árbol con sangría y ruta; alta, subcategoría, mover (sin ofrecer destinos que formarían ciclo ni padres inactivos), desactivar, reactivar, eliminar.
@@ -51,6 +51,15 @@
 - Permisos: lectura con `catalog.read`; acciones solo con `catalog.write`.
 - Calidad: 45 pruebas unitarias, 19 E2E × 2 viewports.
 
+## F3 Precios e Inventario — en PR
+
+- Precios (`/precios`): lista general con IVA incluido; buscar un producto y ver el precio vigente de cada variante (una llamada por variante, G-04); por variante, precio desde ahora, programado (fecha futura), precio "antes", historial y cancelar programados.
+- Importación CSV: "Revisar archivo" (`dryRun=true`) y luego "Importar"; errores por línea (`rows[n].columna`); todo o nada.
+- Inventario (`/inventario/stock`): existencias con búsqueda, "Disponibles hasta N" (G-06) y orden en la URL; entrada y ajuste (motivos que solo restan, nota obligatoria con Otro, vista previa de unidades); movimientos con filtros y "Cargar más" por cursor; registrar movimiento de una variante sin existencias.
+- Almacén (`/inventario/almacen`): nombre y dirección con estados y municipios del INEGI.
+- Sin `catalog.read`, Precios ofrece solo la importación CSV (G-12). `quantity` del ajuste se envía según API_SPEC aunque el OpenAPI no la declare (G-11).
+- Calidad: 50 pruebas unitarias, 25 E2E × 2 viewports.
+
 ## Pendiente del usuario
 
 1. Elegir opción para G-01 (enlace de recuperación de staff) y G-02 (indicador de pago manual), o aceptarlos como limitación.
@@ -58,4 +67,4 @@
 
 ## Siguiente paso
 
-Revisión y merge de los PR de F1 y F2; después F3 Precios + Inventario.
+Revisión y merge del PR de F3; después F4 Pedidos + Pagos + Envíos.

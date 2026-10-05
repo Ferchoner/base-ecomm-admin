@@ -2,7 +2,7 @@
 
 Trazabilidad endpoint → módulo frontend → pantalla → estado. Fuente: `openapi/v1.json` de base-shop, commit `a46829b`; permisos tomados de `x-required-permissions`.
 
-Evidencia de DONE: pruebas en `tests/unit` y `tests/e2e/auth.spec.ts` , `tests/e2e/account.spec.ts`, `tests/e2e/catalog.spec.ts` y `tests/e2e/pricing-inventory.spec.ts` del repo `base-ecomm-admin`.
+Evidencia de DONE: pruebas en `tests/unit` y en `tests/e2e/` (`auth`, `account`, `catalog`, `pricing-inventory`, `sales`, `identity` y `operations`) del repo `base-ecomm-admin`.
 
 Estados: PLANNED (en plan, sin código) · IN_PROGRESS · DONE (implementado + test) · NOT_PLANNED (fuera de alcance) · UNAVAILABLE (documentado, no implementado en API).
 
@@ -12,7 +12,7 @@ Se listan solo las operaciones que usa el backoffice (89 de 126). Las rutas de t
 
 | #     | Método | Ruta                                                                                  | Permiso (OpenAPI)   | Módulo frontend       | Operación (summary OpenAPI)                              | Estado                                                              |
 | ----- | ------ | ------------------------------------------------------------------------------------- | ------------------- | --------------------- | -------------------------------------------------------- | ------------------------------------------------------------------- |
-| T-001 | GET    | `/v1/admin/audit`                                                                     | audit.read          | Auditoría             | Consultar la auditoría                                   | PLANNED                                                             |
+| T-001 | GET    | `/v1/admin/audit`                                                                     | audit.read          | Auditoría             | Consultar la auditoría                                   | DONE (F6)                                                           |
 | T-002 | GET    | `/v1/admin/catalog/brands`                                                            | catalog.read        | Catálogo              | Listar marcas                                            | DONE (F2)                                                           |
 | T-003 | POST   | `/v1/admin/catalog/brands`                                                            | catalog.write       | Catálogo              | Crear una marca                                          | DONE (F2)                                                           |
 | T-004 | DELETE | `/v1/admin/catalog/brands/{brandId}`                                                  | catalog.write       | Catálogo              | Borrar una marca sin productos                           | DONE (F2)                                                           |
@@ -40,9 +40,9 @@ Se listan solo las operaciones que usa el backoffice (89 de 126). Las rutas de t
 | T-026 | PATCH  | `/v1/admin/catalog/products/{productId}/variants/{variantId}`                         | catalog.write       | Catálogo              | Editar una variante                                      | DONE (F2)                                                           |
 | T-027 | POST   | `/v1/admin/catalog/products/{productId}/variants/{variantId}/discontinue`             | catalog.write       | Catálogo              | Descontinuar una variante                                | DONE (F2)                                                           |
 | T-028 | POST   | `/v1/admin/catalog/products/{productId}/variants/{variantId}/reactivate`              | catalog.write       | Catálogo              | Reactivar una variante descontinuada                     | DONE (F2)                                                           |
-| T-029 | GET    | `/v1/admin/event-deliveries`                                                          | events.manage       | Operación: eventos    | Listar entregas de eventos                               | PLANNED                                                             |
-| T-030 | POST   | `/v1/admin/event-deliveries/retry`                                                    | events.manage       | Operación: eventos    | Reintentar las entregas fallidas                         | PLANNED                                                             |
-| T-031 | POST   | `/v1/admin/event-deliveries/{deliveryId}/retry`                                       | events.manage       | Operación: eventos    | Reintentar una entrega fallida                           | PLANNED                                                             |
+| T-029 | GET    | `/v1/admin/event-deliveries`                                                          | events.manage       | Operación: eventos    | Listar entregas de eventos                               | DONE (F6)                                                           |
+| T-030 | POST   | `/v1/admin/event-deliveries/retry`                                                    | events.manage       | Operación: eventos    | Reintentar las entregas fallidas                         | DONE (F6)                                                           |
+| T-031 | POST   | `/v1/admin/event-deliveries/{deliveryId}/retry`                                       | events.manage       | Operación: eventos    | Reintentar una entrega fallida                           | DONE (F6)                                                           |
 | T-032 | GET    | `/v1/admin/identity/customers`                                                        | customers.read      | Clientes              | Listar clientes                                          | DONE (F5)                                                           |
 | T-033 | GET    | `/v1/admin/identity/customers/{userId}`                                               | customers.read      | Clientes              | Consultar un cliente, con sus direcciones                | DONE (F5)                                                           |
 | T-034 | POST   | `/v1/admin/identity/customers/{userId}/anonymize`                                     | customers.manage    | Clientes              | Anonimizar a un cliente                                  | DONE (F5)                                                           |
@@ -83,8 +83,8 @@ Se listan solo las operaciones que usa el backoffice (89 de 126). Las rutas de t
 | T-069 | GET    | `/v1/admin/pricing/price-lists/{priceListId}/variants/{variantId}/periods`            | pricing.read        | Precios               | Consultar los precios de una variante                    | DONE (F3)                                                           |
 | T-070 | POST   | `/v1/admin/pricing/price-lists/{priceListId}/variants/{variantId}/periods`            | pricing.write       | Precios               | Fijar o programar un precio                              | DONE (F3)                                                           |
 | T-071 | DELETE | `/v1/admin/pricing/price-lists/{priceListId}/variants/{variantId}/periods/{periodId}` | pricing.write       | Precios               | Cancelar un precio programado                            | DONE (F3)                                                           |
-| T-072 | GET    | `/v1/admin/shipping/method`                                                           | shipping.manage     | Envíos                | Consultar el método de envío                             | PLANNED                                                             |
-| T-073 | PUT    | `/v1/admin/shipping/method`                                                           | shipping.configure  | Envíos                | Configurar el costo de envío, el envío gratis y el plazo | PLANNED                                                             |
+| T-072 | GET    | `/v1/admin/shipping/method`                                                           | shipping.manage     | Envíos                | Consultar el método de envío                             | DONE (F6)                                                           |
+| T-073 | PUT    | `/v1/admin/shipping/method`                                                           | shipping.configure  | Envíos                | Configurar el costo de envío, el envío gratis y el plazo | DONE (F6)                                                           |
 | T-074 | GET    | `/v1/admin/shipping/shipments`                                                        | shipping.manage     | Envíos                | Listar envíos                                            | DONE (F4)                                                           |
 | T-075 | GET    | `/v1/admin/shipping/shipments/{shipmentId}`                                           | shipping.manage     | Envíos                | Consultar un envío                                       | DONE (F4)                                                           |
 | T-076 | PATCH  | `/v1/admin/shipping/shipments/{shipmentId}`                                           | shipping.manage     | Envíos                | Registrar la paquetería y la guía de un envío            | DONE (F4)                                                           |
@@ -105,16 +105,16 @@ Se listan solo las operaciones que usa el backoffice (89 de 126). Las rutas de t
 
 ## Requisitos de UI → fuente
 
-| Requisito                                  | Fuente                                                | Estado       |
-| ------------------------------------------ | ----------------------------------------------------- | ------------ |
-| Ocultar acciones sin permiso               | API_SPEC §3.3, `GET /v1/me.permissions`               | DONE (F0)    |
-| Forzar cambio de contraseña                | API_SPEC §3.2 (`password-change-required`)            | DONE (F0)    |
-| Rechazar cuentas CUSTOMER en el backoffice | API_SPEC §3.2 (token de cliente en `/v1/admin` → 403) | DONE (F0)    |
-| Refresh single-flight                      | API_SPEC §9.6                                         | DONE (F0)    |
-| Enviar `version` en recursos versionados   | API_SPEC §2.3                                         | DONE (F2)    |
-| `Idempotency-Key` en reintegros            | API_SPEC §4                                           | PLANNED      |
-| Aviso de consistencia eventual             | API_SPEC §2.5                                         | PLANNED      |
-| Tolerar enums desconocidos                 | API_SPEC §2.1                                         | DONE (F2)    |
-| Errores por `type` de Problem Details      | API_SPEC §6                                           | DONE (F0)    |
-| Slug, SKU y opciones fijos tras publicar   | API_SPEC §11.6–11.7 (`field-locked`)                  | DONE (F2)    |
-| Dashboard de conteos                       | GAPS G-03, DECISIONS D-P04                            | PLANNED (F6) |
+| Requisito                                  | Fuente                                                | Estado    |
+| ------------------------------------------ | ----------------------------------------------------- | --------- |
+| Ocultar acciones sin permiso               | API_SPEC §3.3, `GET /v1/me.permissions`               | DONE (F0) |
+| Forzar cambio de contraseña                | API_SPEC §3.2 (`password-change-required`)            | DONE (F0) |
+| Rechazar cuentas CUSTOMER en el backoffice | API_SPEC §3.2 (token de cliente en `/v1/admin` → 403) | DONE (F0) |
+| Refresh single-flight                      | API_SPEC §9.6                                         | DONE (F0) |
+| Enviar `version` en recursos versionados   | API_SPEC §2.3                                         | DONE (F2) |
+| `Idempotency-Key` en reintegros            | API_SPEC §4                                           | DONE (F4) |
+| Aviso de consistencia eventual             | API_SPEC §2.5                                         | DONE (F4) |
+| Tolerar enums desconocidos                 | API_SPEC §2.1                                         | DONE (F2) |
+| Errores por `type` de Problem Details      | API_SPEC §6                                           | DONE (F0) |
+| Slug, SKU y opciones fijos tras publicar   | API_SPEC §11.6–11.7 (`field-locked`)                  | DONE (F2) |
+| Dashboard de conteos                       | GAPS G-03, DECISIONS D-P04                            | DONE (F6) |

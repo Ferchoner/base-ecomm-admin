@@ -28,7 +28,7 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 | Staff y roles                                                                        | AVAILABLE | `/v1/admin/identity/staff/**`, `/roles/**`, `/permissions`               |                                                             |
 | Auditoría                                                                            | AVAILABLE | `GET /v1/admin/audit` (cursor, 3 meses)                                  |                                                             |
 | Entregas de eventos fallidas                                                         | AVAILABLE | `/v1/admin/event-deliveries/**`                                          |                                                             |
-| Dashboard / KPIs                                                                     | PARTIAL   | — (solo conteos derivados de listados)                                   | Ver G-03                                                    |
+| Dashboard / KPIs                                                                     | PARTIAL   | — (solo conteos derivados de listados)                                   | Ver G-03; conteos en el inicio (F6)                         |
 | Reportes de ventas / exportaciones                                                   | GAP       | —                                                                        | Ver G-05                                                    |
 | Promociones / cupones / descuentos                                                   | GAP       | — (`discountTotal` existe pero sin gestión)                              | Fuera de alcance                                            |
 | Notificaciones / plantillas de correo                                                | GAP       | —                                                                        | Fuera de alcance                                            |
@@ -60,7 +60,7 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 - **Evidencia:** ningún endpoint de estadísticas o agregados.
 - **Lo que sí se puede mostrar sin inventar** (conteos con `meta.totalItems` y `pageSize=1`): órdenes por cobrar (`status=PENDING_PAYMENT`), en espera de surtido (`AWAITING_MANUAL_FULFILLMENT`), con reembolso pendiente (`hasPendingRefund=true`), envíos pendientes (defecto `PENDING`), entregas de eventos fallidas (defecto `FAILED`), stock bajo (`availableMax=N`).
 - **Lo que no:** ventas, ingresos, ticket promedio, tendencias, productos más vendidos.
-- **Resuelto:** dashboard de conteos operativos aprobado (DECISIONS D-P04).
+- **Resuelto:** dashboard de conteos operativos aprobado (DECISIONS D-P04) e implementado en F6 (D-054). Ventas, ingresos y tendencias siguen requiriendo un endpoint del backend.
 
 ### G-04 · Precio no incluido en `AdminProduct` — GAP
 
@@ -95,7 +95,7 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 ### G-10 · `CursorMetaDto` vacío en el OpenAPI — DOCUMENTATION CONFLICT menor (corrección en backend)
 
 - **Evidencia:** en `openapi/v1.json`, `CursorMetaDto` no declara propiedades; API_SPEC §5.2 define `{ limit, nextCursor }`.
-- **Resolución:** por prioridad de fuentes, se usa API_SPEC §5.2 (tipo `CursorMeta` declarado a mano en `app/shared/api/types.ts`). Afecta auditoría y movimientos de stock.
+- **Resolución:** por prioridad de fuentes, se usa API_SPEC §5.2 (tipo `CursorMeta` declarado a mano en `app/shared/api/types.ts`). Afecta auditoría (F6) y movimientos de stock (F3).
 - **También (F3):** el OpenAPI no declara los parámetros `cursor` y `limit` en `GET …/stock-items/{id}/movements` (ni en auditoría); se envían según API_SPEC §5.2.
 - **Decisión del usuario (2026-10-05):** el backend corregirá el DTO para que el OpenAPI lo declare. Al actualizar el commit fijado se regeneran los tipos y se retira el tipo manual.
 
@@ -122,6 +122,17 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 - **Evidencia:** `USelectMenu` marca una opción deshabilitada con `disabled` y `data-disabled` en un `div` con `role="option"`, sin `aria-disabled`; un lector de pantalla puede no anunciarla como deshabilitada.
 - **Workaround (F5):** el campo explica la regla ("Solo puedes dar roles cuyos permisos tienes") y la API responde 403 si se intenta.
 - **Siguiente paso:** revisar en la fase de QA si una versión nueva de Nuxt UI lo corrige.
+
+### G-15 · Reintento masivo con tipo de evento y manejador a la vez — ASSUMPTION
+
+- **Evidencia:** API_SPEC §22.3 dice que `POST /v1/admin/event-deliveries/retry` reintenta las fallidas "de ese tipo de evento o de ese manejador", y `RetryDeliveriesDto` acepta los dos campos opcionales, pero no dice qué pasa si llegan los dos.
+- **ASSUMPTION (F6):** se envían los dos y se entiende que la API reintenta las que cumplen ambos; el diálogo lo explica así y el resultado muestra cuántas se reactivaron.
+- **Pregunta pendiente:** ¿se combinan (Y) o uno tiene prioridad?
+
+### G-16 · `nextAttemptAt` obligatorio en entregas fallidas — DOCUMENTATION CONFLICT menor
+
+- **Evidencia:** `EventDeliveryDto` declara `nextAttemptAt` obligatorio y no nulo ("cuándo se reintenta, si está pendiente"), y el ejemplo de API_SPEC §22.1 lo trae en una entrega FAILED, que ya no se reintenta sola.
+- **Resolución:** el frontend solo lo muestra en las PENDING; en las FAILED muestra "Sin reintentos automáticos".
 
 ## Comportamientos que el frontend debe respetar (no son gaps)
 

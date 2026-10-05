@@ -1,14 +1,13 @@
 import { z } from 'zod'
+import { PESOS_PATTERN } from '~/shared/utils/money'
 
 // SetPriceDto (openapi/v1.json) y API_SPEC §12: montos en centavos, enteros ≥ 0; el usuario escribe pesos.
-
-const PESOS = /^\d+(\.\d{1,2})?$/
 
 const pesos = (required: boolean) =>
   z
     .string()
     .trim()
-    .refine((v) => (v === '' ? !required : PESOS.test(v)), {
+    .refine((v) => (v === '' ? !required : PESOS_PATTERN.test(v)), {
       message: required
         ? 'Escribe el precio en pesos, con hasta 2 decimales.'
         : 'Pesos con hasta 2 decimales.',
@@ -36,9 +35,3 @@ export const priceSchema = z
     },
   )
 export type PriceForm = z.input<typeof priceSchema>
-
-/** Pesos escritos (`599.5`) → centavos, sin errores de coma flotante. */
-export function pesosTextToCents(text: string): number {
-  const [int, dec = ''] = text.trim().split('.')
-  return Number(int) * 100 + Number(dec.padEnd(2, '0'))
-}

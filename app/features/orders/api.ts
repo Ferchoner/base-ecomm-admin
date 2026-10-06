@@ -14,6 +14,7 @@ import type {
   RestockInput,
   RestockResult,
   RestockWarehouse,
+  ManualPaymentSettings,
 } from './types'
 
 const BASE = '/v1/admin/orders'
@@ -124,6 +125,19 @@ export function useRestock(id: MaybeRefOrGetter<string>) {
         idempotencyKey,
       }),
     onSuccess: () => invalidateRoots(qc, [QUERY_ROOT.inventory]),
+  })
+}
+
+/**
+ * Si el pago manual está habilitado (API_SPEC §16.6, ADR-0162). Comparte la llave de la feature de
+ * pagos (`['payments', 'settings']`), que devuelve los mismos datos.
+ */
+export function useManualPaymentSettings(enabled: MaybeRefOrGetter<boolean>) {
+  const api = useApi()
+  return useQuery<ManualPaymentSettings, ApiProblem>({
+    queryKey: [QUERY_ROOT.payments, 'settings'],
+    queryFn: ({ signal }) => api<ManualPaymentSettings>('/v1/admin/payment-settings', { signal }),
+    enabled: computed(() => toValue(enabled)),
   })
 }
 

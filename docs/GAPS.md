@@ -18,7 +18,7 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 | Precio visible en listado de productos                                               | GAP       | —                                                                        | Ver G-04                                                    |
 | Stock, movimientos, entradas, ajustes, almacén                                       | AVAILABLE | `/v1/admin/inventory/**`                                                 | Varios almacenes con prioridad (ADR-0160); ver G-20         |
 | Pedidos: listado, detalle, cancelar, reintentar surtido, reintegro, datos bloqueados | AVAILABLE | `/v1/admin/orders/**`                                                    |                                                             |
-| Pago manual (captura)                                                                | AVAILABLE | `POST /v1/admin/orders/{id}/manual-capture`                              | Ver G-02                                                    |
+| Pago manual (captura)                                                                | AVAILABLE | `POST /v1/admin/orders/{id}/manual-capture`, `/payment-settings`         | G-02 resuelto                                               |
 | Pagos: listado, detalle, reembolso manual                                            | AVAILABLE | `/v1/admin/payments/**`                                                  |                                                             |
 | Reintentar reembolso con proveedor                                                   | GAP       | `…/refunds/retry` documentado como pendiente (T-192), ausente en OpenAPI | No se construye UI                                          |
 | Envíos: listado, detalle, guía, despachar, entregar, fallo, devolución               | AVAILABLE | `/v1/admin/shipping/shipments/**`                                        |                                                             |
@@ -47,13 +47,14 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 - **Estado (F1):** el backoffice ya tiene la ruta `/reset-password?token=…` que espera la API, así que la opción (c) o un `FRONTEND_BASE_URL` que apunte al backoffice funcionan sin más cambios en el frontend.
 - **Decisión del usuario (2026-10-05):** por ahora `FRONTEND_BASE_URL` apunta a este backoffice, que ya atiende `/reset-password`. Cuando exista la tienda, el backend tendrá su propia URL para cada frontend (DECISIONS D-032).
 
-### G-02 · No hay forma de saber si el pago manual está habilitado — BLOCKER de backend (decidido)
+### G-02 · No hay forma de saber si el pago manual está habilitado — RESUELTO
 
 - **Evidencia:** `MANUAL_PAYMENTS_ENABLED=false` por defecto; las acciones responden 403 `manual-payments-disabled`. Ningún endpoint lo expone.
 - **Impacto:** el botón "Registrar pago" puede mostrarse y fallar.
 - **Workaround:** mostrar la acción según permiso `payments.manage` y manejar el 403 con un mensaje claro.
 - **Decisión del usuario (2026-10-05):** el backend agregará un endpoint para consultar si el pago manual está habilitado y otro para activarlo o desactivarlo; solo un superadministrador podrá modificarlo (DECISIONS D-033).
 - **Mientras no exista (F4, implementado):** se aplica el workaround: "Registrar pago" y "Registrar reembolso" se muestran con `payments.manage` y el 403 explica que un superadministrador debe activarlo. La pantalla para activarlo y el uso del indicador se construyen cuando esos endpoints estén en API_SPEC y en el OpenAPI; su ruta, campos y permiso no se inventan.
+- **Resuelto (2026-10-06):** base-shop `ff10406` (T-194, ADR-0162) agrega `GET /v1/admin/payment-settings` (`orders.read`) y `PUT` (`payments.configure`, solo superadministrador, con `version`). El backoffice tiene la pantalla Administración > Pago en tienda, "Registrar pago" avisa y se deshabilita si está apagado, y el 403 se sigue explicando por si cambia entre la lectura y el envío. `MANUAL_PAYMENTS_ENABLED` ya no existe en el backend.
 
 ### G-03 · Sin endpoint de métricas para dashboard — PARTIAL
 

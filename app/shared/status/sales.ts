@@ -53,6 +53,13 @@ export const PAYMENT_PROVIDER: Record<PaymentProvider, string> = {
   PAYPAL: 'PayPal',
 }
 
+/** Cómo cobró la tienda un pago manual (API_SPEC §16.4, ADR-0161). */
+export const PAYMENT_METHOD: Record<NonNullable<Schemas['PaymentAttemptDto']['method']>, string> = {
+  CASH: 'Efectivo',
+  CARD_TERMINAL: 'Terminal bancaria',
+  TRANSFER: 'Transferencia',
+}
+
 export const REFUND_STATUS: Record<RefundStatus, StatusStyle> = {
   PENDING: { label: 'Reembolso pendiente', color: 'warning' },
   COMPLETED: { label: 'Reembolso completado', color: 'success' },

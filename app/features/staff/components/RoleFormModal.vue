@@ -39,6 +39,8 @@ watch(open, (isOpen) => {
 const groups = computed(() => {
   const map = new Map<string, Array<{ code: string; description: string; locked: boolean }>>()
   for (const p of catalog.value ?? []) {
+    // Los permisos `superadminOnly` solo los tiene el rol superadministrador (BR-USR-21, ADR-0162).
+    if (p.superadminOnly && !superadmin.value) continue
     const group = permissionGroup(p.code)
     const has = session.can(p.code as Permission)
     // No se puede agregar lo que no se tiene; lo que el rol ya tenía sí se puede quitar.
@@ -129,7 +131,10 @@ async function onSubmit(event: FormSubmitEvent<RoleForm>) {
           <p v-if="superadmin" class="text-sm text-muted">
             El superadministrador tiene siempre todos los permisos.
           </p>
-          <p v-else class="text-sm text-muted">Solo puedes agregar permisos que tienes tú.</p>
+          <p v-else class="text-sm text-muted">
+            Solo puedes agregar permisos que tienes tú. Los exclusivos del superadministrador, como
+            configurar pagos, no se ofrecen.
+          </p>
           <USkeleton v-if="loadingCatalog" class="h-40 w-full" />
           <div v-else class="grid gap-4 sm:grid-cols-2">
             <fieldset v-for="[group, items] in groups" :key="group" class="space-y-2">

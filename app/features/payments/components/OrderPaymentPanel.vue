@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { PAYMENT_PROVIDER, PAYMENT_STATUS, REFUND_STATUS } from '~/shared/status/sales'
+import {
+  PAYMENT_METHOD,
+  PAYMENT_PROVIDER,
+  PAYMENT_STATUS,
+  REFUND_STATUS,
+} from '~/shared/status/sales'
 import { formatDateTime } from '~/shared/utils/dates'
 import { formatMoney } from '~/shared/utils/money'
 import type { OrderPayment } from '../types'
@@ -20,6 +25,9 @@ defineProps<{ payment: OrderPayment | null }>()
         { label: 'Cobrado', value: formatMoney(payment.capturedAmount) },
         { label: 'Reembolsado', value: formatMoney(payment.refundedAmount) },
         { label: 'Fecha de cobro', value: formatDateTime(payment.capturedAt) },
+        ...(payment.method
+          ? [{ label: 'Cobrado con', value: PAYMENT_METHOD[payment.method] ?? payment.method }]
+          : []),
       ]"
     />
     <ul v-if="payment.refunds.length" class="space-y-1">

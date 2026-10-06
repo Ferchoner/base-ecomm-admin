@@ -37,11 +37,14 @@ test('pedidos: filtrar, abrir y registrar el pago en tienda', async ({ page }) =
   await dialog.getByRole('button', { name: 'Registrar pago' }).click()
   await expect(dialog.getByText('Escribe el comprobante de la tienda.')).toBeVisible()
   await dialog.getByLabel('Comprobante').fill('Ticket 00452')
+  await dialog.getByRole('combobox', { name: 'Cómo se cobró' }).click()
+  await page.getByRole('option', { name: 'Efectivo' }).click()
   await dialog.getByRole('button', { name: 'Registrar pago' }).click()
   await expect(dialog).toBeHidden()
   await expect(page.getByText('Pago registrado', { exact: true })).toBeVisible()
   expect(api.calls.find((c) => c.path.endsWith('/manual-capture'))?.body).toEqual({
     reference: 'Ticket 00452',
+    method: 'CASH',
   })
 
   // La orden pasa a PAID en segundo plano; la pantalla vuelve a consultarla (API_SPEC §2.5).
@@ -50,7 +53,9 @@ test('pedidos: filtrar, abrir y registrar el pago en tienda', async ({ page }) =
   await expect(page.getByText('Por despachar', { exact: true })).toBeVisible()
 })
 
-test('pedidos: si el pago manual está deshabilitado se explica el 403 (G-02)', async ({ page }) => {
+test('pedidos: con el pago en tienda deshabilitado se avisa antes de registrar', async ({
+  page,
+}) => {
   await mockAuthApi(page, staff(ALL))
   const api = await mockSalesApi(page, {
     orders: [{ code: 'K7M4-Q9XA', status: 'PENDING_PAYMENT' }],
@@ -60,9 +65,50 @@ test('pedidos: si el pago manual está deshabilitado se explica el 403 (G-02)', 
   await page.goto(`/pedidos/${api.orders[0]!.id}`)
   await page.getByRole('button', { name: 'Registrar pago' }).click()
   const dialog = page.getByRole('dialog')
+  await expect(dialog.getByText('Pago en tienda deshabilitado')).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Registrar pago' })).toBeDisabled()
+})
+
+test('pedidos: si se deshabilita mientras se registra, se explica el 403', async ({ page }) => {
+  await mockAuthApi(page, staff(ALL))
+  const api = await mockSalesApi(page, {
+    orders: [{ code: 'K7M4-Q9XA', status: 'PENDING_PAYMENT' }],
+    manualPaymentsDisabled: true,
+    staleSettings: true,
+  })
+  await login(page)
+  await page.goto(`/pedidos/${api.orders[0]!.id}`)
+  await page.getByRole('button', { name: 'Registrar pago' }).click()
+  const dialog = page.getByRole('dialog')
   await dialog.getByLabel('Comprobante').fill('Ticket 1')
   await dialog.getByRole('button', { name: 'Registrar pago' }).click()
-  await expect(dialog.getByRole('alert')).toContainText('Un superadministrador debe activarlo.')
+  await expect(dialog.getByRole('alert')).toContainText('Un superadministrador lo habilita')
+})
+
+test('pago en tienda: solo el superadministrador lo habilita (G-02)', async ({ page }) => {
+  await mockAuthApi(page, staff([...ALL, 'payments.configure']))
+  const api = await mockSalesApi(page, { orders: [], manualPaymentsDisabled: true })
+  await login(page)
+  await page.goto('/configuracion/pagos')
+  await expect(page.getByText('Deshabilitado', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Habilitar' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Habilitar' }).click()
+  await expect(page.getByText('Pago en tienda habilitado', { exact: true })).toBeVisible()
+  await expect(page.getByText('Habilitado', { exact: true })).toBeVisible()
+  expect(api.calls.find((c) => c.method === 'PUT')?.body).toEqual({
+    manualPaymentsEnabled: true,
+    version: 1,
+  })
+})
+
+test('pago en tienda: sin payments.configure es solo lectura', async ({ page }) => {
+  await mockAuthApi(page, staff(['orders.read']))
+  await mockSalesApi(page, { orders: [] })
+  await login(page)
+  await page.goto('/configuracion/pagos')
+  await expect(page.getByText('Habilitado', { exact: true })).toBeVisible()
+  await expect(page.getByText('Solo lectura')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Deshabilitar' })).toHaveCount(0)
 })
 
 test('pedidos: cancelar uno pagado inicia el reembolso y puede reintegrar', async ({ page }) => {

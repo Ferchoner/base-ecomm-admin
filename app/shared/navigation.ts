@@ -102,6 +102,13 @@ export const NAVIGATION: NavGroup[] = [
         permission: 'shipping.manage',
       },
       {
+        label: 'Pago en tienda',
+        icon: 'i-lucide-banknote',
+        to: '/configuracion/pagos',
+        // Se lee con `orders.read`, pero solo interesa a quien registra cobros o lo configura.
+        permission: 'payments.manage',
+      },
+      {
         label: 'Auditoría',
         icon: 'i-lucide-scroll-text',
         to: '/auditoria',

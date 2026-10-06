@@ -9,13 +9,17 @@ export const cancelSchema = z.object({
 })
 export type CancelForm = z.infer<typeof cancelSchema>
 
-/** `POST …/manual-capture` (API_SPEC §16.4): comprobante de 1 a 100, nota hasta 500. */
+/**
+ * `POST …/manual-capture` (API_SPEC §16.4): comprobante de 1 a 100, cómo se cobró (opcional, ADR-0161),
+ * nota hasta 500.
+ */
 export const manualCaptureSchema = z.object({
   reference: z
     .string()
     .trim()
     .min(1, 'Escribe el comprobante de la tienda.')
     .max(100, 'Máximo 100 caracteres.'),
+  method: z.enum(['CASH', 'CARD_TERMINAL', 'TRANSFER']).optional(),
   note: optionalNote,
 })
 export type ManualCaptureForm = z.infer<typeof manualCaptureSchema>

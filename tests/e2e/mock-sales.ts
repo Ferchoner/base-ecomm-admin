@@ -73,8 +73,10 @@ export interface SalesOrderSeed {
 
 export interface SalesSeed {
   orders: SalesOrderSeed[]
-  /** `MANUAL_PAYMENTS_ENABLED=false` en la API (GAPS G-02). */
+  /** Pago manual deshabilitado (API_SPEC §16.6). */
   manualPaymentsDisabled?: boolean
+  /** La configuración leída dice habilitado, pero otro cambio lo deshabilitó antes del registro. */
+  staleSettings?: boolean
 }
 
 interface Line {
@@ -411,6 +413,42 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
     meta: { page: 1, pageSize: 20, totalItems: items.length, totalPages: 1 },
   })
 
+  const settings = {
+    manualPaymentsEnabled: !seed.manualPaymentsDisabled || !!seed.staleSettings,
+    version: 1,
+    updatedAt: NOW,
+  }
+  await page.route(`${API}/v1/admin/payment-settings`, async (route) => {
+    const request = route.request()
+    if (request.method() === 'OPTIONS')
+      return route.fulfill({
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+          'Access-Control-Allow-Methods': 'GET, PUT',
+        },
+      })
+    if (request.method() === 'GET') return json(route, 200, settings)
+    const body = request.postDataJSON() as { manualPaymentsEnabled: boolean; version: number }
+    calls.push({
+      method: 'PUT',
+      path: '/v1/admin/payment-settings',
+      body,
+      query: '',
+      headers: request.headers(),
+    })
+    if (body.version !== settings.version)
+      return problem(route, 409, 'version-conflict', 'El recurso cambió', {
+        currentVersion: settings.version,
+      })
+    Object.assign(settings, {
+      manualPaymentsEnabled: body.manualPaymentsEnabled,
+      version: settings.version + 1,
+    })
+    return json(route, 200, settings)
+  })
+
   await page.route(`${API}/v1/admin/{orders,payments,shipping}**`, async (route) => {
     const request = route.request()
     const url = new URL(request.url())
@@ -477,7 +515,7 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
           return json(route, 200, orderDto(o, true))
         }
         case 'manual-capture': {
-          if (seed.manualPaymentsDisabled)
+          if (!settings.manualPaymentsEnabled || seed.staleSettings)
             return problem(
               route,
               403,
@@ -675,5 +713,5 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
     return json(route, 200, shipmentDto(s))
   })
 
-  return { calls, orders, payments, shipments }
+  return { calls, orders, payments, shipments, settings }
 }

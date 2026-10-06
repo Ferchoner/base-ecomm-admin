@@ -48,6 +48,7 @@ El permiso de ruta es solo experiencia de usuario; la API vuelve a autorizar cad
 | `/staff/[id]`               | `staff.manage`    | —                                                                                                                                     | Staff (detalle)                                       |
 | `/roles`                    | `staff.manage`    | `page`, `pageSize`, `q`, `sort`                                                                                                       | Roles                                                 |
 | `/configuracion/envio`      | `shipping.manage` | —                                                                                                                                     | Método de envío                                       |
+| `/configuracion/pagos`      | `orders.read`     | —                                                                                                                                     | Pago en tienda (cambiar: `payments.configure`)        |
 | `/auditoria`                | `audit.read`      | `action`, `actorType`, `actorId`, `result`, `resourceType`, `resourceId`, `from`, `to`                                                | Auditoría                                             |
 | `/operacion/eventos`        | `events.manage`   | `page`, `pageSize`, `status`, `eventType`, `handler`, `sort`                                                                          | Eventos                                               |
 

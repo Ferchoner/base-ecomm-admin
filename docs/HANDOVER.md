@@ -58,21 +58,18 @@ Lista clasificada (BLOCKER, REQUIRED, RECOMMENDED, OPTIONAL) en RELEASE_READINES
 
 1. **BLOCKER:** revisar y fusionar el PR con los hallazgos de la prueba contra la API real.
 2. **RECOMMENDED (backend):** margen de gracia para el refresh token recién rotado (G-18).
-3. **REQUIRED para pagos manuales:** endpoints del backend para el indicador de pago manual (G-02).
-4. **REQUIRED para producción:** hosting, dominios, HTTPS y CSP (G-07, FTR-03).
+3. **REQUIRED para producción:** hosting, dominios, HTTPS y CSP (G-07, FTR-03).
 
 ## 6. Dependencias con el backend
 
-| Tema                                | Qué se espera del backend                                                 | GAP                      |
-| ----------------------------------- | ------------------------------------------------------------------------- | ------------------------ |
-| Pago manual                         | Endpoint para consultarlo y otro para activarlo (solo superadministrador) | G-02                     |
-| OpenAPI                             | Declarar `CursorMetaDto`, `cursor`/`limit` y `quantity` del ajuste        | G-10, G-11               |
-| Reintento masivo de eventos         | Aclarar si tipo y manejador se combinan                                   | G-15                     |
-| Nombre del actor en historiales     | Opcional                                                                  | G-13                     |
-| Renovación de sesión                | Margen de gracia para el refresh token recién rotado                      | G-18                     |
-| Reintegro de stock                  | Opcional: cantidades ya reintegradas por línea en `AdminOrder`            | G-17                     |
-| Enlace de recuperación por frontend | URL propia para la tienda cuando exista                                   | G-01                     |
-| Cada cambio de contrato             | Nuevo commit fijado → `npm run api:types` → revisar features              | API_FRONTEND_CONTRACT.md |
+| Tema                                | Qué se espera del backend                                      | GAP                      |
+| ----------------------------------- | -------------------------------------------------------------- | ------------------------ |
+| Reintento masivo de eventos         | Aclarar si tipo y manejador se combinan                        | G-15                     |
+| Nombre del actor en historiales     | Opcional                                                       | G-13                     |
+| Renovación de sesión                | Margen de gracia para el refresh token recién rotado           | G-18                     |
+| Reintegro de stock                  | Opcional: cantidades ya reintegradas por línea en `AdminOrder` | G-17                     |
+| Enlace de recuperación por frontend | URL propia para la tienda cuando exista                        | G-01                     |
+| Cada cambio de contrato             | Nuevo commit fijado → `npm run api:types` → revisar features   | API_FRONTEND_CONTRACT.md |
 
 ## 7. Accesos y operación
 

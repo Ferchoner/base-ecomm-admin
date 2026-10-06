@@ -23,6 +23,8 @@ Sin versión publicada todavía: el MVP corre solo en local (G-07). La primera v
 
 - **Varios almacenes (API 1.1):** pantalla Almacenes para crear, editar la prioridad y desactivar; existencias, entradas y ajustes por almacén; transferencia entre almacenes; almacén de regreso en el reintegro; filtro y columna de almacén en Envíos.
 
+- **Pago en tienda (API 1.2 y 1.3, G-02):** pantalla para habilitar o deshabilitar el pago manual (solo superadministrador); "Registrar pago" avisa si está deshabilitado y pide cómo se cobró; el método se ve en el pedido y en el pago; el editor de roles no ofrece permisos exclusivos del superadministrador.
+
 ### Corregido
 
 - El detalle de un pedido de entrega en tienda fallaba porque no tiene dirección ni plazo de entrega; ahora lo explica, también cuando el comprador no dio sus datos.

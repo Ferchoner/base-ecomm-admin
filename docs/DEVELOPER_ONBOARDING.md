@@ -21,7 +21,6 @@ cp .env.example .env
 # En .env del backend:
 #   CORS_ALLOWED_ORIGINS=http://localhost:3001     # origen del backoffice
 #   FRONTEND_BASE_URL=http://localhost:3001        # enlaces de recuperación al backoffice (G-01)
-#   MANUAL_PAYMENTS_ENABLED=true                   # solo si vas a probar pagos manuales (G-02)
 docker compose up --build
 docker compose exec api npm run db:migrate:deploy
 docker compose exec api node dist/scripts/import-geo-catalog.js data/inegi/municipios-2026-06.csv
@@ -105,7 +104,7 @@ docs/               documentación del proyecto (índice en HANDOVER.md)
 | "No se pudo conectar con la API" en el login            | API apagada, URL distinta en `.env` o el origen no está en `CORS_ALLOWED_ORIGINS` del backend           |
 | Cambié `.env` y no se nota en el build                  | `NUXT_PUBLIC_API_BASE_URL` se fija al construir (D-019): vuelve a correr `npm run build`                |
 | "Esta cuenta no tiene acceso al backoffice"             | Es una cuenta de cliente; usa una de staff                                                              |
-| Registrar pago responde 403 "pago manual deshabilitado" | `MANUAL_PAYMENTS_ENABLED=false` en el backend (G-02)                                                    |
+| Registrar pago responde 403 "pago manual deshabilitado" | Un superadministrador lo habilita en Administración > Pago en tienda (G-02, ADR-0162)                   |
 | El enlace de recuperación abre otra URL                 | `FRONTEND_BASE_URL` del backend no apunta al backoffice (G-01)                                          |
 | `npm run api:types` falla con TypeScript 7              | TS está fijado en `~5.9` (D-018); no lo actualices                                                      |
 | E2E: `ENOENT` en `test-results` o trazas perdidas       | Dos corridas de Playwright a la vez comparten `test-results`; corre una sola                            |

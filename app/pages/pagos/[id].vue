@@ -3,7 +3,12 @@ import { usePayment } from '~/features/payments/api'
 import ManualRefundModal from '~/features/payments/components/ManualRefundModal.vue'
 import { canRegisterManualRefund } from '~/features/payments/status'
 import { useSessionStore } from '~/shared/auth/session.store'
-import { PAYMENT_PROVIDER, PAYMENT_STATUS, REFUND_STATUS } from '~/shared/status/sales'
+import {
+  PAYMENT_METHOD,
+  PAYMENT_PROVIDER,
+  PAYMENT_STATUS,
+  REFUND_STATUS,
+} from '~/shared/status/sales'
 import { formatDateTime } from '~/shared/utils/dates'
 import { formatMoney } from '~/shared/utils/money'
 
@@ -77,6 +82,7 @@ const offerRefund = computed(
                 <StatusBadge :value="a.status" :styles="PAYMENT_STATUS" />
                 <span class="text-muted">{{ formatDateTime(a.createdAt) }}</span>
                 <span v-if="a.providerReference">Comprobante: {{ a.providerReference }}</span>
+                <span v-if="a.method">{{ PAYMENT_METHOD[a.method] ?? a.method }}</span>
                 <span v-if="a.failureCode" class="text-error">{{ a.failureCode }}</span>
                 <span v-if="a.registeredBy" class="text-xs text-muted"
                   >Registrado por el staff</span

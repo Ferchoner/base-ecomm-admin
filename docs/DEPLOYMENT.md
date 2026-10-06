@@ -33,12 +33,11 @@ Como el build es estático, **cada ambiente necesita su propio build**. No hay o
 
 Del lado del backend, en cada ambiente:
 
-| Variable del backend      | Valor                                                                                                    |
-| ------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `CORS_ALLOWED_ORIGINS`    | Debe incluir el origen exacto del backoffice (esquema, host y puerto)                                    |
-| `FRONTEND_BASE_URL`       | El origen del backoffice, para que los enlaces de recuperación lleguen a `/reset-password` (G-01, D-032) |
-| `IMAGE_BASE_URL`          | Origen de las imágenes; debe permitirse en `img-src` de la CSP                                           |
-| `MANUAL_PAYMENTS_ENABLED` | Decide si "Registrar pago" y "Reembolso manual" funcionan (G-02)                                         |
+| Variable del backend   | Valor                                                                                                    |
+| ---------------------- | -------------------------------------------------------------------------------------------------------- |
+| `CORS_ALLOWED_ORIGINS` | Debe incluir el origen exacto del backoffice (esquema, host y puerto)                                    |
+| `FRONTEND_BASE_URL`    | El origen del backoffice, para que los enlaces de recuperación lleguen a `/reset-password` (G-01, D-032) |
+| `IMAGE_BASE_URL`       | Origen de las imágenes; debe permitirse en `img-src` de la CSP                                           |
 
 ## Ejecución local (el único ambiente del MVP)
 

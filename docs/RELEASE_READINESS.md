@@ -30,22 +30,21 @@ No se declara production-ready: no hay evidencia de un ambiente publicado con HT
 
 ## Pendientes
 
-| Pendiente                                                                     | Clasificación                | Responsable sugerido    | Referencia                   |
-| ----------------------------------------------------------------------------- | ---------------------------- | ----------------------- | ---------------------------- |
-| Revisar y fusionar el PR con los hallazgos de la prueba contra la API real    | BLOCKER                      | Usuario                 | QA_REPORT.md                 |
-| Margen de gracia para el refresh token recién rotado                          | RECOMMENDED                  | Backend                 | G-18, FTR-16                 |
-| Cantidades ya reintegradas por línea en `AdminOrder`                          | OPTIONAL                     | Backend                 | G-17                         |
-| Endpoints para consultar y activar el pago manual, y su pantalla              | REQUIRED para pagos manuales | Backend, luego frontend | G-02, D-033, FTR-04          |
-| Definir hosting, dominios, URLs de la API y pipeline de despliegue            | REQUIRED para producción     | Usuario                 | G-07, DEPLOYMENT.md          |
-| Aplicar HTTPS, CSP y encabezados de seguridad en ese ambiente                 | REQUIRED para producción     | Quien despliegue        | FTR-03, FRONTEND_SECURITY.md |
-| Corregir `CursorMetaDto` y `quantity` de `AdjustmentDto` en el OpenAPI        | RECOMMENDED                  | Backend                 | G-10, G-11                   |
-| Revisión manual con lector de pantalla                                        | RECOMMENDED                  | QA                      | QA_REPORT, G-14              |
-| Actualizar Nuxt cuando corrija las vulnerabilidades de build                  | RECOMMENDED                  | Frontend                | FTR-02, QA-05                |
-| Ocultar "Reintentar" en un 404 de detalle                                     | OPTIONAL                     | Frontend                | FTR-07                       |
-| Sacar tablas y filtros de las páginas de listado a componentes de feature     | OPTIONAL                     | Frontend                | FTR-05                       |
-| Firefox y WebKit en Playwright                                                | OPTIONAL                     | Frontend                | FTR-09                       |
-| Respuestas del backend a G-13 (nombre del actor) y G-15 (reintento combinado) | OPTIONAL                     | Backend                 | GAPS.md                      |
-| Monitoreo de errores del frontend                                             | OPTIONAL                     | Usuario                 | FTR-15                       |
+| Pendiente                                                                     | Clasificación            | Responsable sugerido | Referencia                   |
+| ----------------------------------------------------------------------------- | ------------------------ | -------------------- | ---------------------------- |
+| Revisar y fusionar el PR con los hallazgos de la prueba contra la API real    | BLOCKER                  | Usuario              | QA_REPORT.md                 |
+| Margen de gracia para el refresh token recién rotado                          | RECOMMENDED              | Backend              | G-18, FTR-16                 |
+| Cantidades ya reintegradas por línea en `AdminOrder`                          | OPTIONAL                 | Backend              | G-17                         |
+| Definir hosting, dominios, URLs de la API y pipeline de despliegue            | REQUIRED para producción | Usuario              | G-07, DEPLOYMENT.md          |
+| Aplicar HTTPS, CSP y encabezados de seguridad en ese ambiente                 | REQUIRED para producción | Quien despliegue     | FTR-03, FRONTEND_SECURITY.md |
+| Corregir `CursorMetaDto` y `quantity` de `AdjustmentDto` en el OpenAPI        | RECOMMENDED              | Backend              | G-10, G-11                   |
+| Revisión manual con lector de pantalla                                        | RECOMMENDED              | QA                   | QA_REPORT, G-14              |
+| Actualizar Nuxt cuando corrija las vulnerabilidades de build                  | RECOMMENDED              | Frontend             | FTR-02, QA-05                |
+| Ocultar "Reintentar" en un 404 de detalle                                     | OPTIONAL                 | Frontend             | FTR-07                       |
+| Sacar tablas y filtros de las páginas de listado a componentes de feature     | OPTIONAL                 | Frontend             | FTR-05                       |
+| Firefox y WebKit en Playwright                                                | OPTIONAL                 | Frontend             | FTR-09                       |
+| Respuestas del backend a G-13 (nombre del actor) y G-15 (reintento combinado) | OPTIONAL                 | Backend              | GAPS.md                      |
+| Monitoreo de errores del frontend                                             | OPTIONAL                 | Usuario              | FTR-15                       |
 
 ## Riesgos conocidos
 

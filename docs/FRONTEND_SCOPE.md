@@ -25,19 +25,17 @@ Uso del contrato: 79 de las 80 operaciones `/v1/admin` más las de autenticació
 
 ## Incluido pero limitado por la API
 
-| Caso                                                      | Limitación                                                                                | Referencia |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ---------- |
-| Registrar pago o reembolso manual                         | Se ofrece con `payments.manage`; si el backend lo tiene apagado responde 403 y se explica | G-02       |
-| Precio en el listado de productos                         | No se muestra (N+1); el precio está en Precios y en el detalle                            | G-04       |
-| Precios e inventario sin `catalog.read`                   | Solo importación CSV en Precios; no se buscan variantes sin existencias                   | G-12       |
-| Quién hizo un cambio en historiales de pedido y pago      | Se muestra "Por el staff"; el nombre está en Auditoría                                    | G-13       |
-| Tablero                                                   | Solo conteos; sin ventas, ingresos ni tendencias                                          | G-03       |
-| Reintento masivo de eventos con tipo y manejador a la vez | Se asume que se combinan (ASSUMPTION)                                                     | G-15       |
+| Caso                                                      | Limitación                                                              | Referencia |
+| --------------------------------------------------------- | ----------------------------------------------------------------------- | ---------- |
+| Precio en el listado de productos                         | No se muestra (N+1); el precio está en Precios y en el detalle          | G-04       |
+| Precios e inventario sin `catalog.read`                   | Solo importación CSV en Precios; no se buscan variantes sin existencias | G-12       |
+| Quién hizo un cambio en historiales de pedido y pago      | Se muestra "Por el staff"; el nombre está en Auditoría                  | G-13       |
+| Tablero                                                   | Solo conteos; sin ventas, ingresos ni tendencias                        | G-03       |
+| Reintento masivo de eventos con tipo y manejador a la vez | Se asume que se combinan (ASSUMPTION)                                   | G-15       |
 
 ## Fuera de alcance
 
 - Todo lo que no tiene API (PRODUCT_DEFINITION.md, "Fuera del producto").
-- Pantalla para activar el pago manual: se construye cuando el backend publique los endpoints (G-02, D-033).
 - Reintento de reembolsos con el proveedor: `…/refunds/retry` está pendiente en el backend (T-192).
 - Varios idiomas o monedas (D-036).
 - Datos sin conexión, sincronización en segundo plano, notificaciones push (PWA_STRATEGY.md).

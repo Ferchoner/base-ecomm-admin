@@ -103,6 +103,7 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 
 - **Evidencia:** `AdjustmentDto` en `openapi/v1.json` declara `variantId`, `warehouseId`, `reasonCode` y `note`, pero no `quantity`; API_SPEC §13 la exige (entero con signo, distinto de 0, ±1 a ±100,000).
 - **Resolución:** por prioridad de fuentes se envía `quantity` (tipo `AdjustmentInput` en `app/features/inventory/types.ts`).
+- **Prueba contra la API real (2026-10-06):** la API acepta `quantity` y aplica el ajuste (existencia de 20 a 18). El conflicto es solo del OpenAPI.
 - **Pregunta pendiente:** ¿se agrega la propiedad al DTO del backend?
 
 ### G-12 · Precios por variante requieren permiso de catálogo — GAP (relacionado con G-04)
@@ -115,6 +116,7 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 
 - **Evidencia:** `statusHistory[].actorId`, `attempts[].registeredBy` y `refunds[].registeredBy` traen solo el ID de la cuenta. Resolver nombres exige `GET /v1/admin/identity/staff/{id}` (`staff.manage`), que la mayoría de los roles operativos no tiene.
 - **Workaround (F4):** se muestra "Por el staff" o "Automático" (sin actor). La auditoría (F6) es el lugar para saber quién hizo qué.
+- **Prueba contra la API real (2026-10-06):** tras un pago en tienda, la entrada "Pagado" del historial llega sin `actorId` y se ve "Automático"; quién lo registró está en `attempts[].registeredBy` del pago (QA-13).
 - **Pregunta pendiente:** ¿se agrega el nombre del actor a estas respuestas?
 
 ### G-14 · Opciones deshabilitadas sin `aria-disabled` en los selectores — limitación de Nuxt UI
@@ -133,6 +135,21 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 
 - **Evidencia:** `EventDeliveryDto` declara `nextAttemptAt` obligatorio y no nulo ("cuándo se reintenta, si está pendiente"), y el ejemplo de API_SPEC §22.1 lo trae en una entrega FAILED, que ya no se reintenta sola.
 - **Resolución:** el frontend solo lo muestra en las PENDING; en las FAILED muestra "Sin reintentos automáticos".
+
+### G-17 · `AdminOrder` sin cantidades ya reintegradas — GAP menor
+
+- **Evidencia:** `AdminOrderDto` no trae por línea cuánto se reintegró. API_SPEC §15 limita el reintegro a lo vendido menos lo ya reintegrado, pero el frontend no puede calcularlo.
+- **Prueba contra la API real (2026-10-06):** después de reintegrar todo lo vendido, "Reintegrar stock" se sigue ofreciendo; la API responde 409 `restock-not-allowed` ("vendidas 1, ya reintegradas 1, pedidas 1") y el diálogo lo muestra (QA-12).
+- **Workaround:** el diálogo avisa que la API no permite reintegrar más de lo vendido contando reintegros anteriores.
+- **Pregunta pendiente:** ¿se agrega `restockedQuantity` por línea a `AdminOrderDto`? Con eso el frontend ocultaría la acción y limitaría cada cantidad.
+
+### G-18 · Respuesta de renovación perdida revoca la sesión — GAP (backend)
+
+- **Evidencia:** API_SPEC §9.6 revoca toda la sesión si un refresh token se usa dos veces. Si la pestaña se recarga o se cierra después de enviar `POST /v1/auth/refresh` y antes de recibir la respuesta, la API ya rotó el token y el nuevo se pierde; la siguiente renovación usa el anterior y se revoca la sesión en todas las pestañas.
+- **Prueba contra la API real (2026-10-06):** reproducido de forma determinista (QA-08). Las renovaciones entre pestañas, en cambio, funcionan: 82 rotaciones seguidas con tres pestañas sin un 401.
+- **Impacto:** el staff vuelve al login sin perder datos guardados. Con el TTL por defecto (15 min) la ventana es la duración de una renovación, pero también ocurre al recargar dos veces muy rápido.
+- **Workaround:** ninguno posible en el frontend: la respuesta perdida no se puede recuperar.
+- **Propuesta para el backend:** aceptar durante unos segundos el refresh token recién rotado (margen de gracia) y responder con el mismo par nuevo, en lugar de tratarlo como reutilización.
 
 ## Comportamientos que el frontend debe respetar (no son gaps)
 

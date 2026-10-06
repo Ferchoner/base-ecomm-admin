@@ -167,6 +167,18 @@ describe('sesión', () => {
     expect(session.accessToken).toBe('at-2')
   })
 
+  it('con un TTL corto renueva a la mitad del TTL, no cada 5 segundos', async () => {
+    const gateway = fakeGateway({
+      login: vi.fn(async () => ({ ...authResult(), accessTokenExpiresIn: 60 })),
+    })
+    const { session } = setup(gateway)
+    await session.login({ email: 'staff@example.com', password: 'x' })
+    await vi.advanceTimersByTimeAsync(29_000)
+    expect(gateway.refresh).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(gateway.refresh).toHaveBeenCalledTimes(1)
+  })
+
   it('cierra sesión aunque la API falle', async () => {
     const gateway = fakeGateway({
       logout: vi.fn(async () => {

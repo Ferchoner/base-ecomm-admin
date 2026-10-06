@@ -16,6 +16,7 @@ Sin versión publicada todavía: el MVP corre solo en local (G-07). La primera v
 - **Clientes, staff y roles (F5, PR #8):** suspender, reactivar y anonimizar clientes e invitados; alta de staff con contraseña temporal; roles con permisos propios.
 - **Operación (F6, PR #9):** Inicio con conteos por permiso, método de envío, entregas de eventos con reintentos, auditoría con cursor.
 - **QA y PWA (PR #10):** PWA online-first instalable con aviso de versión nueva y franja sin conexión; pruebas de accesibilidad (axe, WCAG 2.1 A/AA) en todas las pantallas; pruebas de PWA; estrategia de pruebas, matriz de casos y reporte de QA.
+- **Prueba contra la API real:** recorrido completo del checklist de release con `base-shop` en local, registrado en el reporte de QA.
 - **Documentación y release:** documentación del frontend sincronizada con el código, onboarding, despliegue, checklist de release, revisión técnica final, preparación del release y handover.
 
 ### Corregido
@@ -24,6 +25,9 @@ Sin versión publicada todavía: el MVP corre solo en local (G-07). La primera v
 - Contraste insuficiente en el tema claro y en placeholders del oscuro (QA-02).
 - Región con scroll sin acceso por teclado en el detalle de una entrega (QA-03).
 - Los toasts de error del servidor ahora muestran la referencia de soporte (`correlationId`).
+- El formulario de un producto ya no borra los cambios sin guardar cuando el producto se vuelve a consultar; avisa y ofrece descartarlos (QA-09).
+- Con un token de acceso de 60 segundos o menos, cada pestaña ya no renueva cada 5 segundos (QA-10).
+- Doble punto en el aviso de precio programado (QA-11).
 
 ### Eliminado
 

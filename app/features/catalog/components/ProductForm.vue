@@ -28,11 +28,29 @@ function initialState(p?: Product): ProductForm {
   }
 }
 
-const state = reactive<ProductForm>(initialState(props.product))
-// Al recargar el producto (otra pestaña, conflicto de versión) el formulario muestra lo actual.
+// Versión del producto que el usuario está editando: el diff y la `version` enviada salen de aquí.
+const base = shallowRef(props.product)
+const state = reactive<ProductForm>(initialState(base.value))
+
+function isDirty() {
+  return JSON.stringify(state) !== JSON.stringify(initialState(base.value))
+}
+
+function load(p?: Product) {
+  base.value = p
+  Object.assign(state, initialState(p))
+}
+
+// Al recargar el producto (otra pestaña, una acción del encabezado) el formulario muestra lo actual,
+// salvo que haya cambios sin guardar: se conservan y se avisa que la versión quedó atrás.
 watch(
   () => props.product,
-  (p) => Object.assign(state, initialState(p)),
+  (p) => {
+    if (!isDirty()) load(p)
+  },
+)
+const stale = computed(
+  () => !!props.product && !!base.value && props.product.version !== base.value.version,
 )
 
 const slugLocked = computed(() => !!props.product?.firstPublishedAt)
@@ -99,14 +117,15 @@ async function onSubmit(event: FormSubmitEvent<z.output<typeof productSchema>>) 
   const data = event.data
   try {
     let saved: Product
-    if (props.product) {
-      const diff = changes(data, props.product)
+    if (base.value) {
+      const diff = changes(data, base.value)
       if (Object.keys(diff).length === 0) {
         toast.add({ title: 'No hay cambios que guardar', color: 'neutral', icon: 'i-lucide-info' })
         return
       }
       // Siempre la versión leída: un 409 indica que otro usuario guardó antes (API_SPEC §2.3).
-      saved = await update.mutateAsync({ ...diff, version: props.product.version })
+      saved = await update.mutateAsync({ ...diff, version: base.value.version })
+      load(saved)
       notifySuccess(toast, 'Producto actualizado')
     } else {
       saved = await create.mutateAsync({
@@ -125,7 +144,7 @@ async function onSubmit(event: FormSubmitEvent<z.output<typeof productSchema>>) 
     emit('saved', saved)
   } catch (error) {
     const p = error as ApiProblem
-    if (p.type === 'version-conflict') return notifyProblem(toast, p)
+    if (p.type === 'version-conflict') return notifyProblem(toast, p, () => load(props.product))
     const { fieldErrors, otherMessages: rest } = problemFieldErrors(p, FIELDS)
     form.value?.setErrors(fieldErrors)
     otherMessages.value = rest
@@ -144,6 +163,22 @@ async function onSubmit(event: FormSubmitEvent<z.output<typeof productSchema>>) 
     @submit="onSubmit"
   >
     <ProblemAlert v-if="problem" :problem="problem" :messages="otherMessages" />
+    <UAlert
+      v-if="stale"
+      color="warning"
+      variant="subtle"
+      icon="i-lucide-git-compare"
+      title="El producto cambió mientras lo editabas"
+      description="Tus cambios siguen aquí, pero la API rechazará guardarlos sobre la versión anterior."
+      :actions="[
+        {
+          label: 'Descartar mis cambios',
+          color: 'warning',
+          variant: 'outline',
+          onClick: () => load(props.product),
+        },
+      ]"
+    />
 
     <UFormField label="Título" name="title" required>
       <UInput v-model="state.title" class="w-full" :autofocus="!product" />

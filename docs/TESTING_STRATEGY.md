@@ -48,6 +48,6 @@ En entornos con Chromium ya instalado: `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/ruta/a/c
 
 ## Fuera de alcance
 
-- Pruebas contra la API real (no hay ambiente compartido: G-07, solo local).
+- Pruebas automatizadas contra la API real (no hay ambiente compartido: G-07, solo local). La corrida manual en local está en QA_REPORT.md.
 - Pruebas de carga o rendimiento.
 - Navegadores distintos de Chromium.

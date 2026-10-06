@@ -64,7 +64,7 @@ async function onSubmit(event: FormSubmitEvent<PriceForm>) {
       toast,
       period.state === 'SCHEDULED' ? 'Precio programado' : 'Precio actualizado',
       period.state === 'SCHEDULED'
-        ? `Empieza el ${formatDateTime(period.effectiveFrom)}.`
+        ? `Empieza el ${formatDateTime(period.effectiveFrom)}`
         : undefined,
     )
     Object.assign(state, { amount: '', compareAtAmount: '', effectiveFrom: '' })

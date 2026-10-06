@@ -1,7 +1,7 @@
 # PROJECT_STATE
 
-**Última actualización:** 2026-10-05
-**Fase actual:** DELIVER · F0 a F6 y QA/PWA fusionados (PR #1 a #10); documentación y release en revisión.
+**Última actualización:** 2026-10-06
+**Fase actual:** DELIVER · F0 a F6, QA/PWA y documentación fusionados (PR #1 a #11); prueba contra la API real hecha, con sus correcciones en revisión.
 **Release:** versión candidata `0.1.0`, sin publicar. **No está lista para producción** (RELEASE_READINESS.md).
 
 ## Proceso
@@ -14,8 +14,8 @@
 | DESIGN    | ✅ Nuxt UI como sistema de diseño | DESIGN_SYSTEM.md, INFORMATION_ARCHITECTURE.md, SCREEN_INVENTORY.md |
 | IMPLEMENT | ✅ F0–F6 fusionados               | Repo `Ferchoner/base-ecomm-admin`                                  |
 | TEST      | ✅ QA y PWA fusionados            | TESTING_STRATEGY.md, QA_REPORT.md, PWA_STRATEGY.md                 |
-| REVIEW    | ✅ Hecho (en PR)                  | FINAL_TECHNICAL_REVIEW.md: 0 CRITICAL, 1 HIGH, 3 MEDIUM            |
-| DOCUMENT  | ✅ Hecho (en PR)                  | Docs sincronizados con el código; HANDOVER.md                      |
+| REVIEW    | ✅ Hecho                          | FINAL_TECHNICAL_REVIEW.md: 0 CRITICAL, 0 HIGH, 4 MEDIUM            |
+| DOCUMENT  | ✅ Hecho                          | Docs sincronizados con el código; HANDOVER.md                      |
 | DELIVER   | ⚠️ Solo local                     | RELEASE_READINESS.md, DEPLOYMENT.md, RELEASE_CHECKLIST.md          |
 
 ## Hallazgos clave
@@ -96,13 +96,21 @@
 - Documentos: TESTING_STRATEGY.md, TEST_CASE_MATRIX.md, QA_REPORT.md, PWA_STRATEGY.md.
 - Calidad: 79 pruebas unitarias; 161 ejecuciones E2E (incluye accesibilidad y PWA) en escritorio y móvil.
 
-## Documentación, revisión y release — en PR
+## Documentación, revisión y release — fusionado (PR #11)
 
 - Documentación sincronizada con el código real: PRODUCT_DEFINITION, FRONTEND_SCOPE, INFORMATION_ARCHITECTURE, ROUTE_MAP, SCREEN_INVENTORY, DESIGN_SYSTEM, TECHNOLOGY_DECISION, FRONTEND_ARCHITECTURE, API_FRONTEND_CONTRACT, API_CLIENT_ARCHITECTURE, AUTHENTICATION, AUTHORIZATION_MATRIX, FRONTEND_SECURITY (D-061).
 - DEVELOPER_ONBOARDING, DEPLOYMENT (solo local; hosting NO DOCUMENTADO, D-062), RELEASE_CHECKLIST, `CHANGELOG.md`, HANDOVER.
 - FINAL_TECHNICAL_REVIEW: 0 CRITICAL, 1 HIGH (falta probar contra la API real), 3 MEDIUM (dependencias de build, controles de servidor sin ambiente, pago manual G-02), 5 LOW y 4 INFO abiertos. Se corrigieron dos: referencia de soporte en toasts de error 5xx y el indicador "Próximamente" sobrante (D-064).
 - RELEASE_READINESS: listo para pruebas de aceptación en local; no listo para producción.
 - Calidad: 80 pruebas unitarias; E2E, accesibilidad y PWA en escritorio y móvil.
+
+## Prueba contra la API real — en PR (2026-10-06)
+
+- `base-shop` `a46829b` en local con PostgreSQL 18 y Mailpit; recorrido completo de RELEASE_CHECKLIST.md §3 (QA_REPORT.md).
+- Todos los módulos funcionan contra la API real; G-11 confirmado como conflicto solo del OpenAPI.
+- Corregido: formulario de producto que borraba cambios sin guardar (D-065), renovación cada 5 s con TTL corto (D-066), doble punto en el aviso de precio programado.
+- Nuevos: G-17 (cantidades reintegradas en `AdminOrder`) y G-18 (renovación interrumpida revoca la sesión; FTR-16).
+- Calidad: 83 pruebas unitarias; E2E, accesibilidad y PWA en escritorio y móvil.
 
 ## Decisiones del usuario (2026-10-05)
 
@@ -112,12 +120,14 @@ G-01, G-06, G-07, G-09 resueltos; G-02 y G-10 quedan como cambios del backend (D
 
 1. Endpoints para consultar y activar o desactivar el pago manual, solo superadministrador (G-02).
 2. Declarar `CursorMetaDto` y los parámetros `cursor`/`limit` en el OpenAPI (G-10) y `quantity` en `AdjustmentDto` (G-11).
+3. Margen de gracia para el refresh token recién rotado (G-18).
+4. Opcional: cantidades ya reintegradas por línea en `AdminOrder` (G-17).
 
 ## Siguiente paso
 
-1. Revisar y fusionar el PR de documentación y release.
-2. Probar contra la API real de `base-shop` en local (RELEASE_CHECKLIST.md §3; FTR-01).
-3. Con el backend: endpoints del pago manual (G-02) y correcciones del OpenAPI (G-10, G-11).
+1. Revisar y fusionar el PR con los hallazgos de la prueba contra la API real.
+2. Con el backend: endpoints del pago manual (G-02), correcciones del OpenAPI (G-10, G-11) y margen de gracia de la renovación (G-18).
+3. Opcional: reintentar una entrega de eventos fallida con la API real cuando haya una.
 4. Para producción: decidir hosting, dominios y pipeline (G-07) y aplicar HTTPS y CSP (FTR-03).
 
 Pendientes clasificados en RELEASE_READINESS.md.

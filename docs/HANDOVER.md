@@ -7,9 +7,9 @@ Entrega técnica del backoffice para quien lo mantenga. Empieza por la sección 
 ## 1. En una página
 
 - **Qué es:** SPA estática (Nuxt 4, Vue 3, TypeScript estricto, Nuxt UI 4) instalable como PWA, para que el staff opere la tienda `base-shop` a través de su API REST `/v1`. Sin servidor ni base de datos propios.
-- **Estado:** alcance aprobado F0–F6, QA y PWA construidos y fusionados (PR #1–#10); documentación y release en revisión. **No está en producción ni lista para ella** (RELEASE_READINESS.md).
+- **Estado:** alcance aprobado F0–F6, QA y PWA construidos y fusionados (PR #1–#11); probado contra la API real en local el 2026-10-06 (QA_REPORT.md). **No está en producción ni lista para ella** (RELEASE_READINESS.md).
 - **Ambiente:** solo local por decisión del usuario (D-035).
-- **Primer paso para quien llega:** DEVELOPER_ONBOARDING.md (levantar API y backoffice) y RELEASE_CHECKLIST.md §3 (prueba contra la API real, la tarea más importante pendiente).
+- **Primer paso para quien llega:** DEVELOPER_ONBOARDING.md (levantar API y backoffice) y RELEASE_CHECKLIST.md §3 (prueba contra la API real, para repetirla al cambiar el contrato).
 
 ## 2. Documentación
 
@@ -56,8 +56,8 @@ Entrega técnica del backoffice para quien lo mantenga. Empieza por la sección 
 
 Lista clasificada (BLOCKER, REQUIRED, RECOMMENDED, OPTIONAL) en RELEASE_READINESS.md. Lo principal:
 
-1. **BLOCKER:** revisar y fusionar el PR de documentación y release.
-2. **REQUIRED:** prueba contra la API real (FTR-01).
+1. **BLOCKER:** revisar y fusionar el PR con los hallazgos de la prueba contra la API real.
+2. **RECOMMENDED (backend):** margen de gracia para el refresh token recién rotado (G-18).
 3. **REQUIRED para pagos manuales:** endpoints del backend para el indicador de pago manual (G-02).
 4. **REQUIRED para producción:** hosting, dominios, HTTPS y CSP (G-07, FTR-03).
 
@@ -69,6 +69,8 @@ Lista clasificada (BLOCKER, REQUIRED, RECOMMENDED, OPTIONAL) en RELEASE_READINES
 | OpenAPI                             | Declarar `CursorMetaDto`, `cursor`/`limit` y `quantity` del ajuste        | G-10, G-11               |
 | Reintento masivo de eventos         | Aclarar si tipo y manejador se combinan                                   | G-15                     |
 | Nombre del actor en historiales     | Opcional                                                                  | G-13                     |
+| Renovación de sesión                | Margen de gracia para el refresh token recién rotado                      | G-18                     |
+| Reintegro de stock                  | Opcional: cantidades ya reintegradas por línea en `AdminOrder`            | G-17                     |
 | Enlace de recuperación por frontend | URL propia para la tienda cuando exista                                   | G-01                     |
 | Cada cambio de contrato             | Nuevo commit fijado → `npm run api:types` → revisar features              | API_FRONTEND_CONTRACT.md |
 

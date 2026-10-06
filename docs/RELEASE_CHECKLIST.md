@@ -19,6 +19,8 @@
 
 ## 3. Prueba contra la API real
 
+Última corrida: 2026-10-06 con `base-shop` `a46829b`, resultados en QA_REPORT.md.
+
 - [ ] API de `base-shop` del commit fijado levantada (local, G-07) con el origen del backoffice en `CORS_ALLOWED_ORIGINS`.
 - [ ] Login de staff, cambio de contraseña temporal y cierre de sesión.
 - [ ] Recuperar contraseña con el enlace de Mailpit (`FRONTEND_BASE_URL` apuntando al backoffice).

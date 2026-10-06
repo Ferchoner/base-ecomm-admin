@@ -1,6 +1,6 @@
 # TEST_CASE_MATRIX
 
-**Última actualización:** 2026-10-05. Cada caso E2E corre en escritorio y en móvil. Rutas de archivo relativas a `tests/`.
+**Última actualización:** 2026-10-06. Cada caso E2E corre en escritorio y en móvil. Rutas de archivo relativas a `tests/`.
 
 Leyenda de cobertura: ✓ probado · — no aplica · ○ pendiente (ver QA_REPORT).
 
@@ -23,7 +23,9 @@ Leyenda de cobertura: ✓ probado · — no aplica · ○ pendiente (ver QA_REPO
 | Aspecto                                  | Cobertura | Evidencia                                                                                      |
 | ---------------------------------------- | --------- | ---------------------------------------------------------------------------------------------- |
 | Renovación single-flight entre llamadas  | ✓         | `unit/shared/session.store.spec.ts`                                                            |
-| Renovación entre pestañas (Web Locks)    | ○         | Solo revisión de código; Playwright no prueba varias pestañas con la misma sesión              |
+| Renovación entre pestañas (Web Locks)    | ✓         | Manual contra la API real con tres pestañas (QA_REPORT.md); sin E2E con la API simulada        |
+| Cambios sin guardar ante una recarga     | ✓         | `ProductForm` en `unit/catalog/catalog.spec.ts`                                                |
+| Contra la API real                       | ✓         | Corrida manual del 2026-10-06 (QA_REPORT.md); reintento de eventos pendiente                   |
 | `version` en recursos versionados        | ✓         | Cuerpos verificados en `catalog`, `sales`, `identity` y `operations`                           |
 | Sin reintentos automáticos de mutaciones | ✓         | `mutations.retry: false`; `e2e/pwa.spec.ts` prueba que sin conexión no se envían al reconectar |
 | Enumeraciones desconocidas               | ✓         | `StatusBadge` en `unit/catalog/catalog.spec.ts`                                                |

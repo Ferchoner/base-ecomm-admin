@@ -10,8 +10,7 @@ export const auditKeys = {
 }
 
 /**
- * Auditoría con paginación por cursor (API_SPEC §5.2), de la más reciente a la más antigua. El
- * OpenAPI no declara `cursor` ni `limit` (G-10); se envían según API_SPEC.
+ * Auditoría con paginación por cursor (API_SPEC §5.2), de la más reciente a la más antigua.
  */
 export function useAuditLog(filters: MaybeRefOrGetter<AuditFilters>) {
   const api = useApi()

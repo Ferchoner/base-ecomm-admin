@@ -1,6 +1,6 @@
 # GAPS
 
-Comparación del contrato real (API_SOURCE_OF_TRUTH.md, commit `a46829b`) con las necesidades de un backoffice e-commerce.
+Comparación del contrato real (API_SOURCE_OF_TRUTH.md, commit `ff10406`; hasta el 2026-10-06, `a46829b`) con las necesidades de un backoffice e-commerce.
 
 Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTADO · ASSUMPTION · BLOCKER.
 
@@ -16,7 +16,7 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 | Categorías (árbol) y marcas                                                          | AVAILABLE | `/v1/admin/catalog/categories`, `/brands`                                | Sin GET individual; el detalle sale del árbol/listado       |
 | Precios por variante, programados, importación CSV                                   | AVAILABLE | `/v1/admin/pricing/**`                                                   | Solo lista `GENERAL`; sin alta/edición de listas (ADR-0039) |
 | Precio visible en listado de productos                                               | GAP       | —                                                                        | Ver G-04                                                    |
-| Stock, movimientos, entradas, ajustes, almacén                                       | AVAILABLE | `/v1/admin/inventory/**`                                                 | Un solo almacén (ADR-0081)                                  |
+| Stock, movimientos, entradas, ajustes, almacén                                       | AVAILABLE | `/v1/admin/inventory/**`                                                 | Varios almacenes con prioridad (ADR-0160)                   |
 | Pedidos: listado, detalle, cancelar, reintentar surtido, reintegro, datos bloqueados | AVAILABLE | `/v1/admin/orders/**`                                                    |                                                             |
 | Pago manual (captura)                                                                | AVAILABLE | `POST /v1/admin/orders/{id}/manual-capture`                              | Ver G-02                                                    |
 | Pagos: listado, detalle, reembolso manual                                            | AVAILABLE | `/v1/admin/payments/**`                                                  |                                                             |
@@ -92,19 +92,20 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 
 - API en español (mensajes de error en español, moneda MXN, geografía de México). Confirmado por el usuario (2026-10-05): UI solo en español (es-MX) y pesos mexicanos, sin módulo i18n en el MVP (DECISIONS D-036).
 
-### G-10 · `CursorMetaDto` vacío en el OpenAPI — DOCUMENTATION CONFLICT menor (corrección en backend)
+### G-10 · `CursorMetaDto` vacío en el OpenAPI — RESUELTO
 
 - **Evidencia:** en `openapi/v1.json`, `CursorMetaDto` no declara propiedades; API_SPEC §5.2 define `{ limit, nextCursor }`.
 - **Resolución:** por prioridad de fuentes, se usa API_SPEC §5.2 (tipo `CursorMeta` declarado a mano en `app/shared/api/types.ts`). Afecta auditoría (F6) y movimientos de stock (F3).
 - **También (F3):** el OpenAPI no declara los parámetros `cursor` y `limit` en `GET …/stock-items/{id}/movements` (ni en auditoría); se envían según API_SPEC §5.2.
 - **Decisión del usuario (2026-10-05):** el backend corregirá el DTO para que el OpenAPI lo declare. Al actualizar el commit fijado se regeneran los tipos y se retira el tipo manual.
+- **Resuelto (2026-10-06):** base-shop #100 declara `CursorMetaDto`, `cursor` y `limit`. Se regeneraron los tipos y se retiraron `CursorMeta` manual y los comentarios.
 
-### G-11 · `AdjustmentDto` sin `quantity` en el OpenAPI — DOCUMENTATION CONFLICT
+### G-11 · `AdjustmentDto` sin `quantity` en el OpenAPI — RESUELTO
 
 - **Evidencia:** `AdjustmentDto` en `openapi/v1.json` declara `variantId`, `warehouseId`, `reasonCode` y `note`, pero no `quantity`; API_SPEC §13 la exige (entero con signo, distinto de 0, ±1 a ±100,000).
 - **Resolución:** por prioridad de fuentes se envía `quantity` (tipo `AdjustmentInput` en `app/features/inventory/types.ts`).
 - **Prueba contra la API real (2026-10-06):** la API acepta `quantity` y aplica el ajuste (existencia de 20 a 18). El conflicto es solo del OpenAPI.
-- **Pregunta pendiente:** ¿se agrega la propiedad al DTO del backend?
+- **Resuelto (2026-10-06):** base-shop #100 agrega `quantity` a `AdjustmentDto`; `AdjustmentInput` usa el tipo generado.
 
 ### G-12 · Precios por variante requieren permiso de catálogo — GAP (relacionado con G-04)
 
@@ -150,6 +151,12 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 - **Impacto:** el staff vuelve al login sin perder datos guardados. Con el TTL por defecto (15 min) la ventana es la duración de una renovación, pero también ocurre al recargar dos veces muy rápido.
 - **Workaround:** ninguno posible en el frontend: la respuesta perdida no se puede recuperar.
 - **Propuesta para el backend:** aceptar durante unos segundos el refresh token recién rotado (margen de gracia) y responder con el mismo par nuevo, en lugar de tratarlo como reutilización.
+
+### G-21 · Quién colocó una orden de tienda, sin nombre — GAP menor (relacionado con G-13)
+
+- **Evidencia:** `AdminOrder.placedBy` es el ID de la cuenta de staff (API_SPEC §8.9, ADR-0161). El nombre exige `staff.manage`, que el rol Vendedor no tiene.
+- **Workaround:** el detalle muestra "Tú" cuando es la cuenta actual y el ID en otro caso; el listado filtra "Mis ventas en tienda" por `placedBy`.
+- **Pregunta pendiente:** ¿se agrega el nombre de quien colocó la orden a `AdminOrder`?
 
 ## Comportamientos que el frontend debe respetar (no son gaps)
 

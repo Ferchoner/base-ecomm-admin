@@ -67,6 +67,8 @@ export interface SalesOrderSeed {
   payment?: { status: string; refund?: 'PENDING' | 'COMPLETED' }
   shipment?: { status: string; carrierName?: string; trackingNumber?: string }
   lines?: Array<{ sku: string; quantity: number; unit: number }>
+  /** Orden colocada por el staff en la tienda física (ADR-0161). */
+  store?: { fulfillment?: 'SHIPPING' | 'IN_STORE'; anonymousBuyer?: boolean; placedBy?: string }
 }
 
 export interface SalesSeed {
@@ -89,9 +91,14 @@ interface Order {
   orderNumber: number
   publicCode: string
   status: string
-  email: string
+  email: string | null
   customerId: string | null
   blockedAt: string | null
+  channel: 'ONLINE' | 'STORE'
+  fulfillment: 'SHIPPING' | 'IN_STORE'
+  placedBy: string | null
+  warehouseId: string | null
+  deliveredAt: string | null
   version: number
   lines: Line[]
   paidAt: string | null
@@ -146,9 +153,14 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
       orderNumber: 1001 + i,
       publicCode: o.code,
       status: o.status,
-      email: o.email ?? `comprador${i + 1}@example.com`,
+      email: o.store?.anonymousBuyer ? null : (o.email ?? `comprador${i + 1}@example.com`),
       customerId: o.customer ? uuid() : null,
       blockedAt: o.blocked ? '2026-10-04T10:00:00.000Z' : null,
+      channel: o.store ? 'STORE' : 'ONLINE',
+      fulfillment: o.store?.fulfillment ?? 'SHIPPING',
+      placedBy: o.store ? (o.store.placedBy ?? STAFF_ID) : null,
+      warehouseId: o.store ? WAREHOUSE_ID : null,
+      deliveredAt: null,
       version: 3,
       lines: (o.lines ?? [{ sku: 'CAM-M', quantity: 2, unit: 59900 }]).map((l, n) => ({
         id: uuid(),
@@ -194,6 +206,7 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
           {
             status: 'PENDING',
             providerReference: null,
+            method: null,
             failureCode: null,
             registeredBy: null,
             createdAt: '2026-10-04T11:05:00.000Z',
@@ -320,12 +333,19 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
       shippingTaxAmount: money(0),
       discountTotal: money(0),
       grandTotal: money(sum),
-      shippingAddress: o.blockedAt ? REDUCED_ADDRESS : ADDRESS,
-      estimatedDelivery: { minBusinessDays: 3, maxBusinessDays: 7 },
+      fulfillment: o.fulfillment,
+      channel: o.channel,
+      placedBy: o.placedBy,
+      warehouseId: o.warehouseId,
+      shippingAddress:
+        o.fulfillment === 'IN_STORE' ? null : o.blockedAt ? REDUCED_ADDRESS : ADDRESS,
+      estimatedDelivery:
+        o.fulfillment === 'IN_STORE' ? null : { minBusinessDays: 3, maxBusinessDays: 7 },
       payment: pd && {
         id: pd.id,
         provider: pd.provider,
         status: pd.status,
+        method: (pd.attempts.find((a) => a.status === 'CAPTURED')?.method as string) ?? null,
         amount: pd.amount,
         capturedAmount: pd.capturedAmount,
         refundedAmount: pd.refundedAmount,
@@ -341,12 +361,13 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
         dispatchedAt: s.dispatchedAt,
         deliveredAt: s.deliveredAt,
         version: s.version,
+        warehouseId: WAREHOUSE_ID,
       },
       placedAt: '2026-10-04T11:00:00.000Z',
       paymentDueAt: o.status === 'PENDING_PAYMENT' ? '2026-10-05T11:00:00.000Z' : null,
       paidAt: o.paidAt,
       shippedAt: null,
-      deliveredAt: null,
+      deliveredAt: o.deliveredAt,
       cancelledAt: o.cancelledAt,
       expiredAt: null,
       refundedAt: null,
@@ -419,8 +440,10 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
             (!status || status.includes(o.status)) &&
             (!text ||
               o.publicCode.toLowerCase().replace('-', '') === text ||
-              (!o.blockedAt && o.email.includes(text))) &&
-            (q.get('guest') === null || (q.get('guest') === 'true') === !o.customerId),
+              (!o.blockedAt && !!o.email?.includes(text))) &&
+            (q.get('guest') === null || (q.get('guest') === 'true') === !o.customerId) &&
+            (!q.get('channel') || q.get('channel') === o.channel) &&
+            (!q.get('placedBy') || q.get('placedBy') === o.placedBy),
         )
         return json(route, 200, page1(items.map((o) => orderDto(o, false))))
       }
@@ -483,6 +506,7 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
           p.attempts.push({
             status: 'CAPTURED',
             providerReference: body?.reference,
+            method: body?.method ?? null,
             failureCode: null,
             registeredBy: STAFF_ID,
             createdAt: NOW,
@@ -491,7 +515,7 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
           const response = orderDto(o, true)
           o.paidAt = NOW
           transition(o, 'PAID', null, false)
-          o.shipmentId = newShipment(o).id
+          if (o.fulfillment === 'SHIPPING') o.shipmentId = newShipment(o).id
           return json(route, 200, response)
         }
         case 'retry-fulfillment':

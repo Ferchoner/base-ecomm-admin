@@ -24,6 +24,8 @@ export interface OrderListParams {
   hasPendingRefund?: boolean
   placedFrom?: string
   placedTo?: string
+  channel?: string
+  placedBy?: string
   sort?: string
 }
 

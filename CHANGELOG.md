@@ -1,6 +1,6 @@
 # Changelog
 
-Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado semántico. Contrato de la API: `Ferchoner/base-shop` commit `a46829b`.
+Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado semántico. Contrato de la API: `Ferchoner/base-shop` commit `ff10406`.
 
 ## [Unreleased]
 
@@ -19,7 +19,11 @@ Sin versión publicada todavía: el MVP corre solo en local (G-07). La primera v
 - **Prueba contra la API real:** recorrido completo del checklist de release con `base-shop` en local, registrado en el reporte de QA.
 - **Documentación y release:** documentación del frontend sincronizada con el código, onboarding, despliegue, checklist de release, revisión técnica final, preparación del release y handover.
 
+- **Contrato base-shop `ff10406` (API 1.1, 1.2 y 1.3):** pedidos con canal, tipo de entrega, quién los colocó y almacén; filtros por canal y "Mis ventas en tienda".
+
 ### Corregido
+
+- El detalle de un pedido de entrega en tienda fallaba porque no tiene dirección ni plazo de entrega; ahora lo explica, también cuando el comprador no dio sus datos.
 
 - Una mutación sin conexión quedaba en pausa y se enviaba sola al reconectar (QA-01).
 - Contraste insuficiente en el tema claro y en placeholders del oscuro (QA-02).

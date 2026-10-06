@@ -25,6 +25,7 @@ export const REASON_LABEL: Record<Reason, string> = {
   INTERNAL_USE: 'Uso interno',
   DATA_ENTRY_ERROR: 'Error de captura',
   OTHER: 'Otro',
+  WAREHOUSE_TRANSFER: 'Transferencia entre almacenes',
   ORDER_CANCELLED: 'Orden cancelada',
   SHIPMENT_RETURNED: 'Envío devuelto',
 }

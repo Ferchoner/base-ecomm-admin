@@ -9,6 +9,8 @@ export type PaymentStatus = Schemas['AdminPaymentDto']['status']
 export type PaymentProvider = Schemas['AdminPaymentDto']['provider']
 export type RefundStatus = Schemas['RefundDto']['status']
 export type ShipmentStatus = Schemas['AdminShipmentDto']['status']
+export type OrderChannel = Schemas['AdminOrderDto']['channel']
+export type OrderFulfillment = Schemas['AdminOrderDto']['fulfillment']
 
 /** API_SPEC §8.8, §15.7. */
 export const ORDER_STATUS: Record<OrderStatus, StatusStyle> = {
@@ -20,6 +22,18 @@ export const ORDER_STATUS: Record<OrderStatus, StatusStyle> = {
   CANCELLED: { label: 'Cancelado', color: 'neutral' },
   EXPIRED: { label: 'Vencido', color: 'neutral' },
   REFUNDED: { label: 'Reembolsado', color: 'secondary' },
+}
+
+/** Dónde se colocó la orden (API_SPEC §8.9, ADR-0161). */
+export const ORDER_CHANNEL: Record<OrderChannel, StatusStyle> = {
+  ONLINE: { label: 'En línea', color: 'neutral' },
+  STORE: { label: 'En tienda', color: 'primary' },
+}
+
+/** Cómo se entrega la orden (API_SPEC §8.8, ADR-0161). */
+export const ORDER_FULFILLMENT: Record<OrderFulfillment, string> = {
+  SHIPPING: 'Envío a domicilio',
+  IN_STORE: 'Entrega en tienda',
 }
 
 /** API_SPEC §16.3. */

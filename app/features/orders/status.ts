@@ -15,6 +15,12 @@ export const GUEST_OPTIONS = [
   { value: 'true', label: 'Solo invitados' },
 ]
 
+/** `channel` de `GET /v1/admin/orders` (API_SPEC §15.7, ADR-0161). */
+export const CHANNEL_OPTIONS = [
+  { value: 'ONLINE', label: 'En línea' },
+  { value: 'STORE', label: 'En tienda' },
+]
+
 /**
  * Estados desde los que la API documenta cada acción (API_SPEC §15.7, §16.4, §14.3). Solo deciden
  * qué botón se ofrece; si la API la rechaza, se muestra su 409.

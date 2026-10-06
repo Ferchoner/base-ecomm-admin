@@ -5,7 +5,8 @@ import type { ApiProblem } from '~/shared/api/problem'
 import { BACKGROUND_NOTICE } from '~/shared/api/query-roots'
 import { formatMoney } from '~/shared/utils/money'
 import { problemFieldErrors } from '~/shared/utils/form-errors'
-import { useManualCapture } from '../api'
+import { PAYMENT_METHOD } from '~/shared/status/sales'
+import { useManualCapture, useManualPaymentSettings } from '../api'
 import { manualCaptureSchema } from '../schemas'
 import type { ManualCaptureForm } from '../schemas'
 import type { AdminOrder } from '../types'
@@ -14,7 +15,7 @@ import type { AdminOrder } from '../types'
 const props = defineProps<{ order: AdminOrder }>()
 const open = defineModel<boolean>('open', { required: true })
 
-const state = reactive<ManualCaptureForm>({ reference: '', note: '' })
+const state = reactive<ManualCaptureForm>({ reference: '', method: undefined, note: '' })
 const form = useTemplateRef('form')
 const problem = ref<ApiProblem | null>(null)
 const capture = useManualCapture(() => props.order.id)
@@ -22,22 +23,26 @@ const toast = useToast()
 
 watch(open, (isOpen) => {
   if (!isOpen) return
-  Object.assign(state, { reference: '', note: '' })
+  Object.assign(state, { reference: '', method: undefined, note: '' })
   problem.value = null
 })
 
-// La API no expone si el pago manual está habilitado (GAPS G-02): se explica su 403.
+// Se avisa antes de enviar si el pago manual está deshabilitado (API_SPEC §16.6); la API decide.
+const settings = useManualPaymentSettings(open)
+const disabled = computed(() => settings.data.value?.manualPaymentsEnabled === false)
+const DISABLED_TEXT =
+  'El pago en tienda está deshabilitado. Un superadministrador lo habilita en Administración > Pago en tienda.'
 const disabledHint = computed(() =>
-  problem.value?.type === 'manual-payments-disabled'
-    ? ['El pago manual está deshabilitado en la API. Un superadministrador debe activarlo.']
-    : [],
+  problem.value?.type === 'manual-payments-disabled' ? [DISABLED_TEXT] : [],
 )
+const METHODS = Object.entries(PAYMENT_METHOD).map(([value, label]) => ({ value, label }))
 
 async function onSubmit(event: FormSubmitEvent<ManualCaptureForm>) {
   problem.value = null
   try {
     await capture.mutateAsync({
       reference: event.data.reference,
+      ...(event.data.method ? { method: event.data.method } : {}),
       ...(event.data.note ? { note: event.data.note } : {}),
     })
     notifySuccess(toast, 'Pago registrado', BACKGROUND_NOTICE)
@@ -49,7 +54,8 @@ async function onSubmit(event: FormSubmitEvent<ManualCaptureForm>) {
       open.value = false
       return
     }
-    const { fieldErrors, otherMessages } = problemFieldErrors(p, ['reference', 'note'])
+    if (p.type === 'manual-payments-disabled') void settings.refetch()
+    const { fieldErrors, otherMessages } = problemFieldErrors(p, ['reference', 'method', 'note'])
     form.value?.setErrors(fieldErrors)
     if (fieldErrors.length === 0 || otherMessages.length > 0) problem.value = p
   }
@@ -73,6 +79,14 @@ async function onSubmit(event: FormSubmitEvent<ManualCaptureForm>) {
         @submit="onSubmit"
       >
         <ProblemAlert v-if="problem" :problem="problem" :messages="disabledHint" />
+        <UAlert
+          v-else-if="disabled"
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-ban"
+          title="Pago en tienda deshabilitado"
+          :description="DISABLED_TEXT"
+        />
         <p class="text-sm text-muted">Se registra el cobro por el total del pedido.</p>
         <UFormField
           label="Comprobante"
@@ -82,6 +96,14 @@ async function onSubmit(event: FormSubmitEvent<ManualCaptureForm>) {
         >
           <UInput v-model="state.reference" :maxlength="100" class="w-full" />
         </UFormField>
+        <UFormField label="Cómo se cobró" name="method" help="Opcional.">
+          <USelect
+            v-model="state.method"
+            :items="METHODS"
+            placeholder="Sin indicar"
+            class="w-full"
+          />
+        </UFormField>
         <UFormField label="Nota" name="note" help="Opcional. Queda en la auditoría.">
           <UTextarea v-model="state.note" :maxlength="500" autoresize class="w-full" />
         </UFormField>
@@ -90,7 +112,11 @@ async function onSubmit(event: FormSubmitEvent<ManualCaptureForm>) {
     <template #footer>
       <div class="flex w-full justify-end gap-2">
         <UButton color="neutral" variant="ghost" @click="open = false">Cancelar</UButton>
-        <UButton type="submit" form="manual-capture-form" :loading="capture.isPending.value"
+        <UButton
+          type="submit"
+          form="manual-capture-form"
+          :loading="capture.isPending.value"
+          :disabled="disabled"
           >Registrar pago</UButton
         >
       </div>

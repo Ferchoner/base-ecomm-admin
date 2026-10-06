@@ -4,7 +4,10 @@ import {
   cancelSchema,
   manualCaptureSchema,
   restockSchema,
+  storeOrderSchema,
+  toStaffOrderInput,
 } from '~/features/orders/schemas'
+import { emptyAddress } from '~/shared/address/address-form'
 import { canRun, cancelStartsRefund, restockReason } from '~/features/orders/status'
 import type { AdminOrder } from '~/features/orders/types'
 import { manualRefundSchema } from '~/features/payments/schemas'
@@ -102,5 +105,63 @@ describe('envíos', () => {
     expect(trackingSchema.safeParse({ carrierName: 'DHL', trackingNumber: '123' }).success).toBe(
       true,
     )
+  })
+})
+
+describe('pedido en la tienda física (ADR-0161)', () => {
+  const base = {
+    warehouseId: 'w1',
+    fulfillment: 'IN_STORE' as const,
+    lines: [{ variantId: 'v1', sku: 'CAM-M', productTitle: 'Camisa', quantity: 2 }],
+    buyer: 'none' as const,
+    customerId: undefined,
+    contactEmail: '',
+    privacyNoticeShown: false,
+    addressMode: 'saved' as const,
+    addressId: undefined,
+    address: emptyAddress(),
+  }
+  const paths = (v: unknown) => {
+    const r = storeOrderSchema.safeParse(v)
+    return r.success ? [] : r.error.issues.map((i) => i.path.join('.'))
+  }
+
+  it('venta de mostrador sin datos del comprador: solo líneas, almacén y total', () => {
+    expect(paths(base)).toEqual([])
+    expect(toStaffOrderInput(base, 119800, '')).toEqual({
+      lines: [{ variantId: 'v1', quantity: 2 }],
+      warehouseId: 'w1',
+      fulfillment: 'IN_STORE',
+      expectedTotal: 119800,
+    })
+  })
+
+  it('de 1 a 30 unidades por línea y al menos un producto', () => {
+    expect(paths({ ...base, lines: [] })).toContain('lines')
+    expect(paths({ ...base, lines: [{ ...base.lines[0], quantity: 31 }] })).toContain(
+      'lines.0.quantity',
+    )
+  })
+
+  it('con envío pide comprador y una sola dirección', () => {
+    const shipping = { ...base, fulfillment: 'SHIPPING' as const }
+    expect(paths(shipping)).toContain('buyer')
+    const customer = { ...shipping, buyer: 'customer' as const }
+    expect(paths(customer)).toEqual(expect.arrayContaining(['customerId', 'addressId']))
+    const ready = { ...customer, customerId: 'c1', addressId: 'a1' }
+    expect(paths(ready)).toEqual([])
+    expect(toStaffOrderInput(ready, 1000, '')).toMatchObject({ customerId: 'c1', addressId: 'a1' })
+    expect(paths({ ...ready, addressMode: 'new' })).toContain('address.phone')
+  })
+
+  it('un invitado necesita email y que se le presente el aviso de privacidad', () => {
+    const guest = { ...base, buyer: 'guest' as const }
+    expect(paths(guest)).toEqual(expect.arrayContaining(['contactEmail', 'privacyNoticeShown']))
+    const ready = { ...guest, contactEmail: ' ana@example.com ', privacyNoticeShown: true }
+    expect(paths(ready)).toEqual([])
+    expect(toStaffOrderInput(ready, 1000, '2026-09')).toMatchObject({
+      contactEmail: 'ana@example.com',
+      privacyNoticeVersion: '2026-09',
+    })
   })
 })

@@ -208,6 +208,8 @@ test('roles: crear con los permisos propios, editar y eliminar', async ({ page }
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('Nombre').fill('Consulta')
   await expect(dialog.getByLabel('Editar el catálogo')).toBeDisabled()
+  // Un permiso exclusivo del superadministrador no se ofrece en otro rol (ADR-0162).
+  await expect(dialog.getByLabel('Configurar los pagos')).toHaveCount(0)
   await dialog.getByLabel('Consultar el catálogo').check()
   await dialog.getByLabel('Consultar pedidos').check()
   await dialog.getByRole('button', { name: 'Crear rol' }).click()

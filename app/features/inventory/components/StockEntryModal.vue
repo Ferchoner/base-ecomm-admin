@@ -9,13 +9,17 @@ import type { AdjustmentForm, ReceiptForm } from '../schemas'
 import { ADJUSTMENT_REASONS, DECREASE_ONLY, REASON_LABEL } from '../status'
 import type { StockItem } from '../types'
 
-/** Entrada de mercancía o ajuste de una variante en el almacén activo (API_SPEC §13). */
+/**
+ * Entrada de mercancía o ajuste de una variante en un almacén (API_SPEC §13). Las entradas solo van a
+ * un almacén activo; los ajustes, a cualquiera (ADR-0160).
+ */
 const props = defineProps<{
   mode: 'receipt' | 'adjustment'
   variantId: string
   sku: string
   productTitle?: string
   warehouseId: string
+  warehouseName: string
   /** Existencia actual, si la variante ya tiene stock item. */
   stock?: StockItem | null
 }>()
@@ -118,7 +122,7 @@ async function onSubmit(event: FormSubmitEvent<ReceiptForm | AdjustmentForm>) {
   <UModal
     v-model:open="open"
     :title="mode === 'receipt' ? 'Registrar entrada' : 'Ajustar existencias'"
-    :description="productTitle ? `${sku} · ${productTitle}` : sku"
+    :description="`${productTitle ? `${sku} · ${productTitle}` : sku} · ${warehouseName}`"
   >
     <template #body>
       <UForm

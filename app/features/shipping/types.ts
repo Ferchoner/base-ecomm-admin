@@ -22,6 +22,7 @@ export interface ShipmentListParams {
   pageSize: number
   status?: string
   orderId?: string
+  warehouseId?: string
   q?: string
   createdFrom?: string
   createdTo?: string

@@ -1,8 +1,9 @@
 import type { CursorPage, Page, Schemas } from '~/shared/api/types'
 
 export type Warehouse = Schemas['WarehouseDto']
+export type WarehouseCreateInput = Schemas['CreateWarehouseDto']
 export type WarehouseUpdateInput = Schemas['UpdateWarehouseDto']
-export type AddressInput = Schemas['AddressInputDto']
+export type WarehouseStatus = Warehouse['status']
 export type StockItem = Schemas['StockItemDto']
 export type StockItemPage = Page<StockItem>
 export type StockMovement = Schemas['StockMovementDto']
@@ -18,6 +19,7 @@ export interface StockListParams {
   page: number
   pageSize: number
   q?: string
+  warehouseId?: string
   availableMax?: number
   sort?: string
 }

@@ -28,7 +28,9 @@ watch(open, (isOpen) => {
 
 const disabledHint = computed(() =>
   problem.value?.type === 'manual-payments-disabled'
-    ? ['El pago manual está deshabilitado en la API. Un superadministrador debe activarlo.']
+    ? [
+        'El pago en tienda está deshabilitado. Un superadministrador lo habilita en Administración > Pago en tienda.',
+      ]
     : [],
 )
 

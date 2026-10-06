@@ -47,7 +47,10 @@ interface Stock {
   productTitle: string
   onHand: number
   reserved: number
+  warehouseId: string
 }
+
+export const SECOND_WAREHOUSE_ID = '0192a3b4-0000-7000-8000-00000000b002'
 
 export interface PricingInventorySeed {
   prices?: Array<{
@@ -62,7 +65,12 @@ export interface PricingInventorySeed {
     productTitle: string
     onHand: number
     reserved?: number
+    warehouseId?: string
   }>
+  /** Almacenes además del principal (ADR-0160). */
+  warehouses?: Array<{ id?: string; code: string; name: string; priority: number; status?: string }>
+  /** Hace fallar los ajustes positivos con 500, para probar una transferencia a medias. */
+  failPositiveAdjustments?: boolean
   /** Movimientos de cada stock item por SKU, para probar la paginación por cursor. */
   movements?: Record<string, number>
   /** Respuesta de la importación de precios: `ok` o errores por fila. */
@@ -77,7 +85,12 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
     compareAtAmount: p.compareAtAmount ?? null,
     effectiveFrom: p.effectiveFrom ?? '2026-09-01T06:00:00.000Z',
   }))
-  const stock: Stock[] = (seed.stock ?? []).map((s) => ({ id: uuid(), reserved: 0, ...s }))
+  const stock: Stock[] = (seed.stock ?? []).map((s) => ({
+    id: uuid(),
+    reserved: 0,
+    warehouseId: WAREHOUSE_ID,
+    ...s,
+  }))
   const movements = new Map<string, Array<Record<string, unknown>>>()
   for (const s of stock) {
     const n = seed.movements?.[s.sku] ?? 1
@@ -97,15 +110,25 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
       })),
     )
   }
-  const warehouse: Record<string, unknown> = {
-    id: WAREHOUSE_ID,
-    code: 'PRINCIPAL',
-    name: 'Almacén principal',
+  const newWarehouse = (w: Record<string, unknown>): Record<string, unknown> => ({
+    id: uuid(),
     address: null,
     status: 'ACTIVE',
     createdAt: '2026-09-01T00:00:00.000Z',
     updatedAt: '2026-09-01T00:00:00.000Z',
-  }
+    ...w,
+  })
+  const warehouses = [
+    newWarehouse({ id: WAREHOUSE_ID, code: 'PRINCIPAL', name: 'Almacén principal', priority: 1 }),
+    ...(seed.warehouses ?? []).map((w) => newWarehouse(w)),
+  ]
+  const warehouse = warehouses[0]!
+  const sortedWarehouses = () =>
+    [...warehouses].sort(
+      (a, b) =>
+        (a.priority as number) - (b.priority as number) ||
+        String(a.code).localeCompare(String(b.code)),
+    )
   const calls: Array<{ method: string; path: string; body: unknown; query: string }> = []
 
   const periodDto = (p: Period, all: Period[]) => {
@@ -126,7 +149,6 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
   }
   const stockDto = (s: Stock) => ({
     ...s,
-    warehouseId: WAREHOUSE_ID,
     available: s.onHand - s.reserved,
     updatedAt: NOW.toISOString(),
   })
@@ -226,26 +248,53 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
     // ── Inventario ──
     if (seg[0] === 'inventory') {
       if (seg[1] === 'warehouses') {
-        if (method === 'GET') return json(route, 200, { data: [warehouse] })
+        if (method === 'GET') return json(route, 200, { data: sortedWarehouses() })
         const address = body?.address as Record<string, unknown> | null | undefined
-        Object.assign(warehouse, {
+        const withNames = (a: Record<string, unknown> | null | undefined) =>
+          a && {
+            ...a,
+            stateName: 'Michoacán de Ocampo',
+            municipalityName: 'Morelia',
+            country: 'MX',
+          }
+        if (method === 'POST' && !seg[2]) {
+          if (warehouses.some((w) => w.code === body?.code))
+            return problem(route, 409, 'duplicate-value', 'Valor duplicado', { field: 'code' })
+          const created = newWarehouse({
+            code: body?.code,
+            name: body?.name,
+            priority: body?.priority,
+            address: withNames(address) ?? null,
+          })
+          warehouses.push(created)
+          return json(route, 201, created)
+        }
+        const target = warehouses.find((w) => w.id === seg[2])
+        if (!target) return problem(route, 404, 'not-found', 'No encontrado')
+        if (seg[3] === 'deactivate') {
+          if (stock.some((s) => s.warehouseId === target.id && s.reserved > 0))
+            return problem(route, 409, 'resource-in-use', 'El almacén tiene unidades apartadas')
+          if (warehouses.filter((w) => w.status === 'ACTIVE').length <= 1)
+            return problem(route, 409, 'invalid-state-transition', 'Transición no permitida', {
+              reason: 'last-active-warehouse',
+            })
+          target.status = 'INACTIVE'
+          return json(route, 200, target)
+        }
+        Object.assign(target, {
           ...(body?.name !== undefined && { name: body.name }),
-          ...(address !== undefined && {
-            address: address && {
-              ...address,
-              stateName: 'Michoacán de Ocampo',
-              municipalityName: 'Morelia',
-              country: 'MX',
-            },
-          }),
+          ...(body?.priority !== undefined && { priority: body.priority }),
+          ...(address !== undefined && { address: withNames(address) }),
         })
-        return json(route, 200, warehouse)
+        return json(route, 200, target)
       }
       if (seg[1] === 'stock-items' && seg.length === 2) {
         const q = url.searchParams.get('q')?.toLowerCase()
         const max = url.searchParams.get('availableMax')
         const variantId = url.searchParams.get('variantId')
+        const warehouseId = url.searchParams.get('warehouseId')
         const items = stock
+          .filter((s) => !warehouseId || s.warehouseId === warehouseId)
           .filter(
             (s) =>
               !q || s.sku.toLowerCase().includes(q) || s.productTitle.toLowerCase().includes(q),
@@ -279,22 +328,32 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
         })
       }
       if (seg[1] === 'receipts' || seg[1] === 'adjustments') {
-        if (body?.warehouseId !== WAREHOUSE_ID)
+        const target = warehouses.find((w) => w.id === body?.warehouseId)
+        // Entradas solo en almacenes activos; ajustes en cualquiera (API_SPEC §13, ADR-0160).
+        if (!target || (seg[1] === 'receipts' && target.status !== 'ACTIVE'))
           return problem(route, 404, 'not-found', 'No encontrado')
-        let item = stock.find((s) => s.variantId === body.variantId)
+        let item = stock.find((s) => s.variantId === body.variantId && s.warehouseId === target.id)
         const quantity = body.quantity as number
+        if (seg[1] === 'adjustments' && seed.failPositiveAdjustments && quantity > 0)
+          return problem(route, 500, 'internal-error', 'Error interno')
+        if (seg[1] === 'adjustments' && !item && quantity < 0)
+          return problem(route, 409, 'insufficient-stock', 'Existencias insuficientes', {
+            lines: [{ variantId: body.variantId, canFulfill: false }],
+          })
         if (seg[1] === 'adjustments' && item && item.onHand + quantity < item.reserved)
           return problem(route, 409, 'insufficient-stock', 'Existencias insuficientes', {
             lines: [{ variantId: body.variantId, canFulfill: false }],
           })
         if (!item) {
+          const same = stock.find((s) => s.variantId === body.variantId)
           item = {
             id: uuid(),
             variantId: body.variantId as string,
-            sku: 'NUEVO',
-            productTitle: 'Producto',
+            sku: same?.sku ?? 'NUEVO',
+            productTitle: same?.productTitle ?? 'Producto',
             onHand: 0,
             reserved: 0,
+            warehouseId: target.id as string,
           }
           stock.push(item)
           movements.set(item.id, [])
@@ -319,5 +378,5 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
     return problem(route, 404, 'not-found', 'No encontrado')
   })
 
-  return { calls, periods, stock, warehouse }
+  return { calls, periods, stock, warehouse, warehouses }
 }

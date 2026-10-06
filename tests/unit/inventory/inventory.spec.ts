@@ -1,5 +1,25 @@
 import { describe, expect, it } from 'vitest'
-import { adjustmentSchema, receiptSchema, warehouseSchema } from '~/features/inventory/schemas'
+import {
+  adjustmentSchema,
+  receiptSchema,
+  transferSchema,
+  warehouseSchema,
+} from '~/features/inventory/schemas'
+
+const empty = {
+  recipientName: '',
+  phone: '',
+  street: '',
+  exteriorNumber: '',
+  interiorNumber: '',
+  neighborhood: '',
+  postalCode: '',
+  stateCode: '',
+  municipalityCode: '',
+  city: '',
+  references: '',
+}
+const edit = { creating: false, code: '', name: 'Principal', priority: 1 }
 
 describe('inventario', () => {
   it('entrada de 1 a 100,000 unidades enteras', () => {
@@ -29,28 +49,33 @@ describe('inventario', () => {
   })
 
   it('almacén: la dirección solo se valida si se captura', () => {
-    const empty = {
-      recipientName: '',
-      phone: '',
-      street: '',
-      exteriorNumber: '',
-      interiorNumber: '',
-      neighborhood: '',
-      postalCode: '',
-      stateCode: '',
-      municipalityCode: '',
-      city: '',
-      references: '',
-    }
-    expect(
-      warehouseSchema.safeParse({ name: 'Principal', hasAddress: false, address: empty }).success,
-    ).toBe(true)
+    expect(warehouseSchema.safeParse({ ...edit, hasAddress: false, address: empty }).success).toBe(
+      true,
+    )
     const result = warehouseSchema.safeParse({
-      name: 'Principal',
+      ...edit,
       hasAddress: true,
       address: empty,
     })
     expect(result.success).toBe(false)
     expect(result.error?.issues.map((i) => i.path.join('.'))).toContain('address.phone')
+  })
+
+  it('almacén: código solo al crear, prioridad de 1 a 1000 (ADR-0160)', () => {
+    const base = { ...edit, hasAddress: false, address: empty }
+    expect(warehouseSchema.safeParse({ ...base, priority: 0 }).success).toBe(false)
+    expect(warehouseSchema.safeParse({ ...base, priority: 1001 }).success).toBe(false)
+    expect(warehouseSchema.safeParse({ ...base, creating: true, code: 'x' }).success).toBe(false)
+    expect(warehouseSchema.safeParse({ ...base, creating: true, code: 'cdmx' }).success).toBe(false)
+    expect(warehouseSchema.safeParse({ ...base, creating: true, code: 'CDMX-2' }).success).toBe(
+      true,
+    )
+  })
+
+  it('transferencia: destino distinto del origen', () => {
+    const base = { fromWarehouseId: 'a', toWarehouseId: 'b', quantity: 3, note: '' }
+    expect(transferSchema.safeParse(base).success).toBe(true)
+    expect(transferSchema.safeParse({ ...base, toWarehouseId: 'a' }).success).toBe(false)
+    expect(transferSchema.safeParse({ ...base, quantity: 0 }).success).toBe(false)
   })
 })

@@ -82,7 +82,8 @@ Sin el permiso de ruta: la sección no aparece en el menú ni en el Inicio, y en
 
 - **Contraseña temporal** (`mustChangePassword`): la API solo admite `GET /v1/me`, `POST /v1/me/password` y logout; el guard solo deja `/cambiar-contrasena`.
 - **Cuenta de cliente**: el login la rechaza aunque las credenciales sean válidas.
-- **Pago manual deshabilitado** en el backend: la acción se muestra con `payments.manage` y el 403 `manual-payments-disabled` se explica (G-02).
+- **Pago manual deshabilitado** (`GET /v1/admin/payment-settings`): "Registrar pago" se muestra con `payments.manage`, avisa y se deshabilita; el 403 `manual-payments-disabled` se sigue explicando. Cambiarlo exige `payments.configure`, que solo tiene el superadministrador (ADR-0162). El editor de roles no ofrece permisos `superadminOnly`.
+- **Rol Vendedor** (ADR-0161): `catalog.read`, `inventory.read`, `orders.read`, `orders.place`, `customers.read`. Coloca pedidos en la tienda y los entrega, pero no registra el cobro (`payments.manage`).
 - **Superadministrador**: se considera superadministrador a quien tiene un rol marcado como tal en `GET /v1/me`; su rol conserva todos los permisos y solo otro superadministrador lo asigna (D-048).
 
 ## Evidencia

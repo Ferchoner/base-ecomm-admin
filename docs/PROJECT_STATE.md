@@ -104,7 +104,7 @@
 - RELEASE_READINESS: listo para pruebas de aceptación en local; no listo para producción.
 - Calidad: 80 pruebas unitarias; E2E, accesibilidad y PWA en escritorio y móvil.
 
-## Prueba contra la API real — en PR (2026-10-06)
+## Prueba contra la API real — fusionado (PR #12, 2026-10-06)
 
 - `base-shop` `a46829b` en local con PostgreSQL 18 y Mailpit; recorrido completo de RELEASE_CHECKLIST.md §3 (QA_REPORT.md).
 - Todos los módulos funcionan contra la API real; G-11 confirmado como conflicto solo del OpenAPI.
@@ -112,22 +112,30 @@
 - Nuevos: G-17 (cantidades reintegradas en `AdminOrder`) y G-18 (renovación interrumpida revoca la sesión; FTR-16).
 - Calidad: 83 pruebas unitarias; E2E, accesibilidad y PWA en escritorio y móvil.
 
+## API 1.1–1.3: varios almacenes y ventas en tienda — en PR (2026-10-06)
+
+- Plan aprobado (PLAN_API_1.2.md, D-068). Contrato fijado en `base-shop` `ff10406`.
+- PR #13: contrato nuevo y pedidos de tienda en listados y detalle. PR #14: Almacenes, existencias por almacén y transferencia (G-20). PR #15: Pago en tienda (G-02 resuelto) y método del cobro. PR #16: Vender en tienda (`/pedidos/nuevo`) y "Entregar en tienda".
+- Nuevos: G-19 (versión del aviso de privacidad por configuración), G-20, G-21.
+- Calidad: 89 pruebas unitarias; E2E, accesibilidad y PWA en escritorio y móvil.
+
 ## Decisiones del usuario (2026-10-05)
 
 G-01, G-06, G-07, G-09 resueltos; G-02 y G-10 quedan como cambios del backend (DECISIONS D-032…D-037).
 
 ## Pendiente del backend
 
-1. Endpoints para consultar y activar o desactivar el pago manual, solo superadministrador (G-02).
-2. Declarar `CursorMetaDto` y los parámetros `cursor`/`limit` en el OpenAPI (G-10) y `quantity` en `AdjustmentDto` (G-11).
+1. Exponer la versión vigente del aviso de privacidad (G-19).
+2. Opcional: transferencia atómica entre almacenes (G-20) y nombre de quien colocó una orden de tienda (G-21).
 3. Margen de gracia para el refresh token recién rotado (G-18).
 4. Opcional: cantidades ya reintegradas por línea en `AdminOrder` (G-17).
 
 ## Siguiente paso
 
-1. Revisar y fusionar el PR con los hallazgos de la prueba contra la API real.
-2. Con el backend: endpoints del pago manual (G-02), correcciones del OpenAPI (G-10, G-11) y margen de gracia de la renovación (G-18).
-3. Opcional: reintentar una entrega de eventos fallida con la API real cuando haya una.
-4. Para producción: decidir hosting, dominios y pipeline (G-07) y aplicar HTTPS y CSP (FTR-03).
+1. Revisar y fusionar los PR #13 a #16 en orden; cada uno parte del anterior.
+2. Fijar `NUXT_PUBLIC_PRIVACY_NOTICE_VERSION` con el valor de la tienda para vender a invitados (G-19).
+3. Con el backend: versión del aviso de privacidad (G-19) y margen de gracia de la renovación (G-18).
+4. Opcional: reintentar una entrega de eventos fallida con la API real cuando haya una.
+5. Para producción: decidir hosting, dominios y pipeline (G-07) y aplicar HTTPS y CSP (FTR-03).
 
 Pendientes clasificados en RELEASE_READINESS.md.

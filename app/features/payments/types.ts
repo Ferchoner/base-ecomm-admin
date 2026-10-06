@@ -5,6 +5,9 @@ export type PaymentPage = Page<AdminPayment>
 export type PaymentAttempt = Schemas['PaymentAttemptDto']
 export type Refund = Schemas['RefundDto']
 export type ManualRefundInput = Schemas['ManualRefundDto']
+export type PaymentSettings = Schemas['PaymentSettingsDto']
+export type PaymentSettingsInput = Schemas['UpdatePaymentSettingsDto']
+export type PaymentMethod = NonNullable<PaymentAttempt['method']>
 /** Pago tal como viene dentro de `AdminOrder` (API_SPEC §8.9). */
 export type OrderPayment = Schemas['AdminOrderPaymentDto']
 

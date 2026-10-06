@@ -50,5 +50,5 @@ Reportes de ventas e ingresos, exportaciones, promociones y cupones, plantillas 
 ## Restricciones del MVP
 
 - Solo ambientes locales, sin dominios ni hosting real (G-07, D-035).
-- Un solo almacén y una sola lista de precios (`GENERAL`), como el backend.
+- Varios almacenes con prioridad (desde la API 1.1, ADR-0160) y una sola lista de precios (`GENERAL`), como el backend.
 - El pago manual depende de `MANUAL_PAYMENTS_ENABLED` del backend; no hay forma de consultarlo ni cambiarlo desde el backoffice hasta que existan los endpoints acordados (G-02, D-033).

@@ -3,7 +3,14 @@ import type { MaybeRefOrGetter } from 'vue'
 import type { ApiProblem } from '~/shared/api/problem'
 import { QUERY_ROOT, invalidateRoots } from '~/shared/api/query-roots'
 import { useApi } from '~/shared/api/use-api'
-import type { AdminPayment, ManualRefundInput, PaymentListParams, PaymentPage } from './types'
+import type {
+  AdminPayment,
+  ManualRefundInput,
+  PaymentListParams,
+  PaymentPage,
+  PaymentSettings,
+  PaymentSettingsInput,
+} from './types'
 
 const BASE = '/v1/admin/payments'
 
@@ -11,6 +18,32 @@ export const paymentKeys = {
   all: [QUERY_ROOT.payments] as const,
   list: (params: PaymentListParams) => [...paymentKeys.all, 'list', params] as const,
   detail: (id: string) => [...paymentKeys.all, 'detail', id] as const,
+  settings: () => [...paymentKeys.all, 'settings'] as const,
+}
+
+const SETTINGS = '/v1/admin/payment-settings'
+
+/** Si el pago manual en tienda está habilitado (API_SPEC §16.6, ADR-0162). Se lee con `orders.read`. */
+export function usePaymentSettings() {
+  const api = useApi()
+  return useQuery<PaymentSettings, ApiProblem>({
+    queryKey: paymentKeys.settings(),
+    queryFn: ({ signal }) => api<PaymentSettings>(SETTINGS, { signal }),
+  })
+}
+
+/** Habilita o deshabilita el pago manual; solo con `payments.configure` (superadministrador). */
+export function useUpdatePaymentSettings() {
+  const api = useApi()
+  const qc = useQueryClient()
+  return useMutation<PaymentSettings, ApiProblem, PaymentSettingsInput>({
+    mutationFn: (input) => api<PaymentSettings>(SETTINGS, { method: 'PUT', body: { ...input } }),
+    onSuccess: (settings) => qc.setQueryData(paymentKeys.settings(), settings),
+    onError: (error) => {
+      if (error.type === 'version-conflict')
+        void qc.invalidateQueries({ queryKey: paymentKeys.settings() })
+    },
+  })
 }
 
 export function usePayments(params: MaybeRefOrGetter<PaymentListParams>) {

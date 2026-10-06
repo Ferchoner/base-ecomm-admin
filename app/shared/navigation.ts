@@ -61,6 +61,12 @@ export const NAVIGATION: NavGroup[] = [
         permission: 'orders.read',
       },
       {
+        label: 'Vender en tienda',
+        icon: 'i-lucide-store',
+        to: '/pedidos/nuevo',
+        permission: 'orders.place',
+      },
+      {
         label: 'Pagos',
         icon: 'i-lucide-credit-card',
         to: '/pagos',
@@ -100,6 +106,13 @@ export const NAVIGATION: NavGroup[] = [
         icon: 'i-lucide-settings',
         to: '/configuracion/envio',
         permission: 'shipping.manage',
+      },
+      {
+        label: 'Pago en tienda',
+        icon: 'i-lucide-banknote',
+        to: '/configuracion/pagos',
+        // Se lee con `orders.read`, pero solo interesa a quien registra cobros o lo configura.
+        permission: 'payments.manage',
       },
       {
         label: 'Auditoría',

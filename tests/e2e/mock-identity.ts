@@ -38,7 +38,11 @@ export const PERMISSIONS = [
   ['customers.read', 'Consultar clientes'],
   ['customers.manage', 'Gestionar clientes'],
   ['staff.manage', 'Gestionar staff y roles'],
+  ['payments.configure', 'Configurar los pagos'],
 ] as const
+
+/** Solo los tiene el rol superadministrador (ADR-0162). */
+const SUPERADMIN_ONLY = new Set<string>(['payments.configure'])
 
 export interface IdentitySeed {
   customers?: Array<{ email: string; firstNames: string; status?: string; activeOrders?: boolean }>
@@ -130,7 +134,11 @@ export async function mockIdentityApi(page: Page, seed: IdentitySeed = {}) {
 
     if (resource === 'permissions')
       return json(route, 200, {
-        data: PERMISSIONS.map(([code, description]) => ({ code, description })),
+        data: PERMISSIONS.map(([code, description]) => ({
+          code,
+          description,
+          superadminOnly: SUPERADMIN_ONLY.has(code),
+        })),
       })
 
     if (resource === 'guest-anonymizations') {

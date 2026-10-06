@@ -35,6 +35,7 @@ const list = useListParams({
 const filters = list.filters
 const session = useSessionStore()
 const myId = computed(() => session.account?.id)
+const canPlace = computed(() => session.can('orders.place'))
 
 const search = ref(filters.value.q ?? '')
 const debouncedSearch = useDebounced(search)
@@ -155,6 +156,8 @@ function openRow(_: Event, row: TableRow<AdminOrderSummary>) {
         @click="clearFilters"
         >Limpiar</UButton
       >
+      <div class="flex-1" />
+      <UButton v-if="canPlace" icon="i-lucide-plus" to="/pedidos/nuevo">Nuevo pedido</UButton>
     </div>
     <UAlert
       v-if="filters.placedBy && filters.placedBy !== myId"

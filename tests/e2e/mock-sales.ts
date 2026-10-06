@@ -73,8 +73,14 @@ export interface SalesOrderSeed {
 
 export interface SalesSeed {
   orders: SalesOrderSeed[]
-  /** `MANUAL_PAYMENTS_ENABLED=false` en la API (GAPS G-02). */
+  /** Pago manual deshabilitado (API_SPEC §16.6). */
   manualPaymentsDisabled?: boolean
+  /** La configuración leída dice habilitado, pero otro cambio lo deshabilitó antes del registro. */
+  staleSettings?: boolean
+  /** Almacén, existencias y clientes para colocar pedidos en la tienda (ADR-0161). */
+  storeCatalog?: boolean
+  /** El precio sube entre la cotización y la colocación: el primer intento recibe `total-mismatch`. */
+  priceChangeOnPlace?: boolean
 }
 
 interface Line {
@@ -411,6 +417,220 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
     meta: { page: 1, pageSize: 20, totalItems: items.length, totalPages: 1 },
   })
 
+  const settings = {
+    manualPaymentsEnabled: !seed.manualPaymentsDisabled || !!seed.staleSettings,
+    version: 1,
+    updatedAt: NOW,
+  }
+  await page.route(`${API}/v1/admin/payment-settings`, async (route) => {
+    const request = route.request()
+    if (request.method() === 'OPTIONS')
+      return route.fulfill({
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+          'Access-Control-Allow-Methods': 'GET, PUT',
+        },
+      })
+    if (request.method() === 'GET') return json(route, 200, settings)
+    const body = request.postDataJSON() as { manualPaymentsEnabled: boolean; version: number }
+    calls.push({
+      method: 'PUT',
+      path: '/v1/admin/payment-settings',
+      body,
+      query: '',
+      headers: request.headers(),
+    })
+    if (body.version !== settings.version)
+      return problem(route, 409, 'version-conflict', 'El recurso cambió', {
+        currentVersion: settings.version,
+      })
+    Object.assign(settings, {
+      manualPaymentsEnabled: body.manualPaymentsEnabled,
+      version: settings.version + 1,
+    })
+    return json(route, 200, settings)
+  })
+
+  // ── Tienda física: almacén, existencias y clientes (solo lectura) ───────────────
+  const STOCK = [
+    { variantId: uuid(), sku: 'CAM-M', productTitle: 'Camisa de lino', unit: 59900, available: 5 },
+    { variantId: uuid(), sku: 'PAN-32', productTitle: 'Pantalón chino', unit: 89900, available: 1 },
+  ]
+  let priceBump = 0
+  let pendingPriceChange = !!seed.priceChangeOnPlace
+  const CUSTOMER = {
+    id: uuid(),
+    email: 'lucia@example.com',
+    emailVerified: true,
+    firstNames: 'Lucía',
+    lastNames: 'Ramírez',
+    status: 'ACTIVE',
+    anonymizedAt: null,
+    lastLoginAt: null,
+    createdAt: '2026-09-01T10:00:00.000Z',
+    version: 1,
+    addresses: [
+      {
+        ...ADDRESS,
+        id: uuid(),
+        recipientName: 'Lucía Ramírez',
+        isDefault: true,
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+    ],
+  }
+  const idempotency = new Map<string, Order>()
+
+  if (seed.storeCatalog) {
+    await page.route(
+      `${API}/v1/admin/{inventory/warehouses,inventory/stock-items,identity/customers}**`,
+      async (route) => {
+        const request = route.request()
+        const url = new URL(request.url())
+        if (request.method() === 'OPTIONS')
+          return route.fulfill({
+            status: 204,
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+              'Access-Control-Allow-Methods': 'GET',
+            },
+          })
+        calls.push({
+          method: request.method(),
+          path: url.pathname,
+          body: null,
+          query: url.search,
+          headers: request.headers(),
+        })
+        if (url.pathname.endsWith('/warehouses'))
+          return json(route, 200, {
+            data: [
+              {
+                id: WAREHOUSE_ID,
+                code: 'CENTRO',
+                name: 'Tienda Centro',
+                priority: 1,
+                status: 'ACTIVE',
+                address: null,
+                createdAt: NOW,
+                updatedAt: NOW,
+              },
+            ],
+          })
+        if (url.pathname.endsWith('/stock-items')) {
+          const text = url.searchParams.get('q')?.toLowerCase() ?? ''
+          const items = STOCK.filter(
+            (v) =>
+              v.sku.toLowerCase().includes(text) || v.productTitle.toLowerCase().includes(text),
+          ).map((v) => ({
+            id: uuid(),
+            variantId: v.variantId,
+            warehouseId: WAREHOUSE_ID,
+            sku: v.sku,
+            productTitle: v.productTitle,
+            onHand: v.available,
+            reserved: 0,
+            available: v.available,
+            updatedAt: NOW,
+          }))
+          return json(route, 200, page1(items))
+        }
+        const id = url.pathname.split('/')[5]
+        if (id) return json(route, 200, CUSTOMER)
+        const text = url.searchParams.get('q')?.toLowerCase() ?? ''
+        const match = `${CUSTOMER.email} ${CUSTOMER.firstNames} ${CUSTOMER.lastNames}`
+          .toLowerCase()
+          .includes(text)
+        return json(route, 200, page1(match ? [{ ...CUSTOMER, addresses: [] }] : []))
+      },
+    )
+  }
+
+  function quote(input: {
+    lines: Array<{ variantId: string; quantity: number }>
+    fulfillment?: string
+  }) {
+    const lines = input.lines.map((l) => {
+      const v = STOCK.find((x) => x.variantId === l.variantId)!
+      const lineTotal = (v.unit + priceBump) * l.quantity
+      return {
+        variantId: v.variantId,
+        sku: v.sku,
+        productTitle: v.productTitle,
+        options: { talla: 'M' },
+        quantity: l.quantity,
+        unitPrice: money(v.unit + priceBump),
+        taxRateBp: 1600,
+        taxAmount: money(Math.round((lineTotal * 16) / 116)),
+        lineTotal: money(lineTotal),
+        sellable: true,
+        canFulfill: l.quantity <= v.available,
+      }
+    })
+    const subtotal = lines.reduce((n, l) => n + l.lineTotal.amount, 0)
+    const shipping = input.fulfillment === 'IN_STORE' ? 0 : 9900
+    return {
+      lines,
+      subtotal: money(subtotal),
+      discountTotal: money(0),
+      shippingCost: money(shipping),
+      shippingTaxAmount: money(Math.round((shipping * 16) / 116)),
+      taxTotal: money(Math.round(((subtotal + shipping) * 16) / 116)),
+      grandTotal: money(subtotal + shipping),
+      freeShippingThreshold: null,
+      estimatedDelivery:
+        input.fulfillment === 'IN_STORE' ? null : { minBusinessDays: 3, maxBusinessDays: 7 },
+      readyToPlace: lines.every((l) => l.canFulfill),
+    }
+  }
+
+  function placeOrder(input: Record<string, unknown>): Order {
+    const q = quote(input as Parameters<typeof quote>[0])
+    const order: Order = {
+      id: uuid(),
+      orderNumber: 2001 + orders.length,
+      publicCode: 'T5N8-W2RP',
+      status: 'PENDING_PAYMENT',
+      email: input.customerId ? CUSTOMER.email : ((input.contactEmail as string) ?? null),
+      customerId: (input.customerId as string) ?? null,
+      blockedAt: null,
+      channel: 'STORE',
+      fulfillment: input.fulfillment as Order['fulfillment'],
+      placedBy: STAFF_ID,
+      warehouseId: input.warehouseId as string,
+      deliveredAt: null,
+      version: 1,
+      lines: q.lines.map((l, n) => ({
+        id: uuid(),
+        lineNumber: n + 1,
+        sku: l.sku,
+        productName: l.productTitle,
+        quantity: l.quantity,
+        unit: l.unitPrice.amount,
+      })),
+      paidAt: null,
+      cancelledAt: null,
+      history: [
+        {
+          fromStatus: null,
+          toStatus: 'PENDING_PAYMENT',
+          actorId: STAFF_ID,
+          reason: null,
+          occurredAt: NOW,
+        },
+      ],
+      paymentId: null,
+      shipmentId: null,
+      restocked: {},
+    }
+    orders.push(order)
+    return order
+  }
+
   await page.route(`${API}/v1/admin/{orders,payments,shipping}**`, async (route) => {
     const request = route.request()
     const url = new URL(request.url())
@@ -432,6 +652,26 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
 
     // ── Pedidos ────────────────────────────────────────────────────────────────
     if (parts[0] === 'orders') {
+      if (parts[1] === 'quote' && method === 'POST')
+        return json(route, 200, quote(body as Parameters<typeof quote>[0]))
+      if (!parts[1] && method === 'POST') {
+        const key = request.headers()['idempotency-key']
+        if (!key) return problem(route, 400, 'idempotency-key-missing', 'Falta Idempotency-Key')
+        const seen = idempotency.get(key)
+        if (seen) return json(route, 201, orderDto(seen, true))
+        if (pendingPriceChange) {
+          pendingPriceChange = false
+          priceBump = 1000
+        }
+        const current = quote(body as Parameters<typeof quote>[0]).grandTotal
+        if (body?.expectedTotal !== current.amount)
+          return problem(route, 409, 'total-mismatch', 'El total cambió', {
+            currentTotal: current,
+          })
+        const created = placeOrder(body!)
+        idempotency.set(key, created)
+        return json(route, 201, orderDto(created, true))
+      }
       if (!parts[1] && method === 'GET') {
         const status = q.get('status')?.split(',')
         const text = q.get('q')?.toLowerCase().replace('-', '')
@@ -477,7 +717,7 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
           return json(route, 200, orderDto(o, true))
         }
         case 'manual-capture': {
-          if (seed.manualPaymentsDisabled)
+          if (!settings.manualPaymentsEnabled || seed.staleSettings)
             return problem(
               route,
               403,
@@ -566,6 +806,12 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
             })),
           })
         }
+        case 'hand-over':
+          if (o.status !== 'PAID' || o.fulfillment !== 'IN_STORE')
+            return problem(route, 409, 'invalid-state-transition', 'Transición no permitida')
+          o.deliveredAt = NOW
+          transition(o, 'DELIVERED')
+          return json(route, 200, orderDto(o, true))
         case 'blocked-data':
           if (!o.blockedAt)
             return problem(route, 409, 'invalid-state-transition', 'La orden no está bloqueada')
@@ -675,5 +921,5 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
     return json(route, 200, shipmentDto(s))
   })
 
-  return { calls, orders, payments, shipments }
+  return { calls, orders, payments, shipments, settings }
 }

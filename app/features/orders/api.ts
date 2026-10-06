@@ -13,7 +13,15 @@ import type {
   ReorderResult,
   RestockInput,
   RestockResult,
+  WarehouseOption,
+  ManualPaymentSettings,
+  BuyerCustomer,
+  SellableStock,
+  StaffOrderInput,
+  StaffQuote,
+  StaffQuoteInput,
 } from './types'
+import type { Page } from '~/shared/api/types'
 
 const BASE = '/v1/admin/orders'
 
@@ -123,6 +131,120 @@ export function useRestock(id: MaybeRefOrGetter<string>) {
         idempotencyKey,
       }),
     onSuccess: () => invalidateRoots(qc, [QUERY_ROOT.inventory]),
+  })
+}
+
+/**
+ * Si el pago manual está habilitado (API_SPEC §16.6, ADR-0162). Comparte la llave de la feature de
+ * pagos (`['payments', 'settings']`), que devuelve los mismos datos.
+ */
+export function useManualPaymentSettings(enabled: MaybeRefOrGetter<boolean>) {
+  const api = useApi()
+  return useQuery<ManualPaymentSettings, ApiProblem>({
+    queryKey: [QUERY_ROOT.payments, 'settings'],
+    queryFn: ({ signal }) => api<ManualPaymentSettings>('/v1/admin/payment-settings', { signal }),
+    enabled: computed(() => toValue(enabled)),
+  })
+}
+
+/**
+ * Almacenes para el reintegro y los pedidos de la tienda (API_SPEC §15.7, ADR-0160). Comparte la llave del
+ * listado de Inventario (`['inventory', 'warehouses']`), que devuelve los mismos datos.
+ */
+export function useWarehouseOptions(enabled: MaybeRefOrGetter<boolean>) {
+  const api = useApi()
+  return useQuery<WarehouseOption[], ApiProblem>({
+    queryKey: [QUERY_ROOT.inventory, 'warehouses'],
+    queryFn: async ({ signal }) =>
+      (await api<{ data: WarehouseOption[] }>('/v1/admin/inventory/warehouses', { signal })).data,
+    enabled: computed(() => toValue(enabled)),
+  })
+}
+
+/**
+ * Cotiza un pedido de la tienda física (UC-ORD-12). Es un POST sin efectos, así que se trata como
+ * consulta: se repite al cambiar las líneas, el almacén o la entrega.
+ */
+export function useStaffQuote(input: MaybeRefOrGetter<StaffQuoteInput | null>) {
+  const api = useApi()
+  return useQuery<StaffQuote, ApiProblem>({
+    queryKey: computed(() => [...orderKeys.all, 'quote', toValue(input)]),
+    queryFn: ({ signal }) =>
+      api<StaffQuote>(`${BASE}/quote`, { method: 'POST', body: { ...toValue(input)! }, signal }),
+    enabled: computed(() => !!toValue(input)),
+    placeholderData: keepPreviousData,
+    staleTime: 0,
+  })
+}
+
+/**
+ * Coloca el pedido (UC-ORD-13). Exige `Idempotency-Key`: quien llama la conserva mientras el usuario
+ * reintenta el mismo pedido, y la cambia si cambia el contenido.
+ */
+export function usePlaceStaffOrder() {
+  const api = useApi()
+  const qc = useQueryClient()
+  return useMutation<AdminOrder, ApiProblem, { input: StaffOrderInput; idempotencyKey: string }>({
+    mutationFn: ({ input, idempotencyKey }) =>
+      api<AdminOrder>(BASE, { method: 'POST', body: { ...input }, idempotencyKey }),
+    onSuccess: (order) => {
+      qc.setQueryData(orderKeys.detail(order.id), order)
+      invalidateRoots(qc, [QUERY_ROOT.orders, QUERY_ROOT.inventory])
+    },
+  })
+}
+
+/** Entrega en la tienda una orden `IN_STORE` pagada: de PAID a DELIVERED (UC-ORD-14). */
+export function useHandOver(id: MaybeRefOrGetter<string>) {
+  const api = useApi()
+  return useOrderMutation((version: number) =>
+    api<AdminOrder>(`${BASE}/${toValue(id)}/hand-over`, { method: 'POST', body: { version } }),
+  )
+}
+
+/**
+ * Variantes con existencias en un almacén, por SKU o título (`GET …/inventory/stock-items`). Usa la
+ * raíz de Inventario para que sus cambios la invaliden.
+ */
+export function useSellableStock(
+  params: MaybeRefOrGetter<{ warehouseId: string; q: string } | null>,
+) {
+  const api = useApi()
+  return useQuery<Page<SellableStock>, ApiProblem>({
+    queryKey: computed(() => [QUERY_ROOT.inventory, 'stock', 'sellable', toValue(params)]),
+    queryFn: ({ signal }) =>
+      api<Page<SellableStock>>('/v1/admin/inventory/stock-items', {
+        query: { ...toValue(params)!, pageSize: 10 },
+        signal,
+      }),
+    enabled: computed(() => !!toValue(params)),
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** Clientes activos y verificados para colocar el pedido a su nombre (`customers.read`). */
+export function useBuyerSearch(q: MaybeRefOrGetter<string>) {
+  const api = useApi()
+  return useQuery<Page<BuyerCustomer>, ApiProblem>({
+    queryKey: computed(() => [QUERY_ROOT.customers, 'buyers', toValue(q)]),
+    queryFn: ({ signal }) =>
+      api<Page<BuyerCustomer>>('/v1/admin/identity/customers', {
+        query: { q: toValue(q), status: 'ACTIVE', emailVerified: true, pageSize: 10 },
+        signal,
+      }),
+    enabled: computed(() => toValue(q).trim().length >= 2),
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** Detalle del cliente, con sus direcciones guardadas (solo en el detalle, API_SPEC §9). */
+export function useBuyer(id: MaybeRefOrGetter<string | undefined>) {
+  const api = useApi()
+  return useQuery<BuyerCustomer, ApiProblem>({
+    queryKey: computed(() => [QUERY_ROOT.customers, 'detail', toValue(id)]),
+    queryFn: ({ signal }) =>
+      api<BuyerCustomer>(`/v1/admin/identity/customers/${toValue(id)}`, { signal }),
+    enabled: computed(() => !!toValue(id)),
   })
 }
 

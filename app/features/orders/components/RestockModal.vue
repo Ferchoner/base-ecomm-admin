@@ -2,7 +2,8 @@
 import type { FormSubmitEvent } from '@nuxt/ui'
 import { notifySuccess } from '~/shared/api/feedback'
 import type { ApiProblem } from '~/shared/api/problem'
-import { useRestock } from '../api'
+import { useSessionStore } from '~/shared/auth/session.store'
+import { useRestock, useWarehouseOptions } from '../api'
 import { restockSchema } from '../schemas'
 import type { RestockForm } from '../schemas'
 import { RESTOCK_REASON_LABEL } from '../status'
@@ -21,6 +22,18 @@ const form = useTemplateRef('form')
 const problem = ref<ApiProblem | null>(null)
 const restock = useRestock(() => props.order.id)
 const toast = useToast()
+
+// Por defecto cada línea vuelve al almacén del que salió, aunque esté inactivo; o a uno activo elegido.
+const session = useSessionStore()
+const warehouses = useWarehouseOptions(() => open.value && session.can('inventory.read'))
+const ORIGIN = 'origin'
+const destination = ref(ORIGIN)
+const destinationOptions = computed(() => [
+  { value: ORIGIN, label: 'El almacén del que salió' },
+  ...(warehouses.data.value ?? [])
+    .filter((w) => w.status === 'ACTIVE')
+    .map((w) => ({ value: w.id, label: `${w.name} (${w.code})` })),
+])
 // Una llave por solicitud: si el usuario reintenta tras un error de red, la API no reintegra dos veces.
 let idempotencyKey = crypto.randomUUID()
 
@@ -28,11 +41,12 @@ watch(open, (isOpen) => {
   if (!isOpen) return
   state.quantities = Object.fromEntries(props.order.lines.map((l) => [l.id, 0]))
   state.note = ''
+  destination.value = ORIGIN
   problem.value = null
   idempotencyKey = crypto.randomUUID()
 })
 watch(
-  () => [state.quantities, state.note],
+  () => [state.quantities, state.note, destination.value],
   () => (idempotencyKey = crypto.randomUUID()),
   { deep: true },
 )
@@ -62,6 +76,7 @@ async function onSubmit(event: FormSubmitEvent<RestockForm>) {
         reasonCode: props.reason,
         lines,
         ...(event.data.note ? { note: event.data.note } : {}),
+        ...(destination.value !== ORIGIN ? { warehouseId: destination.value } : {}),
       },
       idempotencyKey,
     })
@@ -123,6 +138,13 @@ async function onSubmit(event: FormSubmitEvent<RestockForm>) {
         <UButton color="neutral" variant="link" size="sm" class="px-0" @click="fillAll"
           >Todas las unidades vendidas</UButton
         >
+        <UFormField
+          v-if="destinationOptions.length > 1"
+          label="Regresan a"
+          help="Por defecto, al almacén del que salió cada línea, aunque ya esté inactivo."
+        >
+          <USelect v-model="destination" :items="destinationOptions" class="w-full" />
+        </UFormField>
         <UFormField label="Nota" name="note" help="Opcional. Hasta 500 caracteres.">
           <UTextarea v-model="state.note" :maxlength="500" autoresize class="w-full" />
         </UFormField>

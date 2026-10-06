@@ -1,5 +1,10 @@
 import type { StatusStyle } from '~/components/StatusBadge.vue'
-import type { AdjustmentReason, MovementType, StockMovement } from './types'
+import type { AdjustmentReason, MovementType, StockMovement, WarehouseStatus } from './types'
+
+export const WAREHOUSE_STATUS: Record<WarehouseStatus, StatusStyle> = {
+  ACTIVE: { label: 'Activo', color: 'success' },
+  INACTIVE: { label: 'Inactivo', color: 'neutral' },
+}
 
 export const MOVEMENT_TYPE: Record<MovementType, StatusStyle> = {
   RECEIPT: { label: 'Entrada', color: 'success' },

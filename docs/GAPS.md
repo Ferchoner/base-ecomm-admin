@@ -16,7 +16,7 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 | Categorías (árbol) y marcas                                                          | AVAILABLE | `/v1/admin/catalog/categories`, `/brands`                                | Sin GET individual; el detalle sale del árbol/listado       |
 | Precios por variante, programados, importación CSV                                   | AVAILABLE | `/v1/admin/pricing/**`                                                   | Solo lista `GENERAL`; sin alta/edición de listas (ADR-0039) |
 | Precio visible en listado de productos                                               | GAP       | —                                                                        | Ver G-04                                                    |
-| Stock, movimientos, entradas, ajustes, almacén                                       | AVAILABLE | `/v1/admin/inventory/**`                                                 | Varios almacenes con prioridad (ADR-0160)                   |
+| Stock, movimientos, entradas, ajustes, almacén                                       | AVAILABLE | `/v1/admin/inventory/**`                                                 | Varios almacenes con prioridad (ADR-0160); ver G-20         |
 | Pedidos: listado, detalle, cancelar, reintentar surtido, reintegro, datos bloqueados | AVAILABLE | `/v1/admin/orders/**`                                                    |                                                             |
 | Pago manual (captura)                                                                | AVAILABLE | `POST /v1/admin/orders/{id}/manual-capture`                              | Ver G-02                                                    |
 | Pagos: listado, detalle, reembolso manual                                            | AVAILABLE | `/v1/admin/payments/**`                                                  |                                                             |
@@ -151,6 +151,13 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 - **Impacto:** el staff vuelve al login sin perder datos guardados. Con el TTL por defecto (15 min) la ventana es la duración de una renovación, pero también ocurre al recargar dos veces muy rápido.
 - **Workaround:** ninguno posible en el frontend: la respuesta perdida no se puede recuperar.
 - **Propuesta para el backend:** aceptar durante unos segundos el refresh token recién rotado (margen de gracia) y responder con el mismo par nuevo, en lugar de tratarlo como reutilización.
+
+### G-20 · Transferencia entre almacenes no atómica — ASSUMPTION (decidido)
+
+- **Evidencia:** la API 1.1 no tiene una operación de transferencia (T-163, DEFERRED en base-shop); API_SPEC §13 dice que se hace con dos ajustes `WAREHOUSE_TRANSFER`, uno negativo y uno positivo.
+- **Decisión del usuario (2026-10-06, D-068):** la interfaz ofrece "Transferir a otro almacén" y envía los dos ajustes en orden: salida y luego entrada.
+- **Riesgo:** si la entrada falla, la salida ya quedó. El diálogo lo explica y ofrece repetir solo la entrada, a petición del usuario; nunca se reintenta solo.
+- **Pregunta pendiente:** retirar esta ayuda cuando el backend publique la transferencia propia.
 
 ### G-21 · Quién colocó una orden de tienda, sin nombre — GAP menor (relacionado con G-13)
 

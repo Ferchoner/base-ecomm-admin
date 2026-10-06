@@ -109,7 +109,7 @@ const PAGES: Array<{
   { path: '/catalogo/marcas', heading: 'Marcas' },
   { path: '/precios', heading: 'Precios' },
   { path: '/inventario/stock', heading: 'Inventario' },
-  { path: '/inventario/almacen', heading: 'Almacén' },
+  { path: '/inventario/almacenes', heading: 'Almacenes' },
   { path: '/pedidos', heading: 'Pedidos' },
   {
     path: '/pedidos',

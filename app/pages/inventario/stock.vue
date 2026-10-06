@@ -2,9 +2,10 @@
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import { useProduct } from '~/features/catalog/api'
 import ProductPicker from '~/features/catalog/components/ProductPicker.vue'
-import { useActiveWarehouse, useStockItems, useStockOfVariant } from '~/features/inventory/api'
+import { useStockItems, useStockOfVariant, useWarehouses } from '~/features/inventory/api'
 import MovementsSlideover from '~/features/inventory/components/MovementsSlideover.vue'
 import StockEntryModal from '~/features/inventory/components/StockEntryModal.vue'
+import TransferStockModal from '~/features/inventory/components/TransferStockModal.vue'
 import { STOCK_SORT_OPTIONS } from '~/features/inventory/status'
 import type { StockItem } from '~/features/inventory/types'
 import { useListParams } from '~/shared/api/use-list-params'
@@ -18,7 +19,7 @@ definePageMeta({ title: 'Inventario', permission: 'inventory.read' })
 const session = useSessionStore()
 const canWrite = computed(() => session.can('inventory.write'))
 const canBrowseCatalog = computed(() => session.can('catalog.read'))
-const list = useListParams({ filters: ['q', 'availableMax', 'sort'] })
+const list = useListParams({ filters: ['q', 'warehouseId', 'availableMax', 'sort'] })
 const filters = list.filters
 
 const search = ref(filters.value.q ?? '')
@@ -41,11 +42,28 @@ const { data, isPending, error, refetch, isFetching } = useStockItems(() => ({
   page: list.page.value,
   pageSize: list.pageSize.value,
   q: filters.value.q,
+  warehouseId: filters.value.warehouseId,
   availableMax:
     filters.value.availableMax !== undefined ? Number(filters.value.availableMax) : undefined,
   sort: filters.value.sort ?? 'sku',
 }))
-const { warehouse } = useActiveWarehouse()
+// Varios almacenes (ADR-0160): entradas solo en activos; ajustes en cualquiera.
+const { data: warehouses } = useWarehouses()
+const warehouseById = computed(() => new Map((warehouses.value ?? []).map((w) => [w.id, w])))
+const activeWarehouses = computed(() =>
+  (warehouses.value ?? []).filter((w) => w.status === 'ACTIVE'),
+)
+const warehouseOptions = computed(() =>
+  (warehouses.value ?? []).map((w) => ({
+    value: w.id,
+    label: w.status === 'ACTIVE' ? `${w.name} (${w.code})` : `${w.name} (${w.code}, inactivo)`,
+  })),
+)
+const isActive = (warehouseId: string) => warehouseById.value.get(warehouseId)?.status === 'ACTIVE'
+function warehouseName(warehouseId: string) {
+  const w = warehouseById.value.get(warehouseId)
+  return w ? `${w.name} (${w.code})` : warehouseId
+}
 
 // Modal de entrada o ajuste, desde una fila o eligiendo cualquier variante del catálogo.
 const entry = reactive<{
@@ -54,8 +72,9 @@ const entry = reactive<{
   variantId: string
   sku: string
   productTitle?: string
+  warehouseId: string
   stock: StockItem | null
-}>({ open: false, mode: 'receipt', variantId: '', sku: '', stock: null })
+}>({ open: false, mode: 'receipt', variantId: '', sku: '', warehouseId: '', stock: null })
 function openEntry(item: StockItem, mode: 'receipt' | 'adjustment') {
   Object.assign(entry, {
     open: true,
@@ -63,8 +82,16 @@ function openEntry(item: StockItem, mode: 'receipt' | 'adjustment') {
     variantId: item.variantId,
     sku: item.sku,
     productTitle: item.productTitle,
+    warehouseId: item.warehouseId,
     stock: item,
   })
+}
+
+const transferOpen = ref(false)
+const transferItem = ref<StockItem | null>(null)
+function openTransfer(item: StockItem) {
+  transferItem.value = item
+  transferOpen.value = true
 }
 
 const movementsOpen = ref(false)
@@ -82,12 +109,27 @@ const productQuery = useProduct(() => pickedProduct.value ?? '')
 const variantOptions = computed(() =>
   (productQuery.data.value?.variants ?? []).map((v) => ({ value: v.id, label: v.sku })),
 )
-const pickedStock = useStockOfVariant(() => pickedVariant.value)
+const pickedWarehouse = ref<string>()
+watch(
+  [pickerOpen, activeWarehouses],
+  () => {
+    if (pickerOpen.value && !pickedWarehouse.value)
+      pickedWarehouse.value = filters.value.warehouseId ?? activeWarehouses.value[0]?.id
+  },
+  { immediate: true },
+)
+const variantStock = useStockOfVariant(() => pickedVariant.value)
+/** Existencia de la variante elegida en el almacén elegido; `null` si nunca tuvo movimientos ahí. */
+const pickedStock = computed(() =>
+  variantStock.data.value === undefined
+    ? undefined
+    : (variantStock.data.value.find((s) => s.warehouseId === pickedWarehouse.value) ?? null),
+)
 watch(pickedProduct, () => (pickedVariant.value = undefined))
 function continueWithVariant(mode: 'receipt' | 'adjustment') {
   const product = productQuery.data.value
   const variant = product?.variants.find((v) => v.id === pickedVariant.value)
-  if (!product || !variant) return
+  if (!product || !variant || !pickedWarehouse.value) return
   pickerOpen.value = false
   Object.assign(entry, {
     open: true,
@@ -95,24 +137,38 @@ function continueWithVariant(mode: 'receipt' | 'adjustment') {
     variantId: variant.id,
     sku: variant.sku,
     productTitle: product.title,
-    stock: pickedStock.data.value ?? null,
+    warehouseId: pickedWarehouse.value,
+    stock: pickedStock.value ?? null,
   })
 }
 
 function rowActions(item: StockItem): DropdownMenuItem[] {
   return [
     { label: 'Ver movimientos', icon: 'i-lucide-history', onSelect: () => openMovements(item) },
-    ...(canWrite.value && warehouse.value
+    ...(canWrite.value && isActive(item.warehouseId)
       ? [
           {
             label: 'Registrar entrada',
             icon: 'i-lucide-package-plus',
             onSelect: () => openEntry(item, 'receipt'),
           },
+        ]
+      : []),
+    ...(canWrite.value
+      ? [
           {
             label: 'Ajustar',
             icon: 'i-lucide-sliders-horizontal',
             onSelect: () => openEntry(item, 'adjustment'),
+          },
+        ]
+      : []),
+    ...(canWrite.value && activeWarehouses.value.some((w) => w.id !== item.warehouseId)
+      ? [
+          {
+            label: 'Transferir a otro almacén',
+            icon: 'i-lucide-arrow-right-left',
+            onSelect: () => openTransfer(item),
           },
         ]
       : []),
@@ -122,6 +178,7 @@ function rowActions(item: StockItem): DropdownMenuItem[] {
 const columns: TableColumn<StockItem>[] = [
   { accessorKey: 'sku', header: 'SKU' },
   { accessorKey: 'productTitle', header: 'Producto' },
+  { id: 'warehouse', header: 'Almacén' },
   { accessorKey: 'onHand', header: 'Físicas' },
   { accessorKey: 'reserved', header: 'Apartadas' },
   { accessorKey: 'available', header: 'Disponibles' },
@@ -129,7 +186,9 @@ const columns: TableColumn<StockItem>[] = [
   { id: 'actions', header: '' },
 ]
 
-const hasFilters = computed(() => !!(filters.value.q || filters.value.availableMax))
+const hasFilters = computed(
+  () => !!(filters.value.q || filters.value.availableMax || filters.value.warehouseId),
+)
 function clearFilters() {
   search.value = ''
   threshold.value = ''
@@ -148,6 +207,14 @@ function clearFilters() {
         placeholder="Buscar por SKU o producto"
         aria-label="Buscar existencias"
         class="w-full sm:w-64"
+      />
+      <USelect
+        :model-value="filters.warehouseId"
+        :items="warehouseOptions"
+        placeholder="Todos los almacenes"
+        aria-label="Filtrar por almacén"
+        class="w-full sm:w-56"
+        @update:model-value="(v) => list.setFilter('warehouseId', v as string)"
       />
       <UFormField label="Disponibles hasta" class="w-full sm:w-36">
         <UInput
@@ -183,7 +250,7 @@ function clearFilters() {
       >
       <div class="flex-1" />
       <UButton
-        v-if="canWrite && canBrowseCatalog && warehouse"
+        v-if="canWrite && canBrowseCatalog && warehouses?.length"
         icon="i-lucide-package-plus"
         @click="pickerOpen = true"
         >Registrar movimiento</UButton
@@ -210,6 +277,16 @@ function clearFilters() {
       >
         <template #sku-cell="{ row }">
           <code class="text-xs font-medium">{{ row.original.sku }}</code>
+        </template>
+        <template #warehouse-cell="{ row }">
+          <span class="text-sm">{{ warehouseName(row.original.warehouseId) }}</span>
+          <UBadge
+            v-if="!isActive(row.original.warehouseId)"
+            color="neutral"
+            variant="subtle"
+            class="ms-1"
+            >Inactivo</UBadge
+          >
         </template>
         <template #available-cell="{ row }">
           <span :class="['font-semibold', row.original.available <= 0 && 'text-error']">
@@ -248,15 +325,22 @@ function clearFilters() {
               class="w-full"
             />
           </UFormField>
-          <p v-if="pickedVariant && pickedStock.data.value" class="text-sm text-muted">
-            Disponibles: {{ pickedStock.data.value.available }} de
-            {{ pickedStock.data.value.onHand }} físicas.
+          <UFormField label="Almacén">
+            <USelect
+              v-model="pickedWarehouse"
+              :items="warehouseOptions"
+              placeholder="Elige el almacén"
+              class="w-full"
+            />
+          </UFormField>
+          <p v-if="pickedVariant && pickedStock" class="text-sm text-muted">
+            Disponibles: {{ pickedStock.available }} de {{ pickedStock.onHand }} físicas.
           </p>
-          <p
-            v-else-if="pickedVariant && pickedStock.data.value === null"
-            class="text-sm text-muted"
-          >
-            Esta variante aún no tiene existencias.
+          <p v-else-if="pickedVariant && pickedStock === null" class="text-sm text-muted">
+            Esta variante aún no tiene existencias en este almacén.
+          </p>
+          <p v-if="pickedWarehouse && !isActive(pickedWarehouse)" class="text-sm text-muted">
+            Un almacén inactivo ya no recibe mercancía; solo admite ajustes.
           </p>
         </div>
       </template>
@@ -265,12 +349,17 @@ function clearFilters() {
           <UButton
             color="neutral"
             variant="outline"
-            :disabled="!pickedVariant || pickedStock.isPending.value"
+            :disabled="!pickedVariant || !pickedWarehouse || variantStock.isPending.value"
             @click="continueWithVariant('adjustment')"
             >Ajustar</UButton
           >
           <UButton
-            :disabled="!pickedVariant || pickedStock.isPending.value"
+            :disabled="
+              !pickedVariant ||
+              !pickedWarehouse ||
+              !isActive(pickedWarehouse) ||
+              variantStock.isPending.value
+            "
             @click="continueWithVariant('receipt')"
             >Registrar entrada</UButton
           >
@@ -279,14 +368,21 @@ function clearFilters() {
     </UModal>
 
     <StockEntryModal
-      v-if="warehouse"
       v-model:open="entry.open"
       :mode="entry.mode"
       :variant-id="entry.variantId"
       :sku="entry.sku"
       :product-title="entry.productTitle"
-      :warehouse-id="warehouse.id"
+      :warehouse-id="entry.warehouseId"
+      :warehouse-name="warehouseName(entry.warehouseId)"
       :stock="entry.stock"
+    />
+    <TransferStockModal
+      v-if="transferItem"
+      v-model:open="transferOpen"
+      :item="transferItem"
+      :from-name="warehouseName(transferItem.warehouseId)"
+      :destinations="activeWarehouses.filter((w) => w.id !== transferItem?.warehouseId)"
     />
     <MovementsSlideover v-if="movementsItem" v-model:open="movementsOpen" :item="movementsItem" />
   </div>

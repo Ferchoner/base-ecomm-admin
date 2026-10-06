@@ -11,6 +11,7 @@ export type RestockInput = Schemas['RestockOrderDto']
 export type RestockReason = RestockInput['reasonCode']
 export type RestockResult = Schemas['RestockDto']
 export type BlockedOrderData = Schemas['BlockedOrderDataDto']
+export type RestockWarehouse = Schemas['WarehouseDto']
 export type ReorderResult = Schemas['ReorderDto']
 
 /** Filtros de `GET /v1/admin/orders` (API_SPEC §15.7). */

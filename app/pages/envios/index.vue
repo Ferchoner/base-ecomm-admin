@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TableColumn, TableRow } from '@nuxt/ui'
+import { useWarehouses } from '~/features/inventory/api'
 import { useShipments } from '~/features/shipping/api'
 import {
   SHIPMENT_SORT_OPTIONS,
@@ -8,6 +9,7 @@ import {
 } from '~/features/shipping/status'
 import type { AdminShipment } from '~/features/shipping/types'
 import { useListParams } from '~/shared/api/use-list-params'
+import { useSessionStore } from '~/shared/auth/session.store'
 import { SHIPMENT_STATUS } from '~/shared/status/sales'
 import { formatDateTime } from '~/shared/utils/dates'
 import { useDebounced } from '~/shared/utils/debounce'
@@ -15,7 +17,7 @@ import { useDebounced } from '~/shared/utils/debounce'
 definePageMeta({ title: 'Envíos', permission: 'shipping.manage' })
 
 const list = useListParams({
-  filters: ['q', 'status', 'orderId', 'createdFrom', 'createdTo', 'sort'],
+  filters: ['q', 'status', 'orderId', 'warehouseId', 'createdFrom', 'createdTo', 'sort'],
 })
 const filters = list.filters
 
@@ -29,10 +31,21 @@ const { data, isPending, error, refetch, isFetching } = useShipments(() => ({
   q: filters.value.q,
   status: shipmentStatusQuery(filters.value.status),
   orderId: filters.value.orderId,
+  warehouseId: filters.value.warehouseId,
   createdFrom: filters.value.createdFrom,
   createdTo: filters.value.createdTo,
   sort: filters.value.sort ?? 'createdAt',
 }))
+
+// Almacén de salida (ADR-0160). Los nombres requieren `inventory.read`; sin él no hay filtro.
+const session = useSessionStore()
+const { data: warehouses } = useWarehouses({ enabled: () => session.can('inventory.read') })
+const warehouseOptions = computed(() =>
+  (warehouses.value ?? []).map((w) => ({ value: w.id, label: `${w.name} (${w.code})` })),
+)
+function warehouseCode(id: string) {
+  return warehouses.value?.find((w) => w.id === id)?.code ?? null
+}
 
 const hasFilters = computed(() =>
   Object.entries(filters.value).some(([k, v]) => k !== 'sort' && v !== undefined),
@@ -46,6 +59,7 @@ const columns: TableColumn<AdminShipment>[] = [
   { accessorKey: 'orderCode', header: 'Pedido' },
   { accessorKey: 'status', header: 'Estado' },
   { id: 'destination', header: 'Destino' },
+  { id: 'warehouse', header: 'Sale de' },
   { id: 'items', header: 'Piezas' },
   { id: 'tracking', header: 'Guía' },
   { accessorKey: 'createdAt', header: 'Creado' },
@@ -74,6 +88,15 @@ function openRow(_: Event, row: TableRow<AdminShipment>) {
         @update:model-value="
           (v) => list.setFilter('status', v === 'PENDING' ? undefined : (v as string))
         "
+      />
+      <USelect
+        v-if="warehouseOptions.length > 1"
+        :model-value="filters.warehouseId"
+        :items="warehouseOptions"
+        placeholder="Todos los almacenes"
+        aria-label="Filtrar por almacén"
+        class="w-full sm:w-56"
+        @update:model-value="(v) => list.setFilter('warehouseId', v as string)"
       />
       <DateRangeFilter
         label="Creados"
@@ -131,6 +154,11 @@ function openRow(_: Event, row: TableRow<AdminShipment>) {
         <template #destination-cell="{ row }">
           {{ row.original.destination.municipalityName }}, {{ row.original.destination.stateName }}
           <div class="text-xs text-muted">C.P. {{ row.original.destination.postalCode }}</div>
+        </template>
+        <template #warehouse-cell="{ row }">
+          <code class="text-xs">{{
+            warehouseCode(row.original.warehouseId) ?? row.original.warehouseId.slice(0, 8)
+          }}</code>
         </template>
         <template #items-cell="{ row }">{{
           row.original.items.reduce((sum, i) => sum + i.quantity, 0)

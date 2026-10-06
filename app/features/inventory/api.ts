@@ -16,6 +16,7 @@ import type {
   StockListParams,
   StockMovementPage,
   Warehouse,
+  WarehouseCreateInput,
   WarehouseUpdateInput,
 } from './types'
 
@@ -48,11 +49,14 @@ export function useWarehouses(options: { enabled?: MaybeRefOrGetter<boolean> } =
   })
 }
 
-/** En el MVP hay un solo almacén, el activo; entradas y ajustes lo exigen (API_SPEC §13, ADR-0081). */
-export function useActiveWarehouse() {
-  const query = useWarehouses()
-  const warehouse = computed(() => query.data.value?.find((w) => w.status === 'ACTIVE') ?? null)
-  return { ...query, warehouse }
+export function useCreateWarehouse() {
+  const api = useApi()
+  const qc = useQueryClient()
+  return useMutation<Warehouse, ApiProblem, WarehouseCreateInput>({
+    mutationFn: (input) =>
+      api<Warehouse>(`${BASE}/warehouses`, { method: 'POST', body: { ...input } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: inventoryKeys.warehouses() }),
+  })
 }
 
 export function useUpdateWarehouse() {
@@ -61,6 +65,20 @@ export function useUpdateWarehouse() {
   return useMutation<Warehouse, ApiProblem, { id: string; input: WarehouseUpdateInput }>({
     mutationFn: ({ id, input }) =>
       api<Warehouse>(`${BASE}/warehouses/${id}`, { method: 'PATCH', body: { ...input } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: inventoryKeys.warehouses() }),
+  })
+}
+
+/**
+ * Desactiva un almacén para siempre (UC-INV-11, ADR-0160). Conserva su stock; deja de vender,
+ * reservar y recibir. 409 `resource-in-use` si tiene reservas, o `invalid-state-transition` si es el
+ * último activo.
+ */
+export function useDeactivateWarehouse() {
+  const api = useApi()
+  const qc = useQueryClient()
+  return useMutation<Warehouse, ApiProblem, string>({
+    mutationFn: (id) => api<Warehouse>(`${BASE}/warehouses/${id}/deactivate`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: inventoryKeys.warehouses() }),
   })
 }
@@ -79,7 +97,7 @@ export function useStockItems(
   })
 }
 
-/** Existencia de una variante (filtro `variantId`); `null` si nunca tuvo entradas ni ajustes. */
+/** Existencias de una variante en cada almacén (filtro `variantId`); vacío si nunca tuvo movimientos. */
 export function useStockOfVariant(variantId: MaybeRefOrGetter<string | undefined>) {
   const api = useApi()
   return useQuery({
@@ -87,10 +105,10 @@ export function useStockOfVariant(variantId: MaybeRefOrGetter<string | undefined
     queryFn: async ({ signal }) =>
       (
         await api<StockItemPage>(`${BASE}/stock-items`, {
-          query: { variantId: toValue(variantId) },
+          query: { variantId: toValue(variantId), pageSize: 100 },
           signal,
         })
-      ).data[0] ?? null,
+      ).data,
     enabled: computed(() => !!toValue(variantId)),
   })
 }
@@ -136,3 +154,62 @@ function useStockEntry<V extends object>(path: 'receipts' | 'adjustments') {
 
 export const useCreateReceipt = () => useStockEntry<ReceiptInput>('receipts')
 export const useCreateAdjustment = () => useStockEntry<AdjustmentInput>('adjustments')
+
+export interface TransferInput {
+  variantId: string
+  fromWarehouseId: string
+  toWarehouseId: string
+  quantity: number
+  note: string | null
+  /** Solo la entrada al destino, cuando la salida ya quedó y el usuario la vuelve a pedir. */
+  inboundOnly?: boolean
+}
+
+/**
+ * Error de una transferencia: `applied` dice si el primer ajuste (la salida) ya quedó registrado.
+ */
+export interface TransferError {
+  problem: ApiProblem
+  applied: boolean
+}
+
+/**
+ * Transferencia entre almacenes como dos ajustes `WAREHOUSE_TRANSFER`: la salida del origen y luego
+ * la entrada al destino (API_SPEC §13, ADR-0160). La API no la hace atómica (GAPS G-20): si la entrada
+ * falla, la salida ya quedó y no se reintenta sola.
+ */
+export function useTransferStock() {
+  const api = useApi()
+  const qc = useQueryClient()
+  const adjust = (input: AdjustmentInput) =>
+    api<StockEntry>(`${BASE}/adjustments`, { method: 'POST', body: { ...input } })
+  return useMutation<StockEntry, TransferError, TransferInput>({
+    mutationFn: async ({
+      variantId,
+      fromWarehouseId,
+      toWarehouseId,
+      quantity,
+      note,
+      inboundOnly,
+    }) => {
+      const base = { variantId, reasonCode: 'WAREHOUSE_TRANSFER' as const, note }
+      if (!inboundOnly) {
+        try {
+          await adjust({ ...base, warehouseId: fromWarehouseId, quantity: -quantity })
+        } catch (e) {
+          throw { problem: e as ApiProblem, applied: false } satisfies TransferError
+        }
+      }
+      try {
+        return await adjust({ ...base, warehouseId: toWarehouseId, quantity })
+      } catch (e) {
+        throw { problem: e as ApiProblem, applied: true } satisfies TransferError
+      }
+    },
+    onSettled: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: inventoryKeys.stock() }),
+        qc.invalidateQueries({ queryKey: [...inventoryKeys.all, 'movements'] }),
+      ]),
+  })
+}

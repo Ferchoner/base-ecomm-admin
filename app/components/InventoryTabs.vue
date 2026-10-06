@@ -2,7 +2,7 @@
 /** Navegación entre las pantallas de inventario. */
 const links = [
   { label: 'Existencias', icon: 'i-lucide-boxes', to: '/inventario/stock' },
-  { label: 'Almacén', icon: 'i-lucide-warehouse', to: '/inventario/almacen' },
+  { label: 'Almacenes', icon: 'i-lucide-warehouse', to: '/inventario/almacenes' },
 ]
 </script>
 

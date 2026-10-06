@@ -45,9 +45,17 @@ const required = (max: number, label: string) =>
   z.string().trim().min(1, `Escribe ${label}.`).max(max, `Máximo ${max} caracteres.`)
 const optional = (max: number) => z.string().trim().max(max, `Máximo ${max} caracteres.`)
 
+/** `code` solo al crear (CreateWarehouseDto): 2 a 20 mayúsculas, dígitos y guiones. */
 export const warehouseSchema = z
   .object({
+    creating: z.boolean(),
+    code: z.string().trim(),
     name: required(100, 'el nombre'),
+    priority: z
+      .number({ error: 'Escribe un número entero de 1 a 1000.' })
+      .int('Escribe un número entero de 1 a 1000.')
+      .min(1, 'Mínimo 1.')
+      .max(1000, 'Máximo 1000.'),
     hasAddress: z.boolean(),
     address: z.object({
       recipientName: optional(120),
@@ -64,6 +72,12 @@ export const warehouseSchema = z
     }),
   })
   .superRefine((v, ctx) => {
+    if (v.creating && !/^[A-Z0-9-]{2,20}$/.test(v.code))
+      ctx.addIssue({
+        code: 'custom',
+        path: ['code'],
+        message: 'De 2 a 20 mayúsculas, dígitos o guiones.',
+      })
     if (!v.hasAddress) return
     const a = v.address
     const need = (field: keyof typeof a, message: string) =>
@@ -78,3 +92,23 @@ export const warehouseSchema = z
     if (!a.municipalityCode) need('municipalityCode', 'Elige el municipio.')
   })
 export type WarehouseForm = z.input<typeof warehouseSchema>
+
+/** Transferencia entre almacenes: dos ajustes `WAREHOUSE_TRANSFER` (API_SPEC §13, ADR-0160). */
+export const transferSchema = z
+  .object({
+    fromWarehouseId: z.string().min(1, 'Elige el almacén de origen.'),
+    toWarehouseId: z
+      .string({ error: 'Elige el almacén de destino.' })
+      .min(1, 'Elige el almacén de destino.'),
+    quantity: z
+      .number({ error: 'Escribe una cantidad entera.' })
+      .int('Escribe una cantidad entera.')
+      .min(1, 'Al menos 1.')
+      .max(100_000, 'Máximo 100,000.'),
+    note,
+  })
+  .refine((v) => v.fromWarehouseId !== v.toWarehouseId, {
+    path: ['toWarehouseId'],
+    message: 'Elige un almacén distinto del origen.',
+  })
+export type TransferForm = z.input<typeof transferSchema>

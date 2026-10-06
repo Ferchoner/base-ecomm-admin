@@ -44,6 +44,7 @@ const sale = computed(() => {
           { label: 'Almacén', value: warehouseLabel(o.warehouseId) },
         ]
       : []),
+    ...(o.shipment ? [{ label: 'Sale de', value: warehouseLabel(o.shipment.warehouseId) }] : []),
   ]
 })
 

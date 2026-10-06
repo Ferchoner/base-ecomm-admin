@@ -13,6 +13,7 @@ import type {
   ReorderResult,
   RestockInput,
   RestockResult,
+  RestockWarehouse,
 } from './types'
 
 const BASE = '/v1/admin/orders'
@@ -123,6 +124,20 @@ export function useRestock(id: MaybeRefOrGetter<string>) {
         idempotencyKey,
       }),
     onSuccess: () => invalidateRoots(qc, [QUERY_ROOT.inventory]),
+  })
+}
+
+/**
+ * Almacenes a los que puede volver un reintegro (API_SPEC §15.7, ADR-0160). Comparte la llave del
+ * listado de Inventario (`['inventory', 'warehouses']`), que devuelve los mismos datos.
+ */
+export function useRestockWarehouses(enabled: MaybeRefOrGetter<boolean>) {
+  const api = useApi()
+  return useQuery<RestockWarehouse[], ApiProblem>({
+    queryKey: [QUERY_ROOT.inventory, 'warehouses'],
+    queryFn: async ({ signal }) =>
+      (await api<{ data: RestockWarehouse[] }>('/v1/admin/inventory/warehouses', { signal })).data,
+    enabled: computed(() => toValue(enabled)),
   })
 }
 

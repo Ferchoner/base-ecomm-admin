@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { login, mockAuthApi, staff } from './mock-api'
 import { mockCatalogApi } from './mock-catalog'
-import { mockPricingInventoryApi } from './mock-pricing-inventory'
+import { SECOND_WAREHOUSE_ID, mockPricingInventoryApi } from './mock-pricing-inventory'
 
 const V1 = '0192a3b4-0000-7000-8000-00000000c001'
 const V2 = '0192a3b4-0000-7000-8000-00000000c002'
@@ -234,29 +234,36 @@ test('inventario: movimientos con paginación por cursor', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Cargar más' })).toHaveCount(0)
 })
 
-test('almacén: nombre y dirección con el catálogo del INEGI', async ({ page }) => {
+test('almacenes: editar nombre, prioridad y dirección con el catálogo del INEGI', async ({
+  page,
+}) => {
   await mockAuthApi(page, staff(['inventory.read', 'inventory.write']))
   const api = await mockPricingInventoryApi(page)
   await login(page)
-  await page.goto('/inventario/almacen')
+  await page.goto('/inventario/almacenes')
+  // El último almacén activo no se puede desactivar.
+  await expect(page.getByRole('button', { name: 'Desactivar PRINCIPAL' })).toBeDisabled()
+  await page.getByRole('button', { name: 'Editar PRINCIPAL' }).click()
+  const dialog = page.getByRole('dialog')
 
-  await page.getByLabel('Nombre').fill('Almacén Morelia')
-  await page.getByRole('switch', { name: 'Tiene dirección' }).click()
-  await page.getByRole('button', { name: 'Guardar' }).click()
-  await expect(page.getByText('Exactamente 10 dígitos.')).toBeVisible()
+  await dialog.getByLabel('Nombre').fill('Almacén Morelia')
+  await dialog.getByRole('switch', { name: 'Tiene dirección' }).click()
+  await dialog.getByRole('button', { name: 'Guardar' }).click()
+  await expect(dialog.getByText('Exactamente 10 dígitos.')).toBeVisible()
 
-  await page.getByLabel('Contacto').fill('María López')
-  await page.getByLabel('Teléfono').fill('4431234567')
-  await page.getByLabel('Calle').fill('Av. Madero')
-  await page.getByLabel('Número exterior').fill('123')
-  await page.getByLabel('Colonia').fill('Centro')
-  await page.getByLabel('Código postal').fill('58000')
+  await dialog.getByLabel('Contacto').fill('María López')
+  await dialog.getByLabel('Teléfono').fill('4431234567')
+  await dialog.getByLabel('Calle').fill('Av. Madero')
+  await dialog.getByLabel('Número exterior').fill('123')
+  await dialog.getByLabel('Colonia').fill('Centro')
+  await dialog.getByLabel('Código postal').fill('58000')
   await choose(page, 'Elige el estado', 'Michoacán de Ocampo')
   await choose(page, 'Elige el municipio', 'Morelia')
-  await page.getByRole('button', { name: 'Guardar' }).click()
+  await dialog.getByRole('button', { name: 'Guardar' }).click()
   await expect(page.getByText('Almacén actualizado', { exact: true })).toBeVisible()
   expect(api.calls.find((c) => c.method === 'PATCH')?.body).toEqual({
     name: 'Almacén Morelia',
+    priority: 1,
     address: {
       recipientName: 'María López',
       phone: '4431234567',
@@ -271,4 +278,94 @@ test('almacén: nombre y dirección con el catálogo del INEGI', async ({ page }
       references: null,
     },
   })
+})
+
+test('almacenes: crear uno y desactivarlo', async ({ page }) => {
+  await mockAuthApi(page, staff(['inventory.read', 'inventory.write']))
+  const api = await mockPricingInventoryApi(page)
+  await login(page)
+  await page.goto('/inventario/almacenes')
+  await page.getByRole('button', { name: 'Nuevo almacén' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Código').fill('cdmx')
+  await dialog.getByLabel('Nombre').fill('Tienda CDMX')
+  await dialog.getByLabel('Prioridad').fill('2')
+  await dialog.getByRole('button', { name: 'Crear almacén' }).click()
+  await expect(page.getByText('Almacén creado', { exact: true })).toBeVisible()
+  expect(api.calls.find((c) => c.method === 'POST')?.body).toEqual({
+    code: 'CDMX',
+    name: 'Tienda CDMX',
+    priority: 2,
+    address: null,
+  })
+  const row = page.getByRole('row', { name: /CDMX/ })
+  await expect(row).toContainText('Activo')
+
+  await page.getByRole('button', { name: 'Desactivar CDMX' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Desactivar' }).click()
+  await expect(page.getByText('Almacén desactivado', { exact: true })).toBeVisible()
+  await expect(row).toContainText('Inactivo')
+})
+
+test('inventario: transferir entre almacenes con dos ajustes (G-20)', async ({ page }) => {
+  await mockAuthApi(page, staff(['inventory.read', 'inventory.write']))
+  const api = await mockPricingInventoryApi(page, {
+    warehouses: [{ id: SECOND_WAREHOUSE_ID, code: 'CDMX', name: 'Tienda CDMX', priority: 2 }],
+    stock: [{ variantId: V1, sku: 'CAM-M', productTitle: 'Camisa de lino', onHand: 10 }],
+  })
+  await login(page)
+  await page.goto('/inventario/stock')
+  await page.getByRole('button', { name: 'Acciones de CAM-M' }).click()
+  await page.getByRole('menuitem', { name: 'Transferir a otro almacén' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Cantidad').fill('4')
+  await dialog.getByRole('button', { name: 'Transferir' }).click()
+  await expect(page.getByText('Transferencia registrada', { exact: true })).toBeVisible()
+  const adjustments = api.calls.filter((c) => c.path.endsWith('/adjustments')).map((c) => c.body)
+  expect(adjustments).toEqual([
+    {
+      variantId: V1,
+      warehouseId: '0192a3b4-0000-7000-8000-00000000b001',
+      quantity: -4,
+      reasonCode: 'WAREHOUSE_TRANSFER',
+      note: null,
+    },
+    {
+      variantId: V1,
+      warehouseId: SECOND_WAREHOUSE_ID,
+      quantity: 4,
+      reasonCode: 'WAREHOUSE_TRANSFER',
+      note: null,
+    },
+  ])
+
+  await page.getByLabel('Filtrar por almacén').click()
+  await page.getByRole('option', { name: 'Tienda CDMX (CDMX)' }).click()
+  await expect(page).toHaveURL(/warehouseId=/)
+  await expect(page.getByRole('row', { name: /CAM-M/ })).toHaveCount(1)
+  await expect(page.getByRole('row', { name: /CAM-M/ })).toContainText('Tienda CDMX')
+})
+
+test('inventario: una transferencia a medias se explica y deja repetir solo la entrada', async ({
+  page,
+}) => {
+  await mockAuthApi(page, staff(['inventory.read', 'inventory.write']))
+  const api = await mockPricingInventoryApi(page, {
+    warehouses: [{ id: SECOND_WAREHOUSE_ID, code: 'CDMX', name: 'Tienda CDMX', priority: 2 }],
+    stock: [{ variantId: V1, sku: 'CAM-M', productTitle: 'Camisa de lino', onHand: 10 }],
+    failPositiveAdjustments: true,
+  })
+  await login(page)
+  await page.goto('/inventario/stock')
+  await page.getByRole('button', { name: 'Acciones de CAM-M' }).click()
+  await page.getByRole('menuitem', { name: 'Transferir a otro almacén' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Cantidad').fill('3')
+  await dialog.getByRole('button', { name: 'Transferir' }).click()
+  await expect(dialog.getByText('La transferencia quedó a medias')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Registrar la entrada en el destino' }).click()
+  await expect(dialog.getByText('La transferencia quedó a medias')).toBeVisible()
+  const adjustments = api.calls.filter((c) => c.path.endsWith('/adjustments'))
+  // La salida se envió una sola vez; la entrada, dos (la original y la que pidió el usuario).
+  expect(adjustments.map((c) => (c.body as { quantity: number }).quantity)).toEqual([-3, 3, 3])
 })

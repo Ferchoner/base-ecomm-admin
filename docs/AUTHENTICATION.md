@@ -33,10 +33,11 @@ El guard llama a `session.restore()` una vez por carga: si hay refresh token, re
 
 ### Renovar
 
-- **Proactiva:** 60 s antes de vencer el token de acceso (mínimo 5 s).
+- **Proactiva:** 60 s antes de vencer el token de acceso, o a la mitad del TTL si es de 2 minutos o menos (mínimo 5 s, D-066).
 - **Reactiva:** ante un 401 de una llamada autenticada, el cliente renueva una vez y repite la solicitud.
 - **De una en una:** dentro de la pestaña, todas las llamadas comparten la misma promesa de renovación; entre pestañas, la renovación corre dentro de un Web Lock (`backoffice.session-refresh`) y **lee el refresh token más reciente dentro del candado**, así nunca se presenta uno ya rotado. Sin Web Locks (navegadores antiguos) solo se serializa dentro de la pestaña.
 - Si no hay refresh token al renovar (otra pestaña cerró sesión), la pestaña queda anónima.
+- **Límite conocido (G-18):** si la pestaña se recarga o se cierra con una renovación en curso, la API ya rotó el token y el nuevo se pierde; la siguiente renovación cuenta como reutilización y la API revoca la sesión en todas las pestañas. Probado contra la API real; depende de un margen de gracia del backend.
 
 ### Cerrar sesión
 

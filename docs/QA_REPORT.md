@@ -1,6 +1,6 @@
 # QA_REPORT
 
-**Fecha:** 2026-10-05 · **Rama:** `feat/qa-pwa` sobre `main` con F0–F6 fusionados · **Estrategia:** TESTING_STRATEGY.md · **Casos:** TEST_CASE_MATRIX.md
+**Fecha:** 2026-10-05, prueba contra la API real el 2026-10-06 · **Rama:** `feat/qa-pwa` sobre `main` con F0–F6 fusionados · **Estrategia:** TESTING_STRATEGY.md · **Casos:** TEST_CASE_MATRIX.md
 
 ## Resultado de la ejecución
 
@@ -9,7 +9,7 @@
 | `npm run lint`                     | ✅ sin errores                                                                     |
 | `npm run format:check`             | ✅ sin diferencias                                                                 |
 | `npm run typecheck` (TS estricto)  | ✅ 0 errores                                                                       |
-| `npm test` (Vitest)                | ✅ 79 de 79 (80 de 80 con la rama de documentación y release)                      |
+| `npm test` (Vitest)                | ✅ 79 de 79 (83 de 83 con las correcciones de la prueba contra la API real)        |
 | `npm run build` (`nuxt generate`)  | ✅ SPA estática + service worker (136 archivos precacheados)                       |
 | `npm run test:e2e` (Playwright)    | ✅ 161 ejecuciones pasan; 19 omitidas a propósito (tema oscuro solo en escritorio) |
 | Accesibilidad (axe, WCAG 2.1 A/AA) | ✅ 0 violaciones en login, 19 pantallas (tema claro y oscuro) y 3 diálogos         |
@@ -33,11 +33,46 @@ Clasificación: frontend bug · API mismatch · configuración · test defect ·
 
 No hubo test defects: ninguna prueba se modificó para ocultar un fallo. Las pruebas nuevas de esta fase (accesibilidad y PWA) se escribieron primero y fallaron por los hallazgos QA-01 a QA-03 antes de su corrección.
 
+## Prueba contra la API real (2026-10-06)
+
+**Ambiente:** `base-shop` en el commit fijado `a46829b`, levantado en local con PostgreSQL 18, Mailpit y `MANUAL_PAYMENTS_ENABLED=true`; catálogo geográfico INEGI importado; superadministrador de prueba creado con `npm run superadmin:create`. El backoffice corrió desde el build estático (`nuxt generate`) con `NUXT_PUBLIC_API_BASE_URL=http://localhost:3000`, en Chromium de escritorio y móvil, con Playwright como navegador guiado. Los pedidos se crearon con la API pública de la tienda (carrito, cotización y pedido de invitado con `Idempotency-Key`). Todos los datos y contraseñas fueron de prueba y desechables.
+
+Recorrido de RELEASE_CHECKLIST.md §3:
+
+| Flujo                                                                                                                               | Resultado                                                                             |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Login, contraseña temporal forzada, cierre de sesión                                                                                | ✅                                                                                    |
+| Recuperar contraseña con el enlace de Mailpit; enlace reutilizado rechazado con "El enlace no es válido"; login con la nueva        | ✅                                                                                    |
+| Recorrido de las 28 rutas sin errores de consola ni respuestas inesperadas                                                          | ✅                                                                                    |
+| Catálogo: marca y categoría, slug duplicado (409 por campo), producto con dos variantes e imagen, publicar                          | ✅                                                                                    |
+| Precios: vigente y programado; CSV con error por línea                                                                              | ✅                                                                                    |
+| Inventario: entrada, ajuste con `quantity` (la API la acepta: confirma que G-11 es solo del OpenAPI), movimientos por cursor (G-10) | ✅                                                                                    |
+| Pedidos: pago en tienda, guía, despacho y entrega; cancelación con reintegro; reembolso manual hasta Reembolsado                    | ✅                                                                                    |
+| Clientes: suspender y reactivar con motivo; anonimizar invitado (código equivocado: 404 explicado; correcto: comprador anonimizado) | ✅                                                                                    |
+| Staff con contraseña temporal y rol Operador; auditoría con las acciones anteriores; método de envío                                | ✅                                                                                    |
+| Rol Operador (móvil): sin Staff ni Auditoría (página 403), Pedidos solo lectura sin acciones, Método de envío sin "Guardar"         | ✅                                                                                    |
+| Renovación con tres pestañas y `ACCESS_TOKEN_TTL=1m`: 82 rotaciones seguidas sin un 401, todas dentro del Web Lock                  | ✅                                                                                    |
+| Recargar una pestaña mientras su renovación está en curso                                                                           | ⚠️ QA-08                                                                              |
+| Reintento de una entrega de eventos fallida                                                                                         | ○ No hubo entregas fallidas que reintentar; cubierto solo por E2E con la API simulada |
+
+Hallazgos de esta corrida:
+
+| ID    | Clase                      | Severidad | Hallazgo                                                                                                                                                                                                                                                                                                                                                             | Estado                                                                                                                                                                                                                     |
+| ----- | -------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| QA-08 | API mismatch               | MEDIUM    | Si una pestaña se recarga o se cierra después de enviar `POST /v1/auth/refresh` y antes de recibir la respuesta, la API ya rotó el token pero el nuevo nunca se guarda. La siguiente renovación usa el anterior, la API lo trata como reutilización y revoca toda la sesión (API_SPEC §9.6): todas las pestañas vuelven al login. Reproducido de forma determinista. | Abierto (G-18). El frontend no puede recuperar una respuesta perdida; se propone al backend un margen de gracia para el token recién rotado. Con el TTL por defecto (15 min) la ventana es de milisegundos por renovación. |
+| QA-09 | frontend bug               | LOW       | El formulario de un producto borraba los cambios sin guardar cuando el producto se volvía a consultar (otra pestaña, otro usuario o una acción del encabezado).                                                                                                                                                                                                      | ✅ Corregido: conserva los cambios, avisa "El producto cambió mientras lo editabas" con "Descartar mis cambios" y guarda con la versión leída, así que la API responde 409 (D-065). Verificado contra la API real.         |
+| QA-10 | frontend bug               | LOW       | Con un `ACCESS_TOKEN_TTL` de 60 segundos o menos, cada pestaña renovaba cada 5 segundos, porque el margen fijo de 60 s era mayor que el TTL.                                                                                                                                                                                                                         | ✅ Corregido: el margen es el menor entre 60 s y la mitad del TTL (D-066).                                                                                                                                                 |
+| QA-11 | frontend bug               | LOW       | El aviso de precio programado terminaba en doble punto ("10:00 a.m..").                                                                                                                                                                                                                                                                                              | ✅ Corregido en `VariantPriceSlideover.vue`.                                                                                                                                                                               |
+| QA-12 | API mismatch               | LOW       | Después de reintegrar todo lo vendido, "Reintegrar stock" se sigue ofreciendo: `AdminOrder` no trae las cantidades ya reintegradas. La API responde 409 "vendidas 1, ya reintegradas 1, pedidas 1" y el diálogo lo muestra.                                                                                                                                          | Abierto (G-17).                                                                                                                                                                                                            |
+| QA-13 | documentación insuficiente | INFO      | Tras un pago en tienda, la entrada "Pagado" del historial del pedido llega sin `actorId` y se muestra "Automático"; quién registró el pago está en los intentos del pago.                                                                                                                                                                                            | Comportamiento de la API; se suma a G-13.                                                                                                                                                                                  |
+| QA-14 | configuración              | INFO      | Al abrir directamente una ruta sin permiso, Nuxt escribe en consola el diagnóstico `NUXT_E1005` porque el guard lanza el 403 antes de montar la app. La página 403 se muestra bien.                                                                                                                                                                                  | Observación; no afecta al usuario.                                                                                                                                                                                         |
+
+Fuera de esos puntos, las respuestas de la API coincidieron con las formas del OpenAPI y con API_SPEC: los únicos 4xx vistos fueron los provocados a propósito (duplicados, versión desactualizada, enlace reutilizado, reintegro de más, invitado inexistente) y la interfaz los explicó.
+
 ## Pendientes de QA
 
 | Pendiente                                                 | Motivo                                                                                | Prioridad   |
 | --------------------------------------------------------- | ------------------------------------------------------------------------------------- | ----------- |
-| Prueba contra la API real de `base-shop` en local         | Los E2E simulan la API; falta una corrida manual con el backend levantado (G-07)      | REQUIRED    |
 | Revisión manual con lector de pantalla (NVDA o VoiceOver) | axe no detecta todo; G-14 (opciones deshabilitadas sin `aria-disabled`) sigue abierto | RECOMMENDED |
-| Renovación de sesión con varias pestañas abiertas         | Cubierta por revisión de código y unidad, no por E2E                                  | OPTIONAL    |
+| Reintento de entregas de eventos con la API real          | No hubo entregas fallidas en la corrida del 2026-10-06                                | OPTIONAL    |
 | Otros navegadores (Firefox, Safari)                       | Solo se prueba Chromium                                                               | OPTIONAL    |

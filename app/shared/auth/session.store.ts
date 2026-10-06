@@ -14,7 +14,10 @@ export interface SessionDeps {
   runExclusive: RunExclusive
 }
 
-/** Margen antes del vencimiento del token de acceso para renovarlo sin esperar un 401. */
+/**
+ * Margen antes del vencimiento del token de acceso para renovarlo sin esperar un 401. Con un TTL
+ * corto (`ACCESS_TOKEN_TTL` del backend) se usa la mitad del TTL para no renovar sin parar.
+ */
 const REFRESH_MARGIN_SECONDS = 60
 
 export const NOT_STAFF_PROBLEM_TYPE = 'not-staff'
@@ -57,7 +60,8 @@ export const useSessionStore = defineStore('session', () => {
 
   function scheduleRefresh(expiresInSeconds: number) {
     clearTimer()
-    const delay = Math.max(expiresInSeconds - REFRESH_MARGIN_SECONDS, 5) * 1000
+    const margin = Math.min(REFRESH_MARGIN_SECONDS, expiresInSeconds / 2)
+    const delay = Math.max(expiresInSeconds - margin, 5) * 1000
     refreshTimer = setTimeout(() => {
       refresh().catch(() => undefined)
     }, delay)

@@ -1,6 +1,7 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { describe, expect, it } from 'vitest'
 import StatusBadge from '~/components/StatusBadge.vue'
+import ProductForm from '~/features/catalog/components/ProductForm.vue'
 import {
   brandSchema,
   categorySchema,
@@ -9,7 +10,7 @@ import {
 } from '~/features/catalog/schemas'
 import { PRODUCT_ACTIONS, PRODUCT_STATUS } from '~/features/catalog/status'
 import { descendantIds, flattenTree } from '~/features/catalog/tree'
-import type { CategoryNode } from '~/features/catalog/types'
+import type { CategoryNode, Product } from '~/features/catalog/types'
 import { ApiProblem } from '~/shared/api/problem'
 import { problemFieldErrors } from '~/shared/utils/form-errors'
 
@@ -152,5 +153,47 @@ describe('estados', () => {
       props: { value: 'REVIEW', styles: PRODUCT_STATUS },
     })
     expect(unknown.text()).toBe('REVIEW')
+  })
+})
+
+describe('ProductForm', () => {
+  const product = (version: number, title: string): Product => ({
+    id: 'p1',
+    title,
+    slug: 'camisa',
+    description: null,
+    brand: null,
+    categories: [],
+    images: [],
+    variants: [],
+    status: 'DRAFT',
+    storeVisibility: 'NOT_PUBLISHED',
+    firstPublishedAt: null,
+    publishedAt: null,
+    archivedAt: null,
+    createdAt: '2026-10-01T00:00:00.000Z',
+    updatedAt: '2026-10-01T00:00:00.000Z',
+    version,
+  })
+  const title = (w: Awaited<ReturnType<typeof mountSuspended>>) =>
+    (w.find('input').element as HTMLInputElement).value
+
+  it('sin cambios propios muestra el producto recargado', async () => {
+    const w = await mountSuspended(ProductForm, { props: { product: product(1, 'Camisa') } })
+    await w.setProps({ product: product(2, 'Camisa de lino') })
+    expect(title(w)).toBe('Camisa de lino')
+    expect(w.text()).not.toContain('cambió mientras lo editabas')
+  })
+
+  it('conserva los cambios sin guardar y avisa que la versión quedó atrás', async () => {
+    const w = await mountSuspended(ProductForm, { props: { product: product(1, 'Camisa') } })
+    await w.find('input').setValue('Camisa azul')
+    await w.setProps({ product: product(2, 'Camisa de lino') })
+    expect(title(w)).toBe('Camisa azul')
+    expect(w.text()).toContain('El producto cambió mientras lo editabas')
+    const discard = w.findAll('button').find((b) => b.text() === 'Descartar mis cambios')
+    await discard!.trigger('click')
+    expect(title(w)).toBe('Camisa de lino')
+    expect(w.text()).not.toContain('cambió mientras lo editabas')
   })
 })

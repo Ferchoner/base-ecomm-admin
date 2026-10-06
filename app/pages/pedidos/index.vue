@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import type { TableColumn, TableRow } from '@nuxt/ui'
 import { useOrders } from '~/features/orders/api'
-import { GUEST_OPTIONS, ORDER_SORT_OPTIONS } from '~/features/orders/status'
+import { CHANNEL_OPTIONS, GUEST_OPTIONS, ORDER_SORT_OPTIONS } from '~/features/orders/status'
 import type { AdminOrderSummary } from '~/features/orders/types'
 import { useListParams } from '~/shared/api/use-list-params'
-import { ORDER_STATUS, PAYMENT_STATUS, SHIPMENT_STATUS, statusOptions } from '~/shared/status/sales'
+import { useSessionStore } from '~/shared/auth/session.store'
+import {
+  ORDER_CHANNEL,
+  ORDER_STATUS,
+  PAYMENT_STATUS,
+  SHIPMENT_STATUS,
+  statusOptions,
+} from '~/shared/status/sales'
 import { formatDateTime } from '~/shared/utils/dates'
 import { useDebounced } from '~/shared/utils/debounce'
 import { formatMoney } from '~/shared/utils/money'
@@ -20,10 +27,14 @@ const list = useListParams({
     'customerId',
     'placedFrom',
     'placedTo',
+    'channel',
+    'placedBy',
     'sort',
   ],
 })
 const filters = list.filters
+const session = useSessionStore()
+const myId = computed(() => session.account?.id)
 
 const search = ref(filters.value.q ?? '')
 const debouncedSearch = useDebounced(search)
@@ -39,6 +50,8 @@ const { data, isPending, error, refetch, isFetching } = useOrders(() => ({
   hasPendingRefund: filters.value.hasPendingRefund === 'true' ? true : undefined,
   placedFrom: filters.value.placedFrom,
   placedTo: filters.value.placedTo,
+  channel: filters.value.channel,
+  placedBy: filters.value.placedBy,
   sort: filters.value.sort ?? '-placedAt',
 }))
 
@@ -64,7 +77,8 @@ const columns: TableColumn<AdminOrderSummary>[] = [
 function contact(o: AdminOrderSummary) {
   if (o.anonymizedAt) return 'Anonimizado'
   if (o.blockedAt) return 'Datos bloqueados'
-  return o.contactEmail ?? '—'
+  // Venta de mostrador sin datos del comprador (API_SPEC §8.8, ADR-0161).
+  return o.contactEmail ?? 'Sin datos'
 }
 
 function openRow(_: Event, row: TableRow<AdminOrderSummary>) {
@@ -98,6 +112,14 @@ function openRow(_: Event, row: TableRow<AdminOrderSummary>) {
         class="w-full sm:w-44"
         @update:model-value="(v) => list.setFilter('guest', v as string)"
       />
+      <USelect
+        :model-value="filters.channel"
+        :items="CHANNEL_OPTIONS"
+        placeholder="Todos los canales"
+        aria-label="Filtrar por canal"
+        class="w-full sm:w-44"
+        @update:model-value="(v) => list.setFilter('channel', v as string)"
+      />
       <DateRangeFilter
         label="Colocados"
         :from="filters.placedFrom"
@@ -119,6 +141,12 @@ function openRow(_: Event, row: TableRow<AdminOrderSummary>) {
         label="Reembolso pendiente"
         @update:model-value="(v) => list.setFilter('hasPendingRefund', v ? 'true' : undefined)"
       />
+      <USwitch
+        v-if="myId"
+        :model-value="!!myId && filters.placedBy === myId"
+        label="Mis ventas en tienda"
+        @update:model-value="(v) => list.setFilter('placedBy', v ? myId : undefined)"
+      />
       <UButton
         v-if="hasFilters"
         color="neutral"
@@ -128,6 +156,21 @@ function openRow(_: Event, row: TableRow<AdminOrderSummary>) {
         >Limpiar</UButton
       >
     </div>
+    <UAlert
+      v-if="filters.placedBy && filters.placedBy !== myId"
+      color="info"
+      variant="subtle"
+      icon="i-lucide-store"
+      title="Pedidos que colocó un miembro del staff en la tienda"
+      :actions="[
+        {
+          label: 'Ver todos',
+          color: 'neutral',
+          variant: 'outline',
+          onClick: () => list.setFilter('placedBy', undefined),
+        },
+      ]"
+    />
     <UAlert
       v-if="filters.customerId"
       color="info"
@@ -167,7 +210,15 @@ function openRow(_: Event, row: TableRow<AdminOrderSummary>) {
             @click.stop
             >{{ row.original.publicCode }}</NuxtLink
           >
-          <div class="text-xs text-muted">N.º {{ row.original.orderNumber }}</div>
+          <div class="flex items-center gap-1 text-xs text-muted">
+            N.º {{ row.original.orderNumber }}
+            <StatusBadge
+              v-if="row.original.channel === 'STORE'"
+              :value="row.original.channel"
+              :styles="ORDER_CHANNEL"
+              size="sm"
+            />
+          </div>
         </template>
         <template #placedAt-cell="{ row }">{{ formatDateTime(row.original.placedAt) }}</template>
         <template #contact-cell="{ row }">
@@ -195,7 +246,9 @@ function openRow(_: Event, row: TableRow<AdminOrderSummary>) {
             :value="row.original.shipment.status"
             :styles="SHIPMENT_STATUS"
           />
-          <span v-else class="text-muted">—</span>
+          <span v-else class="text-muted">{{
+            row.original.fulfillment === 'IN_STORE' ? 'En tienda' : '—'
+          }}</span>
         </template>
         <template #total-cell="{ row }">{{ formatMoney(row.original.grandTotal) }}</template>
       </UTable>

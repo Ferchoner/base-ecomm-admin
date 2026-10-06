@@ -238,3 +238,37 @@ test('pedidos: los datos bloqueados se ven solo con motivo', async ({ page }) =>
   await dialog.getByRole('button', { name: 'Cerrar' }).first().click()
   await expect(page.getByText('maria@example.com')).toHaveCount(0)
 })
+
+test('pedidos: una venta de mostrador sin datos del comprador se muestra completa', async ({
+  page,
+}) => {
+  await mockAuthApi(page, staff(ALL))
+  const api = await mockSalesApi(page, {
+    orders: [
+      { code: 'K7M4-Q9XA', status: 'PENDING_PAYMENT' },
+      {
+        code: 'S7T8-U9V0',
+        status: 'PAID',
+        payment: { status: 'CAPTURED' },
+        store: { fulfillment: 'IN_STORE', anonymousBuyer: true },
+      },
+    ],
+  })
+  await login(page)
+  await page.goto('/pedidos')
+  await page.getByLabel('Filtrar por canal').click()
+  await page.getByRole('option', { name: 'En tienda' }).click()
+  await expect(page).toHaveURL(/channel=STORE/)
+  const row = page.getByRole('row', { name: /S7T8-U9V0/ })
+  await expect(row).toContainText('Sin datos')
+  await expect(page.getByRole('row', { name: /K7M4-Q9XA/ })).toHaveCount(0)
+
+  await page.getByRole('link', { name: 'S7T8-U9V0' }).click()
+  await expect(page.getByRole('heading', { name: 'Pedido S7T8-U9V0' })).toBeVisible()
+  await expect(page.getByText('Venta de mostrador: el comprador no dio sus datos.')).toBeVisible()
+  await expect(page.getByText('Se entrega en la tienda al pagarse')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Envío', exact: true })).toHaveCount(0)
+  await expect(page.getByText('Colocado por')).toBeVisible()
+  await expect(page.getByText('Tú', { exact: true })).toBeVisible()
+  expect(api.calls.some((c) => c.query.includes('channel=STORE'))).toBe(true)
+})

@@ -121,6 +121,15 @@ El usuario aprobó en el hilo todas las propuestas D-P01…D-P17 ("La 1, y se ap
 | D-065 | Si el producto se vuelve a consultar con cambios sin guardar en su formulario, se conservan, se avisa que la versión quedó atrás y se ofrece descartarlos; al guardar se envía la versión leída, así que la API responde 409 en vez de pisar el cambio ajeno | QA-09; regla "enviar siempre la `version` leída"                      |
 | D-066 | La renovación proactiva usa como margen el menor entre 60 s y la mitad del TTL del token de acceso                                                                                                                                                           | QA-10: con `ACCESS_TOKEN_TTL` ≤ 60 s se renovaba cada 5 s por pestaña |
 
+## Actualización a la API 1.1–1.3 (2026-10-06)
+
+| ID    | Decisión                                                                                                                                                                                                                                               | Motivo                                                             |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| D-067 | El contrato se fija en base-shop `ff10406`: versiones 1.1.0 (varios almacenes), 1.2.0 (ventas en la tienda física) y T-194 (pago manual desde la API)                                                                                                  | El usuario pidió adoptar la API nueva y avisó que ya resolvía G-02 |
+| D-068 | Plan aprobado por el usuario (PLAN_API_1.2.md): cuatro PR (contrato y compatibilidad, almacenes, pagos en tienda, crear pedidos); transferencia entre almacenes como dos ajustes desde la interfaz; versión del aviso de privacidad como configuración | Aprobación del usuario, 2026-10-06                                 |
+| D-069 | Una orden `IN_STORE` muestra "Se entrega en la tienda" en lugar de dirección y plazo, y oculta la tarjeta de envío; `contactEmail` en `null` sin anonimizar ni bloquear se muestra como venta de mostrador sin datos                                   | API_SPEC §8.8 (ADR-0161)                                           |
+| D-070 | `placedBy` se muestra como "Tú" si es la cuenta actual, y como ID en otro caso                                                                                                                                                                         | GAPS G-21; el nombre exige `staff.manage`                          |
+
 ## Dependencias descartadas (no se instalan)
 
 | Dependencia                           | Motivo                                                                |

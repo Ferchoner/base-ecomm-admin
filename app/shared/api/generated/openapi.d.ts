@@ -641,7 +641,7 @@ export interface paths {
         };
         /**
          * Catálogo de permisos
-         * @description Los permisos del catálogo en código, con su descripción (ADR-0017): los únicos que puede tener un rol.
+         * @description Los permisos del catálogo en código, con su descripción (ADR-0017): los únicos que puede tener un rol. Los de `superadminOnly` solo los tiene el rol superadministrador (ADR-0162).
          */
         get: operations["AdminPermissionsController_list_v1"];
         put?: never;
@@ -897,11 +897,15 @@ export interface paths {
         };
         /**
          * Listar los almacenes
-         * @description Sin paginar. En el MVP hay exactamente un almacén, creado por el seed (ADR-0081).
+         * @description Sin paginar, por prioridad y luego por código. Cada pedido se reserva completo en el primer almacén activo que lo tiene todo (ADR-0160).
          */
         get: operations["AdminWarehousesController_list_v1"];
         put?: never;
-        post?: never;
+        /**
+         * Crear un almacén
+         * @description Activo. Desde ese momento recibe mercancía y reserva los pedidos según su prioridad (ADR-0160). El código no se repite entre almacenes. El estado y el municipio de la dirección se validan contra el catálogo del INEGI. Se audita como `warehouses.create`.
+         */
+        post: operations["AdminWarehousesController_create_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -922,10 +926,30 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Editar el nombre o la dirección del almacén
-         * @description Solo cambian los campos enviados; `address: null` quita la dirección. El estado y el municipio se validan contra el catálogo del INEGI.
+         * Editar el nombre, la dirección o la prioridad de un almacén
+         * @description Solo cambian los campos enviados; `address: null` quita la dirección. El estado y el municipio se validan contra el catálogo del INEGI. La prioridad ordena en qué almacén se reservan los pedidos (ADR-0160). Se audita como `warehouses.update`.
          */
         patch: operations["AdminWarehousesController_update_v1"];
+        trace?: never;
+    };
+    "/v1/admin/inventory/warehouses/{warehouseId}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Desactivar un almacén
+         * @description Para siempre (ADR-0076): deja de vender, reservar y recibir mercancía, y conserva su stock, que los ajustes pueden mover. 409 `resource-in-use` si tiene unidades reservadas para pedidos, e `invalid-state-transition` si ya está inactivo o es el último activo (`reason: last-active-warehouse`). Se audita como `warehouses.deactivate`.
+         */
+        post: operations["AdminWarehousesController_deactivate_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/admin/orders": {
@@ -941,7 +965,31 @@ export interface paths {
          */
         get: operations["AdminOrdersController_list_v1"];
         put?: never;
-        post?: never;
+        /**
+         * Colocar un pedido en la tienda física a nombre de un cliente
+         * @description UC-ORD-13 (ADR-0161). Exige `Idempotency-Key`. Para un cliente registrado y activo, con el email verificado, cuyo contacto es el email de su cuenta; o para un invitado, con `contactEmail` y la versión del aviso de privacidad que el staff le presentó. Exactamente uno de `customerId` y `contactEmail`, y uno de `addressId` y `shippingAddress`; `addressId` solo con `customerId`. Recalcula todo sin cache; si el total difiere de `expectedTotal` responde 409 `total-mismatch` con `currentTotal`. Reserva todo el stock en el almacén `warehouseId` o nada, y crea la orden `STORE` en `PENDING_PAYMENT`, en una sola transacción; sin carrito, una orden vencida no regresa a ninguno. Si el almacén no existe o está inactivo, 404. Hasta 30 órdenes por cuenta de staff cada 10 minutos. Se audita como `orders.place`.
+         */
+        post: operations["AdminOrdersController_place_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/orders/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cotizar un pedido en la tienda física
+         * @description UC-ORD-12 (ADR-0161). Sin efectos secundarios y sin cache: precios, IVA, envío y disponibilidad de ahora. Las líneas no vendibles o no surtibles no son un error: se marcan y `readyToPlace` queda en `false`. Los totales suman solo las líneas vendibles. Las líneas vienen en la solicitud, sin carrito, y la disponibilidad es la del almacén `warehouseId`. Si el almacén no existe o está inactivo, o una variante no existe, 404.
+         */
+        post: operations["AdminOrdersController_quote_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1008,6 +1056,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/orders/{orderId}/hand-over": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Entregar un pedido en la tienda física
+         * @description UC-ORD-14 (ADR-0161). Desde `PAID`, en una orden `IN_STORE`: pasa a `DELIVERED`, sin envío, con `deliveredAt`, y concluye. En otro estado, o en una orden que se envía, 409 `invalid-state-transition`. Se audita como `orders.hand-over`.
+         */
+        post: operations["AdminOrdersController_handOver_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/orders/{orderId}/manual-capture": {
         parameters: {
             query?: never;
@@ -1019,7 +1087,7 @@ export interface paths {
         put?: never;
         /**
          * Registrar el pago en tienda de un pedido
-         * @description Solo con el pago manual habilitado y desde `PENDING_PAYMENT` o `EXPIRED` (ADR-0055). Registra el cobro por el total del pedido y responde el pedido con su pago capturado; el pedido pasa a `PAID`, o sigue el flujo de pago tardío, en segundo plano (API_SPEC.md §2.5).
+         * @description Solo con el pago manual habilitado y desde `PENDING_PAYMENT` o `EXPIRED` (ADR-0055). Registra el cobro por el total del pedido, con el comprobante y cómo se cobró (`method`, ADR-0161), y responde el pedido con su pago capturado; el pedido pasa a `PAID`, o sigue el flujo de pago tardío, en segundo plano (API_SPEC.md §2.5).
          */
         post: operations["AdminOrdersController_captureManually_v1"];
         delete?: never;
@@ -1059,7 +1127,7 @@ export interface paths {
         put?: never;
         /**
          * Reintegrar el stock de un pedido
-         * @description UC-INV-09 (ADR-0052, ADR-0142). Exige `Idempotency-Key`. `ORDER_CANCELLED` para un pedido `CANCELLED` o `REFUNDED`, y `SHIPMENT_RETURNED` para uno con el envío `RETURNED`; si no, 409 `invalid-state-transition`. Cada línea regresa a lo sumo lo que vendió, sumando los reintegros anteriores; lo vendido cuenta solo si el stock del pedido se confirmó. Si no, 409 `restock-not-allowed` con `lines`, y no se reintegra nada. El pedido no cambia. Se audita como `orders.restock`.
+         * @description UC-INV-09 (ADR-0052, ADR-0142). Exige `Idempotency-Key`. `ORDER_CANCELLED` para un pedido `CANCELLED` o `REFUNDED`, y `SHIPMENT_RETURNED` para uno con el envío `RETURNED`; si no, 409 `invalid-state-transition`. Cada línea regresa a lo sumo lo que vendió, sumando los reintegros anteriores; lo vendido cuenta solo si el stock del pedido se confirmó. Si no, 409 `restock-not-allowed` con `lines`, y no se reintegra nada. Las unidades regresan al almacén del que salieron, aunque esté inactivo, o al almacén activo `warehouseId`; otro valor, 404 (ADR-0160). El pedido no cambia. Se audita como `orders.restock`.
          */
         post: operations["AdminOrdersController_restock_v1"];
         delete?: never;
@@ -1082,6 +1150,30 @@ export interface paths {
          * @description Desde `AWAITING_MANUAL_FULFILLMENT`: reserva y confirma el stock, y el pedido pasa a `PAID` (ADR-0012). Sin stock no cambia nada; si se decide no surtir, se cancela.
          */
         post: operations["AdminOrdersController_retryFulfillment_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payment-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar si el pago manual está habilitado
+         * @description Si la tienda registra pagos y reembolsos manuales, y si el cliente puede elegir pagar en la tienda (ADR-0162). Con el pago manual deshabilitado, esas acciones responden 403 `manual-payments-disabled`.
+         */
+        get: operations["AdminPaymentSettingsController_get_v1"];
+        /**
+         * Habilitar o deshabilitar el pago manual
+         * @description Solo un superadministrador: `payments.configure` no lo tiene ningún otro rol (ADR-0162). Vale desde la siguiente operación; un pago que ya pasó la comprobación termina. Cada cambio se audita; sin cambios no se guarda ni se audita.
+         */
+        put: operations["AdminPaymentSettingsController_update_v1"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2224,7 +2316,7 @@ export interface components {
             /** @description Staff con contraseña temporal, que solo puede cambiarla. */
             mustChangePassword: boolean;
             /** @description Permisos de los roles del staff; vacío en un cliente. */
-            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "payments.manage" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
+            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
             /** @description Roles del staff; vacío en un cliente. */
             roles: components["schemas"]["StaffRoleDto"][];
             /**
@@ -2369,10 +2461,15 @@ export interface components {
              */
             note?: string | null;
             /**
-             * @description `DAMAGED`, `LOSS_OR_THEFT` e `INTERNAL_USE` solo con cantidad negativa; `OTHER` exige `note`.
+             * @description Con signo, de −100,000 a 100,000 y distinta de 0.
+             * @example -2
+             */
+            quantity: number;
+            /**
+             * @description `DAMAGED`, `LOSS_OR_THEFT` e `INTERNAL_USE` solo con cantidad negativa; `OTHER` exige `note`. `WAREHOUSE_TRANSFER` mueve unidades entre almacenes: un ajuste negativo en uno y uno positivo en el otro (ADR-0160).
              * @enum {string}
              */
-            reasonCode: "PHYSICAL_COUNT" | "DAMAGED" | "LOSS_OR_THEFT" | "INTERNAL_USE" | "DATA_ENTRY_ERROR" | "OTHER";
+            reasonCode: "PHYSICAL_COUNT" | "DAMAGED" | "LOSS_OR_THEFT" | "INTERNAL_USE" | "DATA_ENTRY_ERROR" | "OTHER" | "WAREHOUSE_TRANSFER";
             /**
              * Format: uuid
              * @description La variante que se ajusta, en cualquier estado.
@@ -2380,7 +2477,7 @@ export interface components {
             variantId: string;
             /**
              * Format: uuid
-             * @description Debe ser el almacén activo.
+             * @description Debe ser un almacén activo.
              */
             warehouseId: string;
         };
@@ -2580,7 +2677,12 @@ export interface components {
              */
             cancelledAt: string | null;
             /**
-             * @description `null` solo en órdenes anonimizadas (ADR-0067).
+             * @description `ONLINE`: la colocó el comprador en la tienda en línea, desde su carrito. `STORE`: la colocó el staff en la tienda física a nombre del cliente (ADR-0161).
+             * @enum {string}
+             */
+            channel: "ONLINE" | "STORE";
+            /**
+             * @description `null` en una orden anonimizada (ADR-0067) o bloqueada (ADR-0151), y en una venta de mostrador sin datos del comprador (ADR-0161).
              * @example cliente@example.com
              */
             contactEmail: string | null;
@@ -2596,13 +2698,18 @@ export interface components {
             deliveredAt: string | null;
             /** @description Siempre 0 en el MVP. */
             discountTotal: components["schemas"]["MoneyDto"];
-            /** @description Plazo estimado de entrega, desde la confirmación del pago (ADR-0083). */
-            estimatedDelivery: components["schemas"]["EstimatedDeliveryDto"];
+            /** @description Plazo estimado de entrega, desde la confirmación del pago (ADR-0083); `null` en una orden `IN_STORE`. */
+            estimatedDelivery: components["schemas"]["EstimatedDeliveryDto"] | null;
             /**
              * Format: date-time
              * @description Cuándo venció sin pago; `null` si no ha ocurrido.
              */
             expiredAt: string | null;
+            /**
+             * @description `SHIPPING`: se envía a su dirección. `IN_STORE`: el staff la entrega en la tienda física al pagarse, sin dirección, sin costo de envío y sin plazo de entrega (ADR-0161).
+             * @enum {string}
+             */
+            fulfillment: "SHIPPING" | "IN_STORE";
             /** @description El total por pagar: subtotal más envío menos descuento. */
             grandTotal: components["schemas"]["MoneyDto"];
             /** Format: uuid */
@@ -2633,6 +2740,11 @@ export interface components {
              */
             placedAt: string;
             /**
+             * Format: uuid
+             * @description La cuenta de staff que colocó una orden `STORE`; `null` en una `ONLINE`.
+             */
+            placedBy: string | null;
+            /**
              * @description Código público: con él y el email, quien compra consulta su pedido.
              * @example K7M4-Q9XA
              */
@@ -2649,8 +2761,8 @@ export interface components {
              * @description Cuándo salió su envío; `null` si no ha ocurrido.
              */
             shippedAt: string | null;
-            /** @description La dirección de envío. Los campos personales salen `null` si la orden está bloqueada o anonimizada. */
-            shippingAddress: components["schemas"]["AdminOrderAddressDto"];
+            /** @description La dirección de envío. Los campos personales salen `null` si la orden está bloqueada o anonimizada. `null` en una orden `IN_STORE`, que se entrega en la tienda (ADR-0161). */
+            shippingAddress: components["schemas"]["AdminOrderAddressDto"] | null;
             /** @description Con IVA; 0 con envío gratis. */
             shippingCost: components["schemas"]["MoneyDto"];
             /** @description IVA contenido en `shippingCost`. */
@@ -2670,6 +2782,11 @@ export interface components {
             taxTotal: components["schemas"]["MoneyDto"];
             /** @description Versión para el bloqueo optimista. */
             version: number;
+            /**
+             * Format: uuid
+             * @description El almacén que eligió el staff para una orden `STORE`: su stock sale solo de ahí; `null` en una `ONLINE`.
+             */
+            warehouseId: string | null;
         };
         AdminOrderLineDto: {
             /** Format: uuid */
@@ -2726,6 +2843,11 @@ export interface components {
             /** Format: uuid */
             id: string;
             /**
+             * @description Cómo cobró la tienda un pago manual: `CASH`, `CARD_TERMINAL` o `TRANSFER` (ADR-0161); `null` si no se ha cobrado así, o si el staff no lo dijo.
+             * @enum {string|null}
+             */
+            method: "CASH" | "CARD_TERMINAL" | "TRANSFER" | null;
+            /**
              * @description `MANUAL` es el pago en la tienda (ADR-0055); PayPal aún no está habilitado (ADR-0040).
              * @enum {string}
              */
@@ -2768,6 +2890,11 @@ export interface components {
             trackingNumber: string | null;
             /** @description Versión para el bloqueo optimista. */
             version: number;
+            /**
+             * Format: uuid
+             * @description El almacén del que sale: el de la reserva del pedido (ADR-0160).
+             */
+            warehouseId: string;
         };
         AdminOrderSummaryDto: {
             /**
@@ -2786,7 +2913,12 @@ export interface components {
              */
             cancelledAt: string | null;
             /**
-             * @description `null` solo en órdenes anonimizadas (ADR-0067).
+             * @description `ONLINE`: la colocó el comprador en la tienda en línea, desde su carrito. `STORE`: la colocó el staff en la tienda física a nombre del cliente (ADR-0161).
+             * @enum {string}
+             */
+            channel: "ONLINE" | "STORE";
+            /**
+             * @description `null` en una orden anonimizada (ADR-0067) o bloqueada (ADR-0151), y en una venta de mostrador sin datos del comprador (ADR-0161).
              * @example cliente@example.com
              */
             contactEmail: string | null;
@@ -2802,13 +2934,18 @@ export interface components {
             deliveredAt: string | null;
             /** @description Siempre 0 en el MVP. */
             discountTotal: components["schemas"]["MoneyDto"];
-            /** @description Plazo estimado de entrega, desde la confirmación del pago (ADR-0083). */
-            estimatedDelivery: components["schemas"]["EstimatedDeliveryDto"];
+            /** @description Plazo estimado de entrega, desde la confirmación del pago (ADR-0083); `null` en una orden `IN_STORE`. */
+            estimatedDelivery: components["schemas"]["EstimatedDeliveryDto"] | null;
             /**
              * Format: date-time
              * @description Cuándo venció sin pago; `null` si no ha ocurrido.
              */
             expiredAt: string | null;
+            /**
+             * @description `SHIPPING`: se envía a su dirección. `IN_STORE`: el staff la entrega en la tienda física al pagarse, sin dirección, sin costo de envío y sin plazo de entrega (ADR-0161).
+             * @enum {string}
+             */
+            fulfillment: "SHIPPING" | "IN_STORE";
             /** @description El total por pagar: subtotal más envío menos descuento. */
             grandTotal: components["schemas"]["MoneyDto"];
             /** Format: uuid */
@@ -2838,6 +2975,11 @@ export interface components {
              */
             placedAt: string;
             /**
+             * Format: uuid
+             * @description La cuenta de staff que colocó una orden `STORE`; `null` en una `ONLINE`.
+             */
+            placedBy: string | null;
+            /**
              * @description Código público: con él y el email, quien compra consulta su pedido.
              * @example K7M4-Q9XA
              */
@@ -2854,8 +2996,8 @@ export interface components {
              * @description Cuándo salió su envío; `null` si no ha ocurrido.
              */
             shippedAt: string | null;
-            /** @description La dirección de envío. Los campos personales salen `null` si la orden está bloqueada o anonimizada. */
-            shippingAddress: components["schemas"]["AdminOrderAddressDto"];
+            /** @description La dirección de envío. Los campos personales salen `null` si la orden está bloqueada o anonimizada. `null` en una orden `IN_STORE`, que se entrega en la tienda (ADR-0161). */
+            shippingAddress: components["schemas"]["AdminOrderAddressDto"] | null;
             /** @description Con IVA; 0 con envío gratis. */
             shippingCost: components["schemas"]["MoneyDto"];
             /** @description IVA contenido en `shippingCost`. */
@@ -2873,6 +3015,11 @@ export interface components {
             taxTotal: components["schemas"]["MoneyDto"];
             /** @description Versión para el bloqueo optimista. */
             version: number;
+            /**
+             * Format: uuid
+             * @description El almacén que eligió el staff para una orden `STORE`: su stock sale solo de ahí; `null` en una `ONLINE`.
+             */
+            warehouseId: string | null;
         };
         AdminPaymentDto: {
             /** @description El total de la orden. */
@@ -3237,8 +3384,8 @@ export interface components {
             contactEmail: string;
             /** @description Destino de su envío; `null` si la orden no tiene envío. */
             shipmentDestination: components["schemas"]["PostalAddressDto"] | null;
-            /** @description La dirección de envío de la orden. */
-            shippingAddress: components["schemas"]["PostalAddressDto"];
+            /** @description La dirección de envío de la orden; `null` en una orden `IN_STORE` (ADR-0161). */
+            shippingAddress: components["schemas"]["PostalAddressDto"] | null;
         };
         BlockedOrderDataRequestDto: {
             /**
@@ -3370,8 +3517,8 @@ export interface components {
         CheckoutQuoteDto: {
             /** @description Siempre 0 en el MVP. */
             discountTotal: components["schemas"]["MoneyDto"];
-            /** @description Plazo estimado de entrega, desde la confirmación del pago (ADR-0083). */
-            estimatedDelivery: components["schemas"]["EstimatedDeliveryDto"];
+            /** @description Plazo estimado de entrega, desde la confirmación del pago (ADR-0083); `null` en una cotización del staff con `fulfillment` `IN_STORE` (ADR-0161). */
+            estimatedDelivery: components["schemas"]["EstimatedDeliveryDto"] | null;
             /** @description `null` si nunca hay envío gratis. */
             freeShippingThreshold: components["schemas"]["MoneyDto"] | null;
             /** @description Su `amount` es el `expectedTotal` para colocar la orden. */
@@ -3562,7 +3709,7 @@ export interface components {
              *       "orders.read"
              *     ]
              */
-            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "payments.manage" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
+            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
         };
         CreateStaffDto: {
             /**
@@ -3611,7 +3758,37 @@ export interface components {
             /** @description Centímetros, mayor que 0, un decimal. */
             widthCm?: number | null;
         };
-        CursorMetaDto: Record<string, never>;
+        CreateWarehouseDto: {
+            /** @description Formato `AddressInput` (ADR-0057); sin ella, `null`. */
+            address?: components["schemas"]["AddressInputDto"] | null;
+            /**
+             * @description De 2 a 20 mayúsculas, dígitos y guiones; único entre almacenes.
+             * @example NORTE
+             */
+            code: string;
+            /**
+             * @description De 1 a 100 caracteres.
+             * @example Almacén norte
+             */
+            name: string;
+            /**
+             * @description De 1 a 1000; 1 es el primero en reservar los pedidos (ADR-0160).
+             * @example 2
+             */
+            priority: number;
+        };
+        CursorMetaDto: {
+            /**
+             * @description Resultados por página que se pidieron.
+             * @example 50
+             */
+            limit: number;
+            /**
+             * @description El cursor de la página siguiente, para enviarlo como `cursor`; `null` en la última.
+             * @example eyJjcmVhdGVkQXQiOiIyMDI2LTEwLTA1VDEyOjAwOjAwLjAwMFoifQ
+             */
+            nextCursor: string | null;
+        };
         CustomerAnonymizationDto: {
             /**
              * Format: date-time
@@ -3797,6 +3974,10 @@ export interface components {
              */
             publicCode: string;
         };
+        HandOverDto: {
+            /** @description Versión leída (bloqueo optimista). */
+            version: number;
+        };
         ImageDto: {
             /** @description Texto alternativo; `null` sin él. */
             altText: string | null;
@@ -3834,8 +4015,13 @@ export interface components {
         };
         ManualCaptureDto: {
             /**
+             * @description Cómo se cobró: `CASH` (efectivo), `CARD_TERMINAL` (terminal bancaria) o `TRANSFER` (transferencia). Sin él, el pago queda sin método (ADR-0161).
+             * @enum {string}
+             */
+            method?: "CASH" | "CARD_TERMINAL" | "TRANSFER";
+            /**
              * @description Nota de hasta 500 caracteres; queda en la auditoría: no escribas datos personales.
-             * @example Pagó en efectivo
+             * @example Pagó con dos tarjetas
              */
             note?: string;
             /**
@@ -3914,7 +4100,7 @@ export interface components {
              */
             cancelledAt: string | null;
             /**
-             * @description `null` solo en órdenes anonimizadas (ADR-0067).
+             * @description `null` en una orden anonimizada (ADR-0067) o bloqueada (ADR-0151), y en una venta de mostrador sin datos del comprador (ADR-0161).
              * @example cliente@example.com
              */
             contactEmail: string | null;
@@ -3925,13 +4111,18 @@ export interface components {
             deliveredAt: string | null;
             /** @description Siempre 0 en el MVP. */
             discountTotal: components["schemas"]["MoneyDto"];
-            /** @description Plazo estimado de entrega, desde la confirmación del pago (ADR-0083). */
-            estimatedDelivery: components["schemas"]["EstimatedDeliveryDto"];
+            /** @description Plazo estimado de entrega, desde la confirmación del pago (ADR-0083); `null` en una orden `IN_STORE`. */
+            estimatedDelivery: components["schemas"]["EstimatedDeliveryDto"] | null;
             /**
              * Format: date-time
              * @description Cuándo venció sin pago; `null` si no ha ocurrido.
              */
             expiredAt: string | null;
+            /**
+             * @description `SHIPPING`: se envía a su dirección. `IN_STORE`: el staff la entrega en la tienda física al pagarse, sin dirección, sin costo de envío y sin plazo de entrega (ADR-0161).
+             * @enum {string}
+             */
+            fulfillment: "SHIPPING" | "IN_STORE";
             /** @description El total por pagar: subtotal más envío menos descuento. */
             grandTotal: components["schemas"]["MoneyDto"];
             /** @description Unidades de todas las líneas. */
@@ -3972,8 +4163,8 @@ export interface components {
              * @description Cuándo salió su envío; `null` si no ha ocurrido.
              */
             shippedAt: string | null;
-            /** @description La dirección de envío al colocar la orden. */
-            shippingAddress: components["schemas"]["PostalAddressDto"];
+            /** @description La dirección de envío al colocar la orden; `null` en una orden `IN_STORE`, que se entrega en la tienda (ADR-0161). */
+            shippingAddress: components["schemas"]["PostalAddressDto"] | null;
             /** @description Con IVA; 0 con envío gratis. */
             shippingCost: components["schemas"]["MoneyDto"];
             /** @description IVA contenido en `shippingCost`. */
@@ -4091,7 +4282,7 @@ export interface components {
              */
             cancelledAt: string | null;
             /**
-             * @description `null` solo en órdenes anonimizadas (ADR-0067).
+             * @description `null` en una orden anonimizada (ADR-0067) o bloqueada (ADR-0151), y en una venta de mostrador sin datos del comprador (ADR-0161).
              * @example cliente@example.com
              */
             contactEmail: string | null;
@@ -4102,13 +4293,18 @@ export interface components {
             deliveredAt: string | null;
             /** @description Siempre 0 en el MVP. */
             discountTotal: components["schemas"]["MoneyDto"];
-            /** @description Plazo estimado de entrega, desde la confirmación del pago (ADR-0083). */
-            estimatedDelivery: components["schemas"]["EstimatedDeliveryDto"];
+            /** @description Plazo estimado de entrega, desde la confirmación del pago (ADR-0083); `null` en una orden `IN_STORE`. */
+            estimatedDelivery: components["schemas"]["EstimatedDeliveryDto"] | null;
             /**
              * Format: date-time
              * @description Cuándo venció sin pago; `null` si no ha ocurrido.
              */
             expiredAt: string | null;
+            /**
+             * @description `SHIPPING`: se envía a su dirección. `IN_STORE`: el staff la entrega en la tienda física al pagarse, sin dirección, sin costo de envío y sin plazo de entrega (ADR-0161).
+             * @enum {string}
+             */
+            fulfillment: "SHIPPING" | "IN_STORE";
             /** @description El total por pagar: subtotal más envío menos descuento. */
             grandTotal: components["schemas"]["MoneyDto"];
             /** @description Unidades de todas las líneas. */
@@ -4229,6 +4425,11 @@ export interface components {
             createdAt: string;
             /** @description El código de error del proveedor; `null` si no falló. */
             failureCode: string | null;
+            /**
+             * @description Cómo cobró la tienda un pago manual: `CASH`, `CARD_TERMINAL` o `TRANSFER` (ADR-0161); `null` en los demás intentos, o si el staff no lo dijo.
+             * @enum {string|null}
+             */
+            method: "CASH" | "CARD_TERMINAL" | "TRANSFER" | null;
             /** @description Comprobante de la tienda en un pago manual. */
             providerReference: string | null;
             /** @description Staff que registró el pago manual. */
@@ -4238,6 +4439,18 @@ export interface components {
              * @enum {string}
              */
             status: "PENDING" | "REQUIRES_ACTION" | "AUTHORIZED" | "CAPTURED" | "FAILED" | "CANCELLED" | "PARTIALLY_REFUNDED" | "REFUNDED";
+        };
+        PaymentSettingsDto: {
+            /**
+             * @description Si la tienda registra pagos y reembolsos manuales, y si el cliente puede elegir pagar en la tienda. Con
+             *     `false`, esas acciones responden 403 `manual-payments-disabled`.
+             * @example true
+             */
+            manualPaymentsEnabled: boolean;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description Versión para el bloqueo optimista: se envía al cambiarla. */
+            version: number;
         };
         PaymentStartDto: {
             /** @description Lo que quien compra debe hacer para pagar. */
@@ -4265,6 +4478,12 @@ export interface components {
             code: string;
             /** @example Gestionar productos, variantes, imágenes, categorías y marcas */
             description: string;
+            /**
+             * @description Solo lo tiene el rol superadministrador (ADR-0162): ningún otro rol puede tenerlo, y agregarlo a uno responde
+             *     400 `validation-error`.
+             * @example false
+             */
+            superadminOnly: boolean;
         };
         PermissionListDto: {
             data: components["schemas"]["PermissionDto"][];
@@ -4321,6 +4540,49 @@ export interface components {
             privacyNoticeVersion: string;
             /** @description La dirección de envío, con el formato de `AddressInput`. */
             shippingAddress: components["schemas"]["AddressInputDto"];
+        };
+        PlaceStaffOrderDto: {
+            /**
+             * Format: uuid
+             * @description Una dirección guardada del cliente, solo con `customerId`; exactamente uno de `addressId` y `shippingAddress`.
+             */
+            addressId?: string;
+            /**
+             * Format: email
+             * @description Email de contacto de un invitado; se guarda en minúsculas. Exactamente uno de `customerId` y `contactEmail`.
+             * @example cliente@example.com
+             */
+            contactEmail?: string;
+            /**
+             * Format: uuid
+             * @description Un cliente registrado y activo, con el email verificado: el contacto es el email de su cuenta. Exactamente uno de `customerId` y `contactEmail`.
+             */
+            customerId?: string;
+            /**
+             * @description `grandTotal.amount` de la cotización que aceptó el cliente, en centavos.
+             * @example 129700
+             */
+            expectedTotal: number;
+            /**
+             * @description `SHIPPING` (por defecto): se envía a una dirección. `IN_STORE`: venta de mostrador, que el staff entrega en la tienda al pagarse, sin dirección ni costo de envío; el comprador puede no dar sus datos (ADR-0161).
+             * @enum {string}
+             */
+            fulfillment?: "SHIPPING" | "IN_STORE";
+            /** @description De 1 a 100 líneas, cada variante una sola vez, en el orden en que la orden las numera. */
+            lines: components["schemas"]["StaffOrderLineDto"][];
+            /**
+             * @description Versión del aviso de privacidad que el staff presentó al invitado (ADR-0067); obligatoria con `contactEmail`, y
+             *     solo con él: un cliente registrado lo aceptó al crear su cuenta.
+             * @example 2026-09
+             */
+            privacyNoticeVersion?: string;
+            /** @description Una dirección escrita para la orden, sin guardarla. */
+            shippingAddress?: components["schemas"]["AddressInputDto"];
+            /**
+             * Format: uuid
+             * @description El almacén activo del que sale el stock, el de la tienda: no se toma de otro (ADR-0161).
+             */
+            warehouseId: string;
         };
         PostalAddressDto: {
             /**
@@ -4585,7 +4847,7 @@ export interface components {
             variantId: string;
             /**
              * Format: uuid
-             * @description Debe ser el almacén activo.
+             * @description Debe ser un almacén activo.
              */
             warehouseId: string;
         };
@@ -4752,6 +5014,11 @@ export interface components {
              * @enum {string}
              */
             reasonCode: "ORDER_CANCELLED" | "SHIPMENT_RETURNED";
+            /**
+             * Format: uuid
+             * @description Un almacén activo al que regresan las unidades; sin él, cada línea regresa al almacén del que salió (ADR-0160).
+             */
+            warehouseId?: string;
         };
         RetentionPolicyDto: {
             /** @description Cuánto se conserva la auditoría (ADR-0146). */
@@ -4817,7 +5084,7 @@ export interface components {
              *       "orders.read"
              *     ]
              */
-            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "payments.manage" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
+            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
             /** Format: date-time */
             updatedAt: string;
             /** @description Staff con este rol. */
@@ -4934,6 +5201,32 @@ export interface components {
         StaffListDto: {
             data: components["schemas"]["StaffUserDto"][];
             meta: components["schemas"]["PageMetaDto"];
+        };
+        StaffOrderLineDto: {
+            /**
+             * @description Unidades, de 1 a 30, como una línea del carrito (BR-CRT-02).
+             * @example 2
+             */
+            quantity: number;
+            /**
+             * Format: uuid
+             * @description Una variante del catálogo.
+             */
+            variantId: string;
+        };
+        StaffQuoteDto: {
+            /**
+             * @description `SHIPPING` (por defecto): se envía a una dirección. `IN_STORE`: venta de mostrador, que el staff entrega en la tienda al pagarse, sin dirección ni costo de envío; el comprador puede no dar sus datos (ADR-0161).
+             * @enum {string}
+             */
+            fulfillment?: "SHIPPING" | "IN_STORE";
+            /** @description De 1 a 100 líneas, cada variante una sola vez, en el orden en que la orden las numera. */
+            lines: components["schemas"]["StaffOrderLineDto"][];
+            /**
+             * Format: uuid
+             * @description El almacén activo del que sale el stock, el de la tienda: no se toma de otro (ADR-0161).
+             */
+            warehouseId: string;
         };
         StaffRoleDto: {
             /** Format: uuid */
@@ -5090,7 +5383,7 @@ export interface components {
              * @description El motivo de un ajuste; `null` en los demás movimientos.
              * @enum {string|null}
              */
-            reasonCode: "PHYSICAL_COUNT" | "DAMAGED" | "LOSS_OR_THEFT" | "INTERNAL_USE" | "DATA_ENTRY_ERROR" | "OTHER" | "ORDER_CANCELLED" | "SHIPMENT_RETURNED" | null;
+            reasonCode: "PHYSICAL_COUNT" | "DAMAGED" | "LOSS_OR_THEFT" | "INTERNAL_USE" | "DATA_ENTRY_ERROR" | "OTHER" | "WAREHOUSE_TRANSFER" | "ORDER_CANCELLED" | "SHIPMENT_RETURNED" | null;
             /**
              * @description `RECEIPT`, `ADJUSTMENT`, `SALE` o `RESTOCK`.
              * @enum {string}
@@ -5209,6 +5502,15 @@ export interface components {
              */
             variantId?: string | null;
         };
+        UpdatePaymentSettingsDto: {
+            /**
+             * @description `true` habilita el pago manual en tienda; `false` lo deshabilita.
+             * @example true
+             */
+            manualPaymentsEnabled: boolean;
+            /** @description Versión leída (bloqueo optimista). */
+            version: number;
+        };
         UpdateProductDto: {
             /**
              * Format: uuid
@@ -5232,7 +5534,7 @@ export interface components {
             /** @description Nombre único, de 1 a 50 caracteres. */
             name?: string;
             /** @description Reemplaza el conjunto. El rol superadministrador no cambia sus permisos. */
-            permissions?: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "payments.manage" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
+            permissions?: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
             /** @description Versión leída (bloqueo optimista). */
             version: number;
         };
@@ -5297,6 +5599,11 @@ export interface components {
              * @example Almacén Morelia
              */
             name?: string;
+            /**
+             * @description De 1 a 1000; 1 es el primero en reservar los pedidos (ADR-0160).
+             * @example 2
+             */
+            priority?: number;
         };
         WarehouseDto: {
             /** @description `null` mientras no se capture. */
@@ -5310,7 +5617,13 @@ export interface components {
             /** @example Almacén principal */
             name: string;
             /**
-             * @description `ACTIVE` o `INACTIVE`; en el MVP, el único almacén está activo (ADR-0081).
+             * @description Orden en que se reservan los pedidos, de 1 a 1000; 1 es el primero. Cada pedido se reserva completo en el primer
+             *     almacén activo que lo tiene todo; con la misma prioridad, por `code` (ADR-0160).
+             * @example 1
+             */
+            priority: number;
+            /**
+             * @description `ACTIVE` o `INACTIVE`; solo los almacenes activos venden y reservan (ADR-0160).
              * @enum {string}
              */
             status: "ACTIVE" | "INACTIVE";
@@ -5332,6 +5645,8 @@ export interface operations {
     AdminAuditController_list_v1: {
         parameters: {
             query?: {
+                /** @description Resultados por página, de 1 a 100. */
+                limit?: number;
                 /** @description Uno o más, separados por comas: `USER`, `SYSTEM`, `ANONYMOUS`. */
                 actorType?: string;
                 /** @description Uno o más, separados por comas: `SUCCESS`, `DENIED`, `FAILED`. */
@@ -5348,6 +5663,8 @@ export interface operations {
                 from?: string;
                 /** @description Fecha o fecha y hora ISO 8601; incluida (una fecha sola incluye todo el día). */
                 to?: string;
+                /** @description Opaco: el `nextCursor` de la respuesta anterior. Sin él, la primera página. */
+                cursor?: string;
             };
             header?: never;
             path?: never;
@@ -5412,17 +5729,17 @@ export interface operations {
     };
     AdminBrandsController_list_v1: {
         parameters: {
-            query: {
+            query?: {
+                /** @description Página, de 1 a 1,000,000. */
+                page?: number;
+                /** @description Resultados por página, de 1 a 100. */
+                pageSize?: number;
                 /** @description Uno o más estados separados por comas: `ACTIVE`, `INACTIVE`. */
                 status?: string;
                 /** @description Parte del nombre, sin distinguir mayúsculas. */
                 q?: string;
                 /** @description `name` (por defecto), con `-` para orden descendente. */
                 sort?: string;
-                /** @description Página, de 1 a 1,000,000. */
-                page: number;
-                /** @description Resultados por página, de 1 a 100. */
-                pageSize: number;
             };
             header?: never;
             path?: never;
@@ -6392,7 +6709,11 @@ export interface operations {
     };
     AdminProductsController_list_v1: {
         parameters: {
-            query: {
+            query?: {
+                /** @description Página, de 1 a 1,000,000. */
+                page?: number;
+                /** @description Resultados por página, de 1 a 100. */
+                pageSize?: number;
                 /** @description Uno o más estados separados por comas: `DRAFT`, `PUBLISHED`, `ARCHIVED`. */
                 status?: string;
                 /** @description Parte del título o de un SKU, sin distinguir mayúsculas. */
@@ -6406,10 +6727,6 @@ export interface operations {
                  *     defecto.
                  */
                 sort?: string;
-                /** @description Página, de 1 a 1,000,000. */
-                page: number;
-                /** @description Resultados por página, de 1 a 100. */
-                pageSize: number;
             };
             header?: never;
             path?: never;
@@ -7723,7 +8040,11 @@ export interface operations {
     };
     EventDeliveriesController_list_v1: {
         parameters: {
-            query: {
+            query?: {
+                /** @description Página, de 1 a 1,000,000. */
+                page?: number;
+                /** @description Resultados por página, de 1 a 100. */
+                pageSize?: number;
                 /** @description Uno o más estados separados por comas: `PENDING`, `DELIVERED`, `FAILED`. Por defecto, `FAILED`. */
                 status?: string;
                 /** @description Campos: `occurredAt` (fecha del evento) y `nextAttemptAt`, con `-` para orden descendente. Por defecto, `-occurredAt`. */
@@ -7732,10 +8053,6 @@ export interface operations {
                 eventType?: string;
                 /** @description Manejador, como `PaymentCapturedHandler.onPaymentCaptured`. */
                 handler?: string;
-                /** @description Página, de 1 a 1,000,000. */
-                page: number;
-                /** @description Resultados por página, de 1 a 100. */
-                pageSize: number;
             };
             header?: never;
             path?: never;
@@ -7951,7 +8268,11 @@ export interface operations {
     };
     AdminCustomersController_list_v1: {
         parameters: {
-            query: {
+            query?: {
+                /** @description Página, de 1 a 1,000,000. */
+                page?: number;
+                /** @description Resultados por página, de 1 a 100. */
+                pageSize?: number;
                 /** @description Uno o más estados separados por comas: `ACTIVE`, `SUSPENDED`, `ANONYMIZED`. */
                 status?: string;
                 /** @description `true`, solo los clientes con el email verificado; `false`, solo los que no lo han verificado. */
@@ -7964,10 +8285,6 @@ export interface operations {
                 createdTo?: string;
                 /** @description `createdAt`, `email` o `lastLoginAt`, con `-` para orden descendente; por defecto `-createdAt`. */
                 sort?: string;
-                /** @description Página, de 1 a 1,000,000. */
-                page: number;
-                /** @description Resultados por página, de 1 a 100. */
-                pageSize: number;
             };
             header?: never;
             path?: never;
@@ -8525,15 +8842,15 @@ export interface operations {
     };
     AdminRolesController_list_v1: {
         parameters: {
-            query: {
+            query?: {
+                /** @description Página, de 1 a 1,000,000. */
+                page?: number;
+                /** @description Resultados por página, de 1 a 100. */
+                pageSize?: number;
                 /** @description Parte del nombre, sin distinguir mayúsculas; hasta 100 caracteres. */
                 q?: string;
                 /** @description `name` (por defecto) o `createdAt`, con `-` para orden descendente; varios separados por comas. */
                 sort?: string;
-                /** @description Página, de 1 a 1,000,000. */
-                page: number;
-                /** @description Resultados por página, de 1 a 100. */
-                pageSize: number;
             };
             header?: never;
             path?: never;
@@ -8923,7 +9240,11 @@ export interface operations {
     };
     AdminStaffController_list_v1: {
         parameters: {
-            query: {
+            query?: {
+                /** @description Página, de 1 a 1,000,000. */
+                page?: number;
+                /** @description Resultados por página, de 1 a 100. */
+                pageSize?: number;
                 /** @description Uno o más estados separados por comas: `ACTIVE`, `SUSPENDED`. */
                 status?: string;
                 /** @description Parte del email o de los nombres, sin distinguir mayúsculas; hasta 254 caracteres. */
@@ -8932,10 +9253,6 @@ export interface operations {
                 roleId?: string;
                 /** @description `createdAt` o `email`, con `-` para orden descendente; por defecto `-createdAt`. */
                 sort?: string;
-                /** @description Página, de 1 a 1,000,000. */
-                page: number;
-                /** @description Resultados por página, de 1 a 100. */
-                pageSize: number;
             };
             header?: never;
             path?: never;
@@ -9583,7 +9900,11 @@ export interface operations {
     };
     AdminStockController_list_v1: {
         parameters: {
-            query: {
+            query?: {
+                /** @description Página, de 1 a 1,000,000. */
+                page?: number;
+                /** @description Resultados por página, de 1 a 100. */
+                pageSize?: number;
                 /** @description Solo las existencias de esta variante. */
                 variantId?: string;
                 /** @description SKU exacto, sin distinguir mayúsculas; un SKU tiene a lo sumo 64 caracteres. */
@@ -9596,10 +9917,6 @@ export interface operations {
                 availableMax?: number;
                 /** @description `sku`, `available` o `updatedAt`, con `-` para orden descendente; por defecto `sku`. */
                 sort?: string;
-                /** @description Página, de 1 a 1,000,000. */
-                page: number;
-                /** @description Resultados por página, de 1 a 100. */
-                pageSize: number;
             };
             header?: never;
             path?: never;
@@ -9665,12 +9982,16 @@ export interface operations {
     AdminStockController_movements_v1: {
         parameters: {
             query?: {
+                /** @description Resultados por página, de 1 a 100. */
+                limit?: number;
                 /** @description Uno o más tipos separados por comas: `RECEIPT`, `ADJUSTMENT`, `SALE`, `RESTOCK`. */
                 type?: string;
                 /** @description Fecha o fecha y hora ISO 8601; incluida. */
                 from?: string;
                 /** @description Fecha o fecha y hora ISO 8601; incluida (una fecha sola incluye todo el día). */
                 to?: string;
+                /** @description Opaco: el `nextCursor` de la respuesta anterior. Sin él, la primera página. */
+                cursor?: string;
             };
             header?: never;
             path: {
@@ -9809,6 +10130,83 @@ export interface operations {
             };
         };
     };
+    AdminWarehousesController_create_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWarehouseDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WarehouseDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `duplicate-value`: Valor duplicado */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     AdminWarehousesController_update_v1: {
         parameters: {
             query?: never;
@@ -9889,15 +10287,106 @@ export interface operations {
             };
         };
     };
+    AdminWarehousesController_deactivate_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID del almacén. */
+                warehouseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WarehouseDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `invalid-state-transition`: Acción no permitida en el estado actual; `resource-in-use`: Recurso en uso */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     AdminOrdersController_list_v1: {
         parameters: {
-            query: {
+            query?: {
+                /** @description Página, de 1 a 1,000,000. */
+                page?: number;
+                /** @description Resultados por página, de 1 a 100. */
+                pageSize?: number;
                 /** @description Uno o más estados separados por comas: `PENDING_PAYMENT`, `PAID`, `AWAITING_MANUAL_FULFILLMENT`, `SHIPPED`, `DELIVERED`, `CANCELLED`, `EXPIRED`, `REFUNDED`. */
                 status?: string;
                 /** @description `true`: solo invitados; `false`: solo clientes. */
                 guest?: boolean;
                 /** @description `true`: canceladas con pago capturado que esperan su reembolso (ADR-0051). */
                 hasPendingRefund?: boolean;
+                /** @description `ONLINE`: las de la tienda en línea; `STORE`: las que colocó el staff en la tienda física (ADR-0161). */
+                channel?: "ONLINE" | "STORE";
                 /**
                  * @description Número interno o código público exactos (con o sin guion, sin distinguir mayúsculas), o parte del email
                  *     de contacto.
@@ -9909,12 +10398,10 @@ export interface operations {
                 placedFrom?: string;
                 /** @description Fecha o fecha y hora ISO 8601; incluida (una fecha sola incluye todo el día). */
                 placedTo?: string;
+                /** @description Las órdenes que colocó en la tienda física esta cuenta de staff (ADR-0161). */
+                placedBy?: string;
                 /** @description `placedAt`, `orderNumber` o `grandTotal`, con `-` para orden descendente; por defecto `-placedAt`. */
                 sort?: string;
-                /** @description Página, de 1 a 1,000,000. */
-                page: number;
-                /** @description Resultados por página, de 1 a 100. */
-                pageSize: number;
             };
             header?: never;
             path?: never;
@@ -9950,6 +10437,189 @@ export interface operations {
             };
             /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminOrdersController_place_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Llave de idempotencia de 1 a 255 caracteres; se recomienda un UUID (API_SPEC.md, sección 4). */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaceStaffOrderDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOrderDto"];
+                };
+            };
+            /** @description `idempotency-key-missing`: Falta la llave de idempotencia; `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /**
+             * @description `email-not-verified`: Correo sin verificar
+             *
+             *     `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente
+             */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /**
+             * @description `idempotency-request-in-progress`: Solicitud en proceso
+             *
+             *     `variant-not-sellable`: Producto no disponible; `total-mismatch`: El total cambió; `insufficient-stock`: Stock insuficiente
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `idempotency-key-mismatch`: Llave de idempotencia reutilizada */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminOrdersController_quote_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffQuoteDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutQuoteDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10203,6 +10873,95 @@ export interface operations {
                 };
             };
             /** @description `version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual; `restock-not-allowed`: Reintegro no permitido */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminOrdersController_handOver_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID interno del pedido; quien compra usa el código público. */
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandOverDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOrderDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -10603,9 +11362,154 @@ export interface operations {
             };
         };
     };
+    AdminPaymentSettingsController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentSettingsDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminPaymentSettingsController_update_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePaymentSettingsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentSettingsDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `version-conflict`: Versión desactualizada */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     AdminPaymentsController_list_v1: {
         parameters: {
-            query: {
+            query?: {
+                /** @description Página, de 1 a 1,000,000. */
+                page?: number;
+                /** @description Resultados por página, de 1 a 100. */
+                pageSize?: number;
                 /** @description Uno o más estados separados por comas: `PENDING`, `REQUIRES_ACTION`, `AUTHORIZED`, `CAPTURED`, `FAILED`, `CANCELLED`, `PARTIALLY_REFUNDED`, `REFUNDED`. */
                 status?: string;
                 /** @description Uno o más proveedores separados por comas: `MANUAL`, `PAYPAL`. */
@@ -10618,10 +11522,6 @@ export interface operations {
                 capturedTo?: string;
                 /** @description `createdAt` o `amount`, con `-` para orden descendente; por defecto `-createdAt`. */
                 sort?: string;
-                /** @description Página, de 1 a 1,000,000. */
-                page: number;
-                /** @description Resultados por página, de 1 a 100. */
-                pageSize: number;
             };
             header?: never;
             path?: never;
@@ -11441,11 +12341,17 @@ export interface operations {
     };
     AdminShipmentsController_list_v1: {
         parameters: {
-            query: {
+            query?: {
+                /** @description Página, de 1 a 1,000,000. */
+                page?: number;
+                /** @description Resultados por página, de 1 a 100. */
+                pageSize?: number;
                 /** @description Uno o más estados separados por comas: `PENDING`, `DISPATCHED`, `DELIVERED`, `DELIVERY_FAILED`, `RETURNED`, `CANCELLED`. Por defecto `PENDING`, los envíos por despachar. */
                 status?: string;
                 /** @description El envío de una orden. */
                 orderId?: string;
+                /** @description Los envíos que salen de este almacén (ADR-0160). */
+                warehouseId?: string;
                 /** @description El código público de la orden, con o sin guion, o el número de guía, sin distinguir mayúsculas y minúsculas. */
                 q?: string;
                 /** @description Fecha o fecha y hora ISO 8601; incluida. */
@@ -11454,10 +12360,6 @@ export interface operations {
                 createdTo?: string;
                 /** @description `createdAt` o `dispatchedAt`, con `-` para orden descendente; por defecto `createdAt`, los más antiguos primero. */
                 sort?: string;
-                /** @description Página, de 1 a 1,000,000. */
-                page: number;
-                /** @description Resultados por página, de 1 a 100. */
-                pageSize: number;
             };
             header?: never;
             path?: never;
@@ -12916,7 +13818,11 @@ export interface operations {
     };
     CatalogController_products_v1: {
         parameters: {
-            query: {
+            query?: {
+                /** @description Página, de 1 a 1,000,000. */
+                page?: number;
+                /** @description Resultados por página, de 1 a 100. */
+                pageSize?: number;
                 /** @description Hasta 20 slugs de marcas activas, separados por comas. */
                 brand?: string;
                 /** @description `true`: solo productos con alguna variante disponible. */
@@ -12931,10 +13837,6 @@ export interface operations {
                 minPrice?: number;
                 /** @description Precio máximo del producto, en centavos con IVA incluido; no menor que `minPrice`. */
                 maxPrice?: number;
-                /** @description Página, de 1 a 1,000,000. */
-                page: number;
-                /** @description Resultados por página, de 1 a 100. */
-                pageSize: number;
             };
             header?: never;
             path?: never;
@@ -14207,7 +15109,11 @@ export interface operations {
     };
     MeOrdersController_list_v1: {
         parameters: {
-            query: {
+            query?: {
+                /** @description Página, de 1 a 1,000,000. */
+                page?: number;
+                /** @description Resultados por página, de 1 a 100. */
+                pageSize?: number;
                 /** @description Uno o más estados separados por comas: `PENDING_PAYMENT`, `PAID`, `AWAITING_MANUAL_FULFILLMENT`, `SHIPPED`, `DELIVERED`, `CANCELLED`, `EXPIRED`, `REFUNDED`. */
                 status?: string;
                 /** @description Fecha o fecha y hora ISO 8601; incluida. */
@@ -14216,10 +15122,6 @@ export interface operations {
                 placedTo?: string;
                 /** @description `placedAt` o `grandTotal`, con `-` para orden descendente; por defecto `-placedAt`. */
                 sort?: string;
-                /** @description Página, de 1 a 1,000,000. */
-                page: number;
-                /** @description Resultados por página, de 1 a 100. */
-                pageSize: number;
             };
             header?: never;
             path?: never;

@@ -44,7 +44,9 @@
                 "orders.read",
                 "orders.manage",
                 "orders.read-blocked",
+                "orders.place",
                 "payments.manage",
+                "payments.configure",
                 "shipping.manage",
                 "shipping.configure",
                 "customers.read",
@@ -333,15 +335,23 @@
             "nullable": true,
             "type": "string"
           },
+          "quantity": {
+            "description": "Con signo, de −100,000 a 100,000 y distinta de 0.",
+            "example": -2,
+            "maximum": 100000,
+            "minimum": -100000,
+            "type": "integer"
+          },
           "reasonCode": {
-            "description": "`DAMAGED`, `LOSS_OR_THEFT` e `INTERNAL_USE` solo con cantidad negativa; `OTHER` exige `note`.",
+            "description": "`DAMAGED`, `LOSS_OR_THEFT` e `INTERNAL_USE` solo con cantidad negativa; `OTHER` exige `note`. `WAREHOUSE_TRANSFER` mueve unidades entre almacenes: un ajuste negativo en uno y uno positivo en el otro (ADR-0160).",
             "enum": [
               "PHYSICAL_COUNT",
               "DAMAGED",
               "LOSS_OR_THEFT",
               "INTERNAL_USE",
               "DATA_ENTRY_ERROR",
-              "OTHER"
+              "OTHER",
+              "WAREHOUSE_TRANSFER"
             ],
             "type": "string"
           },
@@ -351,12 +361,13 @@
             "type": "string"
           },
           "warehouseId": {
-            "description": "Debe ser el almacén activo.",
+            "description": "Debe ser un almacén activo.",
             "format": "uuid",
             "type": "string"
           }
         },
         "required": [
+          "quantity",
           "reasonCode",
           "variantId",
           "warehouseId"
@@ -766,8 +777,16 @@
             "nullable": true,
             "type": "string"
           },
+          "channel": {
+            "description": "`ONLINE`: la colocó el comprador en la tienda en línea, desde su carrito. `STORE`: la colocó el staff en la tienda física a nombre del cliente (ADR-0161).",
+            "enum": [
+              "ONLINE",
+              "STORE"
+            ],
+            "type": "string"
+          },
           "contactEmail": {
-            "description": "`null` solo en órdenes anonimizadas (ADR-0067).",
+            "description": "`null` en una orden anonimizada (ADR-0067) o bloqueada (ADR-0151), y en una venta de mostrador sin datos del comprador (ADR-0161).",
             "example": "cliente@example.com",
             "nullable": true,
             "type": "string"
@@ -798,12 +817,22 @@
                 "$ref": "#/components/schemas/EstimatedDeliveryDto"
               }
             ],
-            "description": "Plazo estimado de entrega, desde la confirmación del pago (ADR-0083)."
+            "description": "Plazo estimado de entrega, desde la confirmación del pago (ADR-0083); `null` en una orden `IN_STORE`.",
+            "nullable": true,
+            "type": "object"
           },
           "expiredAt": {
             "description": "Cuándo venció sin pago; `null` si no ha ocurrido.",
             "format": "date-time",
             "nullable": true,
+            "type": "string"
+          },
+          "fulfillment": {
+            "description": "`SHIPPING`: se envía a su dirección. `IN_STORE`: el staff la entrega en la tienda física al pagarse, sin dirección, sin costo de envío y sin plazo de entrega (ADR-0161).",
+            "enum": [
+              "SHIPPING",
+              "IN_STORE"
+            ],
             "type": "string"
           },
           "grandTotal": {
@@ -860,6 +889,12 @@
             "format": "date-time",
             "type": "string"
           },
+          "placedBy": {
+            "description": "La cuenta de staff que colocó una orden `STORE`; `null` en una `ONLINE`.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
           "publicCode": {
             "description": "Código público: con él y el email, quien compra consulta su pedido.",
             "example": "K7M4-Q9XA",
@@ -893,7 +928,9 @@
                 "$ref": "#/components/schemas/AdminOrderAddressDto"
               }
             ],
-            "description": "La dirección de envío. Los campos personales salen `null` si la orden está bloqueada o anonimizada."
+            "description": "La dirección de envío. Los campos personales salen `null` si la orden está bloqueada o anonimizada. `null` en una orden `IN_STORE`, que se entrega en la tienda (ADR-0161).",
+            "nullable": true,
+            "type": "object"
           },
           "shippingCost": {
             "allOf": [
@@ -951,6 +988,12 @@
           "version": {
             "description": "Versión para el bloqueo optimista.",
             "type": "number"
+          },
+          "warehouseId": {
+            "description": "El almacén que eligió el staff para una orden `STORE`: su stock sale solo de ahí; `null` en una `ONLINE`.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
           }
         },
         "required": [
@@ -962,6 +1005,7 @@
           "shippingTaxAmount",
           "discountTotal",
           "grandTotal",
+          "fulfillment",
           "estimatedDelivery",
           "placedAt",
           "paymentDueAt",
@@ -975,6 +1019,9 @@
           "payment",
           "shipment",
           "customerId",
+          "channel",
+          "placedBy",
+          "warehouseId",
           "anonymizedAt",
           "blockedAt",
           "shippingAddress",
@@ -1111,6 +1158,16 @@
             "format": "uuid",
             "type": "string"
           },
+          "method": {
+            "description": "Cómo cobró la tienda un pago manual: `CASH`, `CARD_TERMINAL` o `TRANSFER` (ADR-0161); `null` si no se ha cobrado así, o si el staff no lo dijo.",
+            "enum": [
+              "CASH",
+              "CARD_TERMINAL",
+              "TRANSFER"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
           "provider": {
             "description": "`MANUAL` es el pago en la tienda (ADR-0055); PayPal aún no está habilitado (ADR-0040).",
             "enum": [
@@ -1157,6 +1214,7 @@
           "capturedAmount",
           "refundedAmount",
           "capturedAt",
+          "method",
           "refunds"
         ],
         "type": "object"
@@ -1208,6 +1266,11 @@
           "version": {
             "description": "Versión para el bloqueo optimista.",
             "type": "number"
+          },
+          "warehouseId": {
+            "description": "El almacén del que sale: el de la reserva del pedido (ADR-0160).",
+            "format": "uuid",
+            "type": "string"
           }
         },
         "required": [
@@ -1217,6 +1280,7 @@
           "dispatchedAt",
           "deliveredAt",
           "id",
+          "warehouseId",
           "version",
           "ownDelivery"
         ],
@@ -1242,8 +1306,16 @@
             "nullable": true,
             "type": "string"
           },
+          "channel": {
+            "description": "`ONLINE`: la colocó el comprador en la tienda en línea, desde su carrito. `STORE`: la colocó el staff en la tienda física a nombre del cliente (ADR-0161).",
+            "enum": [
+              "ONLINE",
+              "STORE"
+            ],
+            "type": "string"
+          },
           "contactEmail": {
-            "description": "`null` solo en órdenes anonimizadas (ADR-0067).",
+            "description": "`null` en una orden anonimizada (ADR-0067) o bloqueada (ADR-0151), y en una venta de mostrador sin datos del comprador (ADR-0161).",
             "example": "cliente@example.com",
             "nullable": true,
             "type": "string"
@@ -1274,12 +1346,22 @@
                 "$ref": "#/components/schemas/EstimatedDeliveryDto"
               }
             ],
-            "description": "Plazo estimado de entrega, desde la confirmación del pago (ADR-0083)."
+            "description": "Plazo estimado de entrega, desde la confirmación del pago (ADR-0083); `null` en una orden `IN_STORE`.",
+            "nullable": true,
+            "type": "object"
           },
           "expiredAt": {
             "description": "Cuándo venció sin pago; `null` si no ha ocurrido.",
             "format": "date-time",
             "nullable": true,
+            "type": "string"
+          },
+          "fulfillment": {
+            "description": "`SHIPPING`: se envía a su dirección. `IN_STORE`: el staff la entrega en la tienda física al pagarse, sin dirección, sin costo de envío y sin plazo de entrega (ADR-0161).",
+            "enum": [
+              "SHIPPING",
+              "IN_STORE"
+            ],
             "type": "string"
           },
           "grandTotal": {
@@ -1330,6 +1412,12 @@
             "format": "date-time",
             "type": "string"
           },
+          "placedBy": {
+            "description": "La cuenta de staff que colocó una orden `STORE`; `null` en una `ONLINE`.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
           "publicCode": {
             "description": "Código público: con él y el email, quien compra consulta su pedido.",
             "example": "K7M4-Q9XA",
@@ -1363,7 +1451,9 @@
                 "$ref": "#/components/schemas/AdminOrderAddressDto"
               }
             ],
-            "description": "La dirección de envío. Los campos personales salen `null` si la orden está bloqueada o anonimizada."
+            "description": "La dirección de envío. Los campos personales salen `null` si la orden está bloqueada o anonimizada. `null` en una orden `IN_STORE`, que se entrega en la tienda (ADR-0161).",
+            "nullable": true,
+            "type": "object"
           },
           "shippingCost": {
             "allOf": [
@@ -1414,6 +1504,12 @@
           "version": {
             "description": "Versión para el bloqueo optimista.",
             "type": "number"
+          },
+          "warehouseId": {
+            "description": "El almacén que eligió el staff para una orden `STORE`: su stock sale solo de ahí; `null` en una `ONLINE`.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
           }
         },
         "required": [
@@ -1425,6 +1521,7 @@
           "shippingTaxAmount",
           "discountTotal",
           "grandTotal",
+          "fulfillment",
           "estimatedDelivery",
           "placedAt",
           "paymentDueAt",
@@ -1438,6 +1535,9 @@
           "payment",
           "shipment",
           "customerId",
+          "channel",
+          "placedBy",
+          "warehouseId",
           "anonymizedAt",
           "blockedAt",
           "shippingAddress",
@@ -2224,7 +2324,9 @@
                 "$ref": "#/components/schemas/PostalAddressDto"
               }
             ],
-            "description": "La dirección de envío de la orden."
+            "description": "La dirección de envío de la orden; `null` en una orden `IN_STORE` (ADR-0161).",
+            "nullable": true,
+            "type": "object"
           }
         },
         "required": [
@@ -2537,7 +2639,9 @@
                 "$ref": "#/components/schemas/EstimatedDeliveryDto"
               }
             ],
-            "description": "Plazo estimado de entrega, desde la confirmación del pago (ADR-0083)."
+            "description": "Plazo estimado de entrega, desde la confirmación del pago (ADR-0083); `null` en una cotización del staff con `fulfillment` `IN_STORE` (ADR-0161).",
+            "nullable": true,
+            "type": "object"
           },
           "freeShippingThreshold": {
             "allOf": [
@@ -2953,7 +3057,9 @@
                 "orders.read",
                 "orders.manage",
                 "orders.read-blocked",
+                "orders.place",
                 "payments.manage",
+                "payments.configure",
                 "shipping.manage",
                 "shipping.configure",
                 "customers.read",
@@ -3075,8 +3181,64 @@
         ],
         "type": "object"
       },
+      "CreateWarehouseDto": {
+        "properties": {
+          "address": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AddressInputDto"
+              }
+            ],
+            "description": "Formato `AddressInput` (ADR-0057); sin ella, `null`.",
+            "nullable": true,
+            "type": "object"
+          },
+          "code": {
+            "description": "De 2 a 20 mayúsculas, dígitos y guiones; único entre almacenes.",
+            "example": "NORTE",
+            "type": "string"
+          },
+          "name": {
+            "description": "De 1 a 100 caracteres.",
+            "example": "Almacén norte",
+            "maxLength": 100,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "priority": {
+            "description": "De 1 a 1000; 1 es el primero en reservar los pedidos (ADR-0160).",
+            "example": 2,
+            "maximum": 1000,
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "priority"
+        ],
+        "type": "object"
+      },
       "CursorMetaDto": {
-        "properties": {},
+        "properties": {
+          "limit": {
+            "description": "Resultados por página que se pidieron.",
+            "example": 50,
+            "type": "number"
+          },
+          "nextCursor": {
+            "description": "El cursor de la página siguiente, para enviarlo como `cursor`; `null` en la última.",
+            "example": "eyJjcmVhdGVkQXQiOiIyMDI2LTEwLTA1VDEyOjAwOjAwLjAwMFoifQ",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "nextCursor",
+          "limit"
+        ],
         "type": "object"
       },
       "CustomerAnonymizationDto": {
@@ -3436,6 +3598,19 @@
         ],
         "type": "object"
       },
+      "HandOverDto": {
+        "properties": {
+          "version": {
+            "description": "Versión leída (bloqueo optimista).",
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "type": "object"
+      },
       "ImageDto": {
         "properties": {
           "altText": {
@@ -3525,9 +3700,18 @@
       },
       "ManualCaptureDto": {
         "properties": {
+          "method": {
+            "description": "Cómo se cobró: `CASH` (efectivo), `CARD_TERMINAL` (terminal bancaria) o `TRANSFER` (transferencia). Sin él, el pago queda sin método (ADR-0161).",
+            "enum": [
+              "CASH",
+              "CARD_TERMINAL",
+              "TRANSFER"
+            ],
+            "type": "string"
+          },
           "note": {
             "description": "Nota de hasta 500 caracteres; queda en la auditoría: no escribas datos personales.",
-            "example": "Pagó en efectivo",
+            "example": "Pagó con dos tarjetas",
             "maxLength": 500,
             "type": "string"
           },
@@ -3683,7 +3867,7 @@
             "type": "string"
           },
           "contactEmail": {
-            "description": "`null` solo en órdenes anonimizadas (ADR-0067).",
+            "description": "`null` en una orden anonimizada (ADR-0067) o bloqueada (ADR-0151), y en una venta de mostrador sin datos del comprador (ADR-0161).",
             "example": "cliente@example.com",
             "nullable": true,
             "type": "string"
@@ -3708,12 +3892,22 @@
                 "$ref": "#/components/schemas/EstimatedDeliveryDto"
               }
             ],
-            "description": "Plazo estimado de entrega, desde la confirmación del pago (ADR-0083)."
+            "description": "Plazo estimado de entrega, desde la confirmación del pago (ADR-0083); `null` en una orden `IN_STORE`.",
+            "nullable": true,
+            "type": "object"
           },
           "expiredAt": {
             "description": "Cuándo venció sin pago; `null` si no ha ocurrido.",
             "format": "date-time",
             "nullable": true,
+            "type": "string"
+          },
+          "fulfillment": {
+            "description": "`SHIPPING`: se envía a su dirección. `IN_STORE`: el staff la entrega en la tienda física al pagarse, sin dirección, sin costo de envío y sin plazo de entrega (ADR-0161).",
+            "enum": [
+              "SHIPPING",
+              "IN_STORE"
+            ],
             "type": "string"
           },
           "grandTotal": {
@@ -3795,7 +3989,9 @@
                 "$ref": "#/components/schemas/PostalAddressDto"
               }
             ],
-            "description": "La dirección de envío al colocar la orden."
+            "description": "La dirección de envío al colocar la orden; `null` en una orden `IN_STORE`, que se entrega en la tienda (ADR-0161).",
+            "nullable": true,
+            "type": "object"
           },
           "shippingCost": {
             "allOf": [
@@ -3853,6 +4049,7 @@
           "shippingTaxAmount",
           "discountTotal",
           "grandTotal",
+          "fulfillment",
           "estimatedDelivery",
           "placedAt",
           "paymentDueAt",
@@ -4091,7 +4288,7 @@
             "type": "string"
           },
           "contactEmail": {
-            "description": "`null` solo en órdenes anonimizadas (ADR-0067).",
+            "description": "`null` en una orden anonimizada (ADR-0067) o bloqueada (ADR-0151), y en una venta de mostrador sin datos del comprador (ADR-0161).",
             "example": "cliente@example.com",
             "nullable": true,
             "type": "string"
@@ -4116,12 +4313,22 @@
                 "$ref": "#/components/schemas/EstimatedDeliveryDto"
               }
             ],
-            "description": "Plazo estimado de entrega, desde la confirmación del pago (ADR-0083)."
+            "description": "Plazo estimado de entrega, desde la confirmación del pago (ADR-0083); `null` en una orden `IN_STORE`.",
+            "nullable": true,
+            "type": "object"
           },
           "expiredAt": {
             "description": "Cuándo venció sin pago; `null` si no ha ocurrido.",
             "format": "date-time",
             "nullable": true,
+            "type": "string"
+          },
+          "fulfillment": {
+            "description": "`SHIPPING`: se envía a su dirección. `IN_STORE`: el staff la entrega en la tienda física al pagarse, sin dirección, sin costo de envío y sin plazo de entrega (ADR-0161).",
+            "enum": [
+              "SHIPPING",
+              "IN_STORE"
+            ],
             "type": "string"
           },
           "grandTotal": {
@@ -4246,6 +4453,7 @@
           "shippingTaxAmount",
           "discountTotal",
           "grandTotal",
+          "fulfillment",
           "estimatedDelivery",
           "placedAt",
           "paymentDueAt",
@@ -4375,6 +4583,16 @@
             "nullable": true,
             "type": "string"
           },
+          "method": {
+            "description": "Cómo cobró la tienda un pago manual: `CASH`, `CARD_TERMINAL` o `TRANSFER` (ADR-0161); `null` en los demás intentos, o si el staff no lo dijo.",
+            "enum": [
+              "CASH",
+              "CARD_TERMINAL",
+              "TRANSFER"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
           "providerReference": {
             "description": "Comprobante de la tienda en un pago manual.",
             "nullable": true,
@@ -4403,9 +4621,33 @@
         "required": [
           "status",
           "providerReference",
+          "method",
           "failureCode",
           "registeredBy",
           "createdAt"
+        ],
+        "type": "object"
+      },
+      "PaymentSettingsDto": {
+        "properties": {
+          "manualPaymentsEnabled": {
+            "description": "Si la tienda registra pagos y reembolsos manuales, y si el cliente puede elegir pagar en la tienda. Con\n`false`, esas acciones responden 403 `manual-payments-disabled`.",
+            "example": true,
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "description": "Versión para el bloqueo optimista: se envía al cambiarla.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "updatedAt",
+          "manualPaymentsEnabled",
+          "version"
         ],
         "type": "object"
       },
@@ -4466,11 +4708,17 @@
           "description": {
             "example": "Gestionar productos, variantes, imágenes, categorías y marcas",
             "type": "string"
+          },
+          "superadminOnly": {
+            "description": "Solo lo tiene el rol superadministrador (ADR-0162): ningún otro rol puede tenerlo, y agregarlo a uno responde\n400 `validation-error`.",
+            "example": false,
+            "type": "boolean"
           }
         },
         "required": [
           "code",
-          "description"
+          "description",
+          "superadminOnly"
         ],
         "type": "object"
       },
@@ -4584,6 +4832,78 @@
           "contactEmail",
           "expectedTotal",
           "privacyNoticeVersion"
+        ],
+        "type": "object"
+      },
+      "PlaceStaffOrderDto": {
+        "properties": {
+          "addressId": {
+            "description": "Una dirección guardada del cliente, solo con `customerId`; exactamente uno de `addressId` y `shippingAddress`.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "contactEmail": {
+            "description": "Email de contacto de un invitado; se guarda en minúsculas. Exactamente uno de `customerId` y `contactEmail`.",
+            "example": "cliente@example.com",
+            "format": "email",
+            "maxLength": 254,
+            "type": "string"
+          },
+          "customerId": {
+            "description": "Un cliente registrado y activo, con el email verificado: el contacto es el email de su cuenta. Exactamente uno de `customerId` y `contactEmail`.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "expectedTotal": {
+            "description": "`grandTotal.amount` de la cotización que aceptó el cliente, en centavos.",
+            "example": 129700,
+            "maximum": 2147483647,
+            "minimum": 0,
+            "type": "number"
+          },
+          "fulfillment": {
+            "description": "`SHIPPING` (por defecto): se envía a una dirección. `IN_STORE`: venta de mostrador, que el staff entrega en la tienda al pagarse, sin dirección ni costo de envío; el comprador puede no dar sus datos (ADR-0161).",
+            "enum": [
+              "SHIPPING",
+              "IN_STORE"
+            ],
+            "type": "string"
+          },
+          "lines": {
+            "description": "De 1 a 100 líneas, cada variante una sola vez, en el orden en que la orden las numera.",
+            "items": {
+              "$ref": "#/components/schemas/StaffOrderLineDto"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "privacyNoticeVersion": {
+            "description": "Versión del aviso de privacidad que el staff presentó al invitado (ADR-0067); obligatoria con `contactEmail`, y\nsolo con él: un cliente registrado lo aceptó al crear su cuenta.",
+            "example": "2026-09",
+            "maxLength": 50,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "shippingAddress": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AddressInputDto"
+              }
+            ],
+            "description": "Una dirección escrita para la orden, sin guardarla."
+          },
+          "warehouseId": {
+            "description": "El almacén activo del que sale el stock, el de la tienda: no se toma de otro (ADR-0161).",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lines",
+          "expectedTotal",
+          "warehouseId"
         ],
         "type": "object"
       },
@@ -5265,7 +5585,7 @@
             "type": "string"
           },
           "warehouseId": {
-            "description": "Debe ser el almacén activo.",
+            "description": "Debe ser un almacén activo.",
             "format": "uuid",
             "type": "string"
           }
@@ -5619,6 +5939,11 @@
               "SHIPMENT_RETURNED"
             ],
             "type": "string"
+          },
+          "warehouseId": {
+            "description": "Un almacén activo al que regresan las unidades; sin él, cada línea regresa al almacén del que salió (ADR-0160).",
+            "format": "uuid",
+            "type": "string"
           }
         },
         "required": [
@@ -5761,7 +6086,9 @@
                 "orders.read",
                 "orders.manage",
                 "orders.read-blocked",
+                "orders.place",
                 "payments.manage",
+                "payments.configure",
                 "shipping.manage",
                 "shipping.configure",
                 "customers.read",
@@ -6070,6 +6397,58 @@
         "required": [
           "data",
           "meta"
+        ],
+        "type": "object"
+      },
+      "StaffOrderLineDto": {
+        "properties": {
+          "quantity": {
+            "description": "Unidades, de 1 a 30, como una línea del carrito (BR-CRT-02).",
+            "example": 2,
+            "maximum": 30,
+            "minimum": 1,
+            "type": "number"
+          },
+          "variantId": {
+            "description": "Una variante del catálogo.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "variantId",
+          "quantity"
+        ],
+        "type": "object"
+      },
+      "StaffQuoteDto": {
+        "properties": {
+          "fulfillment": {
+            "description": "`SHIPPING` (por defecto): se envía a una dirección. `IN_STORE`: venta de mostrador, que el staff entrega en la tienda al pagarse, sin dirección ni costo de envío; el comprador puede no dar sus datos (ADR-0161).",
+            "enum": [
+              "SHIPPING",
+              "IN_STORE"
+            ],
+            "type": "string"
+          },
+          "lines": {
+            "description": "De 1 a 100 líneas, cada variante una sola vez, en el orden en que la orden las numera.",
+            "items": {
+              "$ref": "#/components/schemas/StaffOrderLineDto"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "warehouseId": {
+            "description": "El almacén activo del que sale el stock, el de la tienda: no se toma de otro (ADR-0161).",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lines",
+          "warehouseId"
         ],
         "type": "object"
       },
@@ -6405,6 +6784,7 @@
               "INTERNAL_USE",
               "DATA_ENTRY_ERROR",
               "OTHER",
+              "WAREHOUSE_TRANSFER",
               "ORDER_CANCELLED",
               "SHIPMENT_RETURNED"
             ],
@@ -6731,6 +7111,25 @@
         },
         "type": "object"
       },
+      "UpdatePaymentSettingsDto": {
+        "properties": {
+          "manualPaymentsEnabled": {
+            "description": "`true` habilita el pago manual en tienda; `false` lo deshabilita.",
+            "example": true,
+            "type": "boolean"
+          },
+          "version": {
+            "description": "Versión leída (bloqueo optimista).",
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "manualPaymentsEnabled",
+          "version"
+        ],
+        "type": "object"
+      },
       "UpdateProductDto": {
         "properties": {
           "brandId": {
@@ -6806,7 +7205,9 @@
                 "orders.read",
                 "orders.manage",
                 "orders.read-blocked",
+                "orders.place",
                 "payments.manage",
+                "payments.configure",
                 "shipping.manage",
                 "shipping.configure",
                 "customers.read",
@@ -6960,6 +7361,13 @@
             "minLength": 1,
             "pattern": "\\S",
             "type": "string"
+          },
+          "priority": {
+            "description": "De 1 a 1000; 1 es el primero en reservar los pedidos (ADR-0160).",
+            "example": 2,
+            "maximum": 1000,
+            "minimum": 1,
+            "type": "number"
           }
         },
         "type": "object"
@@ -6992,8 +7400,13 @@
             "example": "Almacén principal",
             "type": "string"
           },
+          "priority": {
+            "description": "Orden en que se reservan los pedidos, de 1 a 1000; 1 es el primero. Cada pedido se reserva completo en el primer\nalmacén activo que lo tiene todo; con la misma prioridad, por `code` (ADR-0160).",
+            "example": 1,
+            "type": "number"
+          },
           "status": {
-            "description": "`ACTIVE` o `INACTIVE`; en el MVP, el único almacén está activo (ADR-0081).",
+            "description": "`ACTIVE` o `INACTIVE`; solo los almacenes activos venden y reservan (ADR-0160).",
             "enum": [
               "ACTIVE",
               "INACTIVE"
@@ -7012,7 +7425,8 @@
           "createdAt",
           "updatedAt",
           "code",
-          "name"
+          "name",
+          "priority"
         ],
         "type": "object"
       },
@@ -7052,6 +7466,19 @@
         "description": "Paginación por cursor, del más reciente al más antiguo. La base guarda los últimos meses (3, configurable); los registros anteriores están en archivos fuera de la API (ADR-0037).",
         "operationId": "AdminAuditController_list_v1",
         "parameters": [
+          {
+            "description": "Resultados por página, de 1 a 100.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "example": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
           {
             "description": "Uno o más, separados por comas: `USER`, `SYSTEM`, `ANONYMOUS`.",
             "in": "query",
@@ -7152,6 +7579,15 @@
               "example": "2026-10-31",
               "type": "string"
             }
+          },
+          {
+            "description": "Opaco: el `nextCursor` de la respuesta anterior. Sin él, la primera página.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -7236,6 +7672,32 @@
         "operationId": "AdminBrandsController_list_v1",
         "parameters": [
           {
+            "description": "Página, de 1 a 1,000,000.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "maximum": 1000000,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Resultados por página, de 1 a 100.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
             "description": "Uno o más estados separados por comas: `ACTIVE`, `INACTIVE`.",
             "in": "query",
             "name": "status",
@@ -7270,32 +7732,6 @@
             "required": false,
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "description": "Página, de 1 a 1,000,000.",
-            "in": "query",
-            "name": "page",
-            "required": true,
-            "schema": {
-              "default": 1,
-              "example": 1,
-              "maximum": 1000000,
-              "minimum": 1,
-              "type": "number"
-            }
-          },
-          {
-            "description": "Resultados por página, de 1 a 100.",
-            "in": "query",
-            "name": "pageSize",
-            "required": true,
-            "schema": {
-              "default": 20,
-              "example": 20,
-              "maximum": 100,
-              "minimum": 1,
-              "type": "number"
             }
           }
         ],
@@ -8576,6 +9012,32 @@
         "operationId": "AdminProductsController_list_v1",
         "parameters": [
           {
+            "description": "Página, de 1 a 1,000,000.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "maximum": 1000000,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Resultados por página, de 1 a 100.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
             "description": "Uno o más estados separados por comas: `DRAFT`, `PUBLISHED`, `ARCHIVED`.",
             "in": "query",
             "name": "status",
@@ -8631,32 +9093,6 @@
             "required": false,
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "description": "Página, de 1 a 1,000,000.",
-            "in": "query",
-            "name": "page",
-            "required": true,
-            "schema": {
-              "default": 1,
-              "example": 1,
-              "maximum": 1000000,
-              "minimum": 1,
-              "type": "number"
-            }
-          },
-          {
-            "description": "Resultados por página, de 1 a 100.",
-            "in": "query",
-            "name": "pageSize",
-            "required": true,
-            "schema": {
-              "default": 20,
-              "example": 20,
-              "maximum": 100,
-              "minimum": 1,
-              "type": "number"
             }
           }
         ],
@@ -10473,6 +10909,32 @@
         "operationId": "EventDeliveriesController_list_v1",
         "parameters": [
           {
+            "description": "Página, de 1 a 1,000,000.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "maximum": 1000000,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Resultados por página, de 1 a 100.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
             "description": "Uno o más estados separados por comas: `PENDING`, `DELIVERED`, `FAILED`. Por defecto, `FAILED`.",
             "in": "query",
             "name": "status",
@@ -10522,32 +10984,6 @@
               "maxLength": 200,
               "minLength": 1,
               "type": "string"
-            }
-          },
-          {
-            "description": "Página, de 1 a 1,000,000.",
-            "in": "query",
-            "name": "page",
-            "required": true,
-            "schema": {
-              "default": 1,
-              "example": 1,
-              "maximum": 1000000,
-              "minimum": 1,
-              "type": "number"
-            }
-          },
-          {
-            "description": "Resultados por página, de 1 a 100.",
-            "in": "query",
-            "name": "pageSize",
-            "required": true,
-            "schema": {
-              "default": 20,
-              "example": 20,
-              "maximum": 100,
-              "minimum": 1,
-              "type": "number"
             }
           }
         ],
@@ -10829,6 +11265,32 @@
         "operationId": "AdminCustomersController_list_v1",
         "parameters": [
           {
+            "description": "Página, de 1 a 1,000,000.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "maximum": 1000000,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Resultados por página, de 1 a 100.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
             "description": "Uno o más estados separados por comas: `ACTIVE`, `SUSPENDED`, `ANONYMIZED`.",
             "in": "query",
             "name": "status",
@@ -10892,32 +11354,6 @@
             "required": false,
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "description": "Página, de 1 a 1,000,000.",
-            "in": "query",
-            "name": "page",
-            "required": true,
-            "schema": {
-              "default": 1,
-              "example": 1,
-              "maximum": 1000000,
-              "minimum": 1,
-              "type": "number"
-            }
-          },
-          {
-            "description": "Resultados por página, de 1 a 100.",
-            "in": "query",
-            "name": "pageSize",
-            "required": true,
-            "schema": {
-              "default": 20,
-              "example": 20,
-              "maximum": 100,
-              "minimum": 1,
-              "type": "number"
             }
           }
         ],
@@ -11578,7 +12014,7 @@
     },
     "/v1/admin/identity/permissions": {
       "get": {
-        "description": "Los permisos del catálogo en código, con su descripción (ADR-0017): los únicos que puede tener un rol.",
+        "description": "Los permisos del catálogo en código, con su descripción (ADR-0017): los únicos que puede tener un rol. Los de `superadminOnly` solo los tiene el rol superadministrador (ADR-0162).",
         "operationId": "AdminPermissionsController_list_v1",
         "parameters": [],
         "responses": {
@@ -11663,6 +12099,32 @@
         "operationId": "AdminRolesController_list_v1",
         "parameters": [
           {
+            "description": "Página, de 1 a 1,000,000.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "maximum": 1000000,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Resultados por página, de 1 a 100.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
             "description": "Parte del nombre, sin distinguir mayúsculas; hasta 100 caracteres.",
             "in": "query",
             "name": "q",
@@ -11679,32 +12141,6 @@
             "required": false,
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "description": "Página, de 1 a 1,000,000.",
-            "in": "query",
-            "name": "page",
-            "required": true,
-            "schema": {
-              "default": 1,
-              "example": 1,
-              "maximum": 1000000,
-              "minimum": 1,
-              "type": "number"
-            }
-          },
-          {
-            "description": "Resultados por página, de 1 a 100.",
-            "in": "query",
-            "name": "pageSize",
-            "required": true,
-            "schema": {
-              "default": 20,
-              "example": 20,
-              "maximum": 100,
-              "minimum": 1,
-              "type": "number"
             }
           }
         ],
@@ -12214,6 +12650,32 @@
         "operationId": "AdminStaffController_list_v1",
         "parameters": [
           {
+            "description": "Página, de 1 a 1,000,000.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "maximum": 1000000,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Resultados por página, de 1 a 100.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
             "description": "Uno o más estados separados por comas: `ACTIVE`, `SUSPENDED`.",
             "in": "query",
             "name": "status",
@@ -12257,32 +12719,6 @@
             "required": false,
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "description": "Página, de 1 a 1,000,000.",
-            "in": "query",
-            "name": "page",
-            "required": true,
-            "schema": {
-              "default": 1,
-              "example": 1,
-              "maximum": 1000000,
-              "minimum": 1,
-              "type": "number"
-            }
-          },
-          {
-            "description": "Resultados por página, de 1 a 100.",
-            "in": "query",
-            "name": "pageSize",
-            "required": true,
-            "schema": {
-              "default": 20,
-              "example": 20,
-              "maximum": 100,
-              "minimum": 1,
-              "type": "number"
             }
           }
         ],
@@ -13147,6 +13583,32 @@
         "operationId": "AdminStockController_list_v1",
         "parameters": [
           {
+            "description": "Página, de 1 a 1,000,000.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "maximum": 1000000,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Resultados por página, de 1 a 100.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
             "description": "Solo las existencias de esta variante.",
             "in": "query",
             "name": "variantId",
@@ -13205,32 +13667,6 @@
             "required": false,
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "description": "Página, de 1 a 1,000,000.",
-            "in": "query",
-            "name": "page",
-            "required": true,
-            "schema": {
-              "default": 1,
-              "example": 1,
-              "maximum": 1000000,
-              "minimum": 1,
-              "type": "number"
-            }
-          },
-          {
-            "description": "Resultados por página, de 1 a 100.",
-            "in": "query",
-            "name": "pageSize",
-            "required": true,
-            "schema": {
-              "default": 20,
-              "example": 20,
-              "maximum": 100,
-              "minimum": 1,
-              "type": "number"
             }
           }
         ],
@@ -13326,6 +13762,19 @@
             }
           },
           {
+            "description": "Resultados por página, de 1 a 100.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "example": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
             "description": "Uno o más tipos separados por comas: `RECEIPT`, `ADJUSTMENT`, `SALE`, `RESTOCK`.",
             "in": "query",
             "name": "type",
@@ -13361,6 +13810,15 @@
             "required": false,
             "schema": {
               "example": "2026-10-31",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaco: el `nextCursor` de la respuesta anterior. Sin él, la primera página.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
               "type": "string"
             }
           }
@@ -13453,7 +13911,7 @@
     },
     "/v1/admin/inventory/warehouses": {
       "get": {
-        "description": "Sin paginar. En el MVP hay exactamente un almacén, creado por el seed (ADR-0081).",
+        "description": "Sin paginar, por prioridad y luego por código. Cada pedido se reserva completo en el primer almacén activo que lo tiene todo (ADR-0160).",
         "operationId": "AdminWarehousesController_list_v1",
         "parameters": [],
         "responses": {
@@ -13530,11 +13988,110 @@
         "x-required-permissions": [
           "inventory.read"
         ]
+      },
+      "post": {
+        "description": "Activo. Desde ese momento recibe mercancía y reserva los pedidos según su prioridad (ADR-0160). El código no se repite entre almacenes. El estado y el municipio de la dirección se validan contra el catálogo del INEGI. Se audita como `warehouses.create`.",
+        "operationId": "AdminWarehousesController_create_v1",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWarehouseDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WarehouseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`duplicate-value`: Valor duplicado"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Crear un almacén",
+        "tags": [
+          "Administración: inventario"
+        ],
+        "x-required-permissions": [
+          "inventory.write"
+        ]
       }
     },
     "/v1/admin/inventory/warehouses/{warehouseId}": {
       "patch": {
-        "description": "Solo cambian los campos enviados; `address: null` quita la dirección. El estado y el municipio se validan contra el catálogo del INEGI.",
+        "description": "Solo cambian los campos enviados; `address: null` quita la dirección. El estado y el municipio se validan contra el catálogo del INEGI. La prioridad ordena en qué almacén se reservan los pedidos (ADR-0160). Se audita como `warehouses.update`.",
         "operationId": "AdminWarehousesController_update_v1",
         "parameters": [
           {
@@ -13635,7 +14192,119 @@
             "bearer": []
           }
         ],
-        "summary": "Editar el nombre o la dirección del almacén",
+        "summary": "Editar el nombre, la dirección o la prioridad de un almacén",
+        "tags": [
+          "Administración: inventario"
+        ],
+        "x-required-permissions": [
+          "inventory.write"
+        ]
+      }
+    },
+    "/v1/admin/inventory/warehouses/{warehouseId}/deactivate": {
+      "post": {
+        "description": "Para siempre (ADR-0076): deja de vender, reservar y recibir mercancía, y conserva su stock, que los ajustes pueden mover. 409 `resource-in-use` si tiene unidades reservadas para pedidos, e `invalid-state-transition` si ya está inactivo o es el último activo (`reason: last-active-warehouse`). Se audita como `warehouses.deactivate`.",
+        "operationId": "AdminWarehousesController_deactivate_v1",
+        "parameters": [
+          {
+            "description": "ID del almacén.",
+            "in": "path",
+            "name": "warehouseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WarehouseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`invalid-state-transition`: Acción no permitida en el estado actual; `resource-in-use`: Recurso en uso"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Desactivar un almacén",
         "tags": [
           "Administración: inventario"
         ],
@@ -13649,6 +14318,32 @@
         "description": "Sin líneas ni historial, con el pago y el envío de cada pedido; `payment` o `shipment` es `null` si el pedido aún no lo tiene.",
         "operationId": "AdminOrdersController_list_v1",
         "parameters": [
+          {
+            "description": "Página, de 1 a 1,000,000.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "maximum": 1000000,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Resultados por página, de 1 a 100.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
           {
             "description": "Uno o más estados separados por comas: `PENDING_PAYMENT`, `PAID`, `AWAITING_MANUAL_FULFILLMENT`, `SHIPPED`, `DELIVERED`, `CANCELLED`, `EXPIRED`, `REFUNDED`.",
             "in": "query",
@@ -13688,6 +14383,19 @@
             "required": false,
             "schema": {
               "type": "boolean"
+            }
+          },
+          {
+            "description": "`ONLINE`: las de la tienda en línea; `STORE`: las que colocó el staff en la tienda física (ADR-0161).",
+            "in": "query",
+            "name": "channel",
+            "required": false,
+            "schema": {
+              "enum": [
+                "ONLINE",
+                "STORE"
+              ],
+              "type": "string"
             }
           },
           {
@@ -13731,38 +14439,22 @@
             }
           },
           {
+            "description": "Las órdenes que colocó en la tienda física esta cuenta de staff (ADR-0161).",
+            "in": "query",
+            "name": "placedBy",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
             "description": "`placedAt`, `orderNumber` o `grandTotal`, con `-` para orden descendente; por defecto `-placedAt`.",
             "in": "query",
             "name": "sort",
             "required": false,
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "description": "Página, de 1 a 1,000,000.",
-            "in": "query",
-            "name": "page",
-            "required": true,
-            "schema": {
-              "default": 1,
-              "example": 1,
-              "maximum": 1000000,
-              "minimum": 1,
-              "type": "number"
-            }
-          },
-          {
-            "description": "Resultados por página, de 1 a 100.",
-            "in": "query",
-            "name": "pageSize",
-            "required": true,
-            "schema": {
-              "default": 20,
-              "example": 20,
-              "maximum": 100,
-              "minimum": 1,
-              "type": "number"
             }
           }
         ],
@@ -13839,6 +14531,237 @@
         ],
         "x-required-permissions": [
           "orders.read"
+        ]
+      },
+      "post": {
+        "description": "UC-ORD-13 (ADR-0161). Exige `Idempotency-Key`. Para un cliente registrado y activo, con el email verificado, cuyo contacto es el email de su cuenta; o para un invitado, con `contactEmail` y la versión del aviso de privacidad que el staff le presentó. Exactamente uno de `customerId` y `contactEmail`, y uno de `addressId` y `shippingAddress`; `addressId` solo con `customerId`. Recalcula todo sin cache; si el total difiere de `expectedTotal` responde 409 `total-mismatch` con `currentTotal`. Reserva todo el stock en el almacén `warehouseId` o nada, y crea la orden `STORE` en `PENDING_PAYMENT`, en una sola transacción; sin carrito, una orden vencida no regresa a ninguno. Si el almacén no existe o está inactivo, 404. Hasta 30 órdenes por cuenta de staff cada 10 minutos. Se audita como `orders.place`.",
+        "operationId": "AdminOrdersController_place_v1",
+        "parameters": [
+          {
+            "description": "Llave de idempotencia de 1 a 255 caracteres; se recomienda un UUID (API_SPEC.md, sección 4).",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "example": "0192a3b4-5c6d-7e8f-9a0b-1c2d3e4f5a6b",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaceStaffOrderDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminOrderDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`idempotency-key-missing`: Falta la llave de idempotencia; `validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`email-not-verified`: Correo sin verificar\n\n`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`idempotency-request-in-progress`: Solicitud en proceso\n\n`variant-not-sellable`: Producto no disponible; `total-mismatch`: El total cambió; `insufficient-stock`: Stock insuficiente"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`idempotency-key-mismatch`: Llave de idempotencia reutilizada"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Colocar un pedido en la tienda física a nombre de un cliente",
+        "tags": [
+          "Administración: pedidos"
+        ],
+        "x-required-permissions": [
+          "orders.place"
+        ]
+      }
+    },
+    "/v1/admin/orders/quote": {
+      "post": {
+        "description": "UC-ORD-12 (ADR-0161). Sin efectos secundarios y sin cache: precios, IVA, envío y disponibilidad de ahora. Las líneas no vendibles o no surtibles no son un error: se marcan y `readyToPlace` queda en `false`. Los totales suman solo las líneas vendibles. Las líneas vienen en la solicitud, sin carrito, y la disponibilidad es la del almacén `warehouseId`. Si el almacén no existe o está inactivo, o una variante no existe, 404.",
+        "operationId": "AdminOrdersController_quote_v1",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffQuoteDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutQuoteDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cotizar un pedido en la tienda física",
+        "tags": [
+          "Administración: pedidos"
+        ],
+        "x-required-permissions": [
+          "orders.place"
         ]
       }
     },
@@ -14188,9 +15111,131 @@
         ]
       }
     },
+    "/v1/admin/orders/{orderId}/hand-over": {
+      "post": {
+        "description": "UC-ORD-14 (ADR-0161). Desde `PAID`, en una orden `IN_STORE`: pasa a `DELIVERED`, sin envío, con `deliveredAt`, y concluye. En otro estado, o en una orden que se envía, 409 `invalid-state-transition`. Se audita como `orders.hand-over`.",
+        "operationId": "AdminOrdersController_handOver_v1",
+        "parameters": [
+          {
+            "description": "ID interno del pedido; quien compra usa el código público.",
+            "in": "path",
+            "name": "orderId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HandOverDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminOrderDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Entregar un pedido en la tienda física",
+        "tags": [
+          "Administración: pedidos"
+        ],
+        "x-required-permissions": [
+          "orders.place"
+        ]
+      }
+    },
     "/v1/admin/orders/{orderId}/manual-capture": {
       "post": {
-        "description": "Solo con el pago manual habilitado y desde `PENDING_PAYMENT` o `EXPIRED` (ADR-0055). Registra el cobro por el total del pedido y responde el pedido con su pago capturado; el pedido pasa a `PAID`, o sigue el flujo de pago tardío, en segundo plano (API_SPEC.md §2.5).",
+        "description": "Solo con el pago manual habilitado y desde `PENDING_PAYMENT` o `EXPIRED` (ADR-0055). Registra el cobro por el total del pedido, con el comprobante y cómo se cobró (`method`, ADR-0161), y responde el pedido con su pago capturado; el pedido pasa a `PAID`, o sigue el flujo de pago tardío, en segundo plano (API_SPEC.md §2.5).",
         "operationId": "AdminOrdersController_captureManually_v1",
         "parameters": [
           {
@@ -14424,7 +15469,7 @@
     },
     "/v1/admin/orders/{orderId}/restocks": {
       "post": {
-        "description": "UC-INV-09 (ADR-0052, ADR-0142). Exige `Idempotency-Key`. `ORDER_CANCELLED` para un pedido `CANCELLED` o `REFUNDED`, y `SHIPMENT_RETURNED` para uno con el envío `RETURNED`; si no, 409 `invalid-state-transition`. Cada línea regresa a lo sumo lo que vendió, sumando los reintegros anteriores; lo vendido cuenta solo si el stock del pedido se confirmó. Si no, 409 `restock-not-allowed` con `lines`, y no se reintegra nada. El pedido no cambia. Se audita como `orders.restock`.",
+        "description": "UC-INV-09 (ADR-0052, ADR-0142). Exige `Idempotency-Key`. `ORDER_CANCELLED` para un pedido `CANCELLED` o `REFUNDED`, y `SHIPMENT_RETURNED` para uno con el envío `RETURNED`; si no, 409 `invalid-state-transition`. Cada línea regresa a lo sumo lo que vendió, sumando los reintegros anteriores; lo vendido cuenta solo si el stock del pedido se confirmó. Si no, 409 `restock-not-allowed` con `lines`, y no se reintegra nada. Las unidades regresan al almacén del que salieron, aunque esté inactivo, o al almacén activo `warehouseId`; otro valor, 404 (ADR-0160). El pedido no cambia. Se audita como `orders.restock`.",
         "operationId": "AdminOrdersController_restock_v1",
         "parameters": [
           {
@@ -14686,11 +15731,217 @@
         ]
       }
     },
+    "/v1/admin/payment-settings": {
+      "get": {
+        "description": "Si la tienda registra pagos y reembolsos manuales, y si el cliente puede elegir pagar en la tienda (ADR-0162). Con el pago manual deshabilitado, esas acciones responden 403 `manual-payments-disabled`.",
+        "operationId": "AdminPaymentSettingsController_get_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentSettingsDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consultar si el pago manual está habilitado",
+        "tags": [
+          "Administración: pagos"
+        ],
+        "x-required-permissions": [
+          "orders.read"
+        ]
+      },
+      "put": {
+        "description": "Solo un superadministrador: `payments.configure` no lo tiene ningún otro rol (ADR-0162). Vale desde la siguiente operación; un pago que ya pasó la comprobación termina. Cada cambio se audita; sin cambios no se guarda ni se audita.",
+        "operationId": "AdminPaymentSettingsController_update_v1",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePaymentSettingsDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentSettingsDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`version-conflict`: Versión desactualizada"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Habilitar o deshabilitar el pago manual",
+        "tags": [
+          "Administración: pagos"
+        ],
+        "x-required-permissions": [
+          "payments.configure"
+        ]
+      }
+    },
     "/v1/admin/payments": {
       "get": {
         "description": "Paginado. Filtros por estado, proveedor, orden y fecha de captura, con varios valores separados por comas; orden por fecha de alta, la más reciente primero por defecto, o monto.",
         "operationId": "AdminPaymentsController_list_v1",
         "parameters": [
+          {
+            "description": "Página, de 1 a 1,000,000.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "maximum": 1000000,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Resultados por página, de 1 a 100.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
           {
             "description": "Uno o más estados separados por comas: `PENDING`, `REQUIRES_ACTION`, `AUTHORIZED`, `CAPTURED`, `FAILED`, `CANCELLED`, `PARTIALLY_REFUNDED`, `REFUNDED`.",
             "in": "query",
@@ -14768,32 +16019,6 @@
             "required": false,
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "description": "Página, de 1 a 1,000,000.",
-            "in": "query",
-            "name": "page",
-            "required": true,
-            "schema": {
-              "default": 1,
-              "example": 1,
-              "maximum": 1000000,
-              "minimum": 1,
-              "type": "number"
-            }
-          },
-          {
-            "description": "Resultados por página, de 1 a 100.",
-            "in": "query",
-            "name": "pageSize",
-            "required": true,
-            "schema": {
-              "default": 20,
-              "example": 20,
-              "maximum": 100,
-              "minimum": 1,
-              "type": "number"
             }
           }
         ],
@@ -15920,6 +17145,32 @@
         "operationId": "AdminShipmentsController_list_v1",
         "parameters": [
           {
+            "description": "Página, de 1 a 1,000,000.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "maximum": 1000000,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Resultados por página, de 1 a 100.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
             "description": "Uno o más estados separados por comas: `PENDING`, `DISPATCHED`, `DELIVERED`, `DELIVERY_FAILED`, `RETURNED`, `CANCELLED`. Por defecto `PENDING`, los envíos por despachar.",
             "in": "query",
             "name": "status",
@@ -15944,6 +17195,16 @@
             "description": "El envío de una orden.",
             "in": "query",
             "name": "orderId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Los envíos que salen de este almacén (ADR-0160).",
+            "in": "query",
+            "name": "warehouseId",
             "required": false,
             "schema": {
               "format": "uuid",
@@ -15988,32 +17249,6 @@
             "required": false,
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "description": "Página, de 1 a 1,000,000.",
-            "in": "query",
-            "name": "page",
-            "required": true,
-            "schema": {
-              "default": 1,
-              "example": 1,
-              "maximum": 1000000,
-              "minimum": 1,
-              "type": "number"
-            }
-          },
-          {
-            "description": "Resultados por página, de 1 a 100.",
-            "in": "query",
-            "name": "pageSize",
-            "required": true,
-            "schema": {
-              "default": 20,
-              "example": 20,
-              "maximum": 100,
-              "minimum": 1,
-              "type": "number"
             }
           }
         ],
@@ -17893,6 +19128,32 @@
         "operationId": "CatalogController_products_v1",
         "parameters": [
           {
+            "description": "Página, de 1 a 1,000,000.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "maximum": 1000000,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Resultados por página, de 1 a 100.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
             "description": "Hasta 20 slugs de marcas activas, separados por comas.",
             "in": "query",
             "name": "brand",
@@ -17974,32 +19235,6 @@
             "schema": {
               "maximum": 2147483647,
               "minimum": 0,
-              "type": "number"
-            }
-          },
-          {
-            "description": "Página, de 1 a 1,000,000.",
-            "in": "query",
-            "name": "page",
-            "required": true,
-            "schema": {
-              "default": 1,
-              "example": 1,
-              "maximum": 1000000,
-              "minimum": 1,
-              "type": "number"
-            }
-          },
-          {
-            "description": "Resultados por página, de 1 a 100.",
-            "in": "query",
-            "name": "pageSize",
-            "required": true,
-            "schema": {
-              "default": 20,
-              "example": 20,
-              "maximum": 100,
-              "minimum": 1,
               "type": "number"
             }
           }
@@ -19585,6 +20820,32 @@
         "operationId": "MeOrdersController_list_v1",
         "parameters": [
           {
+            "description": "Página, de 1 a 1,000,000.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "maximum": 1000000,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Resultados por página, de 1 a 100.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
             "description": "Uno o más estados separados por comas: `PENDING_PAYMENT`, `PAID`, `AWAITING_MANUAL_FULFILLMENT`, `SHIPPED`, `DELIVERED`, `CANCELLED`, `EXPIRED`, `REFUNDED`.",
             "in": "query",
             "name": "status",
@@ -19634,32 +20895,6 @@
             "required": false,
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "description": "Página, de 1 a 1,000,000.",
-            "in": "query",
-            "name": "page",
-            "required": true,
-            "schema": {
-              "default": 1,
-              "example": 1,
-              "maximum": 1000000,
-              "minimum": 1,
-              "type": "number"
-            }
-          },
-          {
-            "description": "Resultados por página, de 1 a 100.",
-            "in": "query",
-            "name": "pageSize",
-            "required": true,
-            "schema": {
-              "default": 20,
-              "example": 20,
-              "maximum": 100,
-              "minimum": 1,
-              "type": "number"
             }
           }
         ],

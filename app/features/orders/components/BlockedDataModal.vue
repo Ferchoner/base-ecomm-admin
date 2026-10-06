@@ -61,7 +61,8 @@ async function onSubmit(event: FormSubmitEvent<BlockedDataForm>) {
         </div>
         <div>
           <h3 class="text-sm font-medium text-muted">Dirección de envío</h3>
-          <PostalAddress :address="data.shippingAddress" />
+          <PostalAddress v-if="data.shippingAddress" :address="data.shippingAddress" />
+          <p v-else class="text-sm">Se entrega en la tienda: no tiene dirección.</p>
         </div>
       </div>
       <UForm

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useWarehouses } from '~/features/inventory/api'
 import { useOrder } from '~/features/orders/api'
 import OrderActions from '~/features/orders/components/OrderActions.vue'
 import OrderHistory from '~/features/orders/components/OrderHistory.vue'
@@ -6,7 +7,7 @@ import OrderLines from '~/features/orders/components/OrderLines.vue'
 import OrderPaymentPanel from '~/features/payments/components/OrderPaymentPanel.vue'
 import OrderShipmentPanel from '~/features/shipping/components/OrderShipmentPanel.vue'
 import { useSessionStore } from '~/shared/auth/session.store'
-import { ORDER_STATUS } from '~/shared/status/sales'
+import { ORDER_CHANNEL, ORDER_FULFILLMENT, ORDER_STATUS } from '~/shared/status/sales'
 import { formatDateTime } from '~/shared/utils/dates'
 
 definePageMeta({ title: 'Pedido', permission: 'orders.read' })
@@ -15,6 +16,45 @@ const route = useRoute()
 const id = computed(() => String(route.params.id))
 const session = useSessionStore()
 const { data: order, isPending, error, refetch } = useOrder(id)
+
+// El nombre del almacén requiere `inventory.read`; sin él se muestra su ID.
+const warehouses = useWarehouses({ enabled: () => session.can('inventory.read') })
+function warehouseLabel(warehouseId: string | null) {
+  if (!warehouseId) return null
+  const w = warehouses.data.value?.find((x) => x.id === warehouseId)
+  return w ? `${w.name} (${w.code})` : warehouseId
+}
+
+/** Quién colocó una orden de la tienda física (ADR-0161). Sin `staff.manage` no hay nombre (GAPS G-21). */
+const placedByLabel = computed(() => {
+  const by = order.value?.placedBy
+  if (!by) return null
+  return by === session.account?.id ? 'Tú' : by
+})
+
+const sale = computed(() => {
+  const o = order.value
+  if (!o) return []
+  return [
+    { label: 'Canal', value: ORDER_CHANNEL[o.channel]?.label ?? o.channel },
+    { label: 'Entrega', value: ORDER_FULFILLMENT[o.fulfillment] ?? o.fulfillment },
+    ...(o.channel === 'STORE'
+      ? [
+          { label: 'Colocado por', value: placedByLabel.value, mono: placedByLabel.value !== 'Tú' },
+          { label: 'Almacén', value: warehouseLabel(o.warehouseId) },
+        ]
+      : []),
+  ]
+})
+
+/** Venta de mostrador sin datos del comprador: `contactEmail` es `null` sin anonimizar (API_SPEC §8.8). */
+const anonymousBuyer = computed(
+  () =>
+    !!order.value &&
+    !order.value.contactEmail &&
+    !order.value.anonymizedAt &&
+    !order.value.blockedAt,
+)
 
 const dates = computed(() => {
   const o = order.value
@@ -45,6 +85,7 @@ const dates = computed(() => {
             <h2 class="text-xl font-semibold">Pedido {{ order.publicCode }}</h2>
             <div class="flex flex-wrap items-center gap-2">
               <StatusBadge :value="order.status" :styles="ORDER_STATUS" />
+              <StatusBadge :value="order.channel" :styles="ORDER_CHANNEL" />
               <span class="text-xs text-muted">N.º {{ order.orderNumber }}</span>
             </div>
           </div>
@@ -89,13 +130,23 @@ const dates = computed(() => {
                 <p v-else-if="order.blockedAt" class="text-muted">
                   Datos personales bloqueados desde el {{ formatDateTime(order.blockedAt) }}.
                 </p>
-                <p v-else>{{ order.contactEmail }}</p>
-                <p class="text-muted">{{ order.customerId ? 'Cliente registrado' : 'Invitado' }}</p>
-                <PostalAddress :address="order.shippingAddress" />
-                <p class="text-muted">
-                  Entrega estimada: {{ order.estimatedDelivery.minBusinessDays }} a
-                  {{ order.estimatedDelivery.maxBusinessDays }} días hábiles tras el pago.
+                <p v-else-if="anonymousBuyer" class="text-muted">
+                  Venta de mostrador: el comprador no dio sus datos.
                 </p>
+                <p v-else>{{ order.contactEmail }}</p>
+                <p v-if="!anonymousBuyer" class="text-muted">
+                  {{ order.customerId ? 'Cliente registrado' : 'Invitado' }}
+                </p>
+                <p v-if="order.fulfillment === 'IN_STORE'">
+                  Se entrega en la tienda al pagarse; no tiene dirección ni envío.
+                </p>
+                <template v-else>
+                  <PostalAddress v-if="order.shippingAddress" :address="order.shippingAddress" />
+                  <p v-if="order.estimatedDelivery" class="text-muted">
+                    Entrega estimada: {{ order.estimatedDelivery.minBusinessDays }} a
+                    {{ order.estimatedDelivery.maxBusinessDays }} días hábiles tras el pago.
+                  </p>
+                </template>
               </div>
             </UCard>
             <UCard>
@@ -103,6 +154,10 @@ const dates = computed(() => {
               <OrderPaymentPanel :payment="order.payment" />
             </UCard>
             <UCard>
+              <template #header><h3 class="font-semibold">Venta</h3></template>
+              <DetailList :items="sale" />
+            </UCard>
+            <UCard v-if="order.fulfillment !== 'IN_STORE'">
               <template #header><h3 class="font-semibold">Envío</h3></template>
               <OrderShipmentPanel
                 :shipment="order.shipment"

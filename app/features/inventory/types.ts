@@ -11,12 +11,7 @@ export type MovementType = StockMovement['type']
 export type StockEntry = Schemas['StockEntryDto']
 export type ReceiptInput = Schemas['ReceiptDto']
 export type AdjustmentReason = Schemas['AdjustmentDto']['reasonCode']
-
-/**
- * `AdjustmentDto` en openapi/v1.json no declara `quantity`, pero API_SPEC §13 lo exige (entero con
- * signo, distinto de 0). Por prioridad de fuentes se agrega aquí (GAPS G-11).
- */
-export type AdjustmentInput = Schemas['AdjustmentDto'] & { quantity: number }
+export type AdjustmentInput = Schemas['AdjustmentDto']
 
 /** Filtros de `GET /v1/admin/inventory/stock-items` (API_SPEC §13). */
 export interface StockListParams {

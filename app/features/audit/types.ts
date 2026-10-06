@@ -1,12 +1,11 @@
-import type { CursorPage, Schemas } from '~/shared/api/types'
+import type { Schemas } from '~/shared/api/types'
 
 /** Registro de auditoría (API_SPEC §18, UC-AUD-02). */
 export type AuditEntry = Schemas['AuditEntryDto']
 export type AuditActorType = AuditEntry['actorType']
 export type AuditResult = AuditEntry['result']
 
-/** `AuditEntryListDto` declara `CursorMetaDto` vacío; la forma sale de API_SPEC §5.2 (GAPS G-10). */
-export type AuditPage = CursorPage<AuditEntry>
+export type AuditPage = Schemas['AuditEntryListDto']
 
 /** Filtros de `GET /v1/admin/audit` (API_SPEC §18, T-220). */
 export interface AuditFilters {

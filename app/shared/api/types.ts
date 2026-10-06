@@ -15,14 +15,7 @@ export interface Page<T> {
   meta: PageMeta
 }
 
-/**
- * `CursorMetaDto` no declara propiedades en openapi/v1.json; la forma sale de API_SPEC §5.2,
- * que tiene prioridad sobre el OpenAPI (GAPS G-10).
- */
-export interface CursorMeta {
-  limit: number
-  nextCursor: string | null
-}
+export type CursorMeta = Schemas['CursorMetaDto']
 
 export interface CursorPage<T> {
   data: T[]

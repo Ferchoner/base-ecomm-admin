@@ -37,12 +37,14 @@ export interface MovementFilters {
   to?: string
 }
 
-export function useWarehouses() {
+/** Almacenes por prioridad y luego por código (API_SPEC §13, ADR-0160). */
+export function useWarehouses(options: { enabled?: MaybeRefOrGetter<boolean> } = {}) {
   const api = useApi()
   return useQuery<Warehouse[], ApiProblem>({
     queryKey: inventoryKeys.warehouses(),
     queryFn: async ({ signal }) =>
       (await api<{ data: Warehouse[] }>(`${BASE}/warehouses`, { signal })).data,
+    enabled: computed(() => toValue(options.enabled ?? true)),
   })
 }
 
@@ -93,7 +95,7 @@ export function useStockOfVariant(variantId: MaybeRefOrGetter<string | undefined
   })
 }
 
-/** Movimientos con paginación por cursor (API_SPEC §5.2): `cursor` y `limit` (G-10). */
+/** Movimientos con paginación por cursor (API_SPEC §5.2): `cursor` y `limit`. */
 export function useStockMovements(
   stockItemId: MaybeRefOrGetter<string>,
   filters: MaybeRefOrGetter<MovementFilters>,

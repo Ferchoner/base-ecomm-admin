@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { addressFieldsSchema, checkAddress } from '~/shared/address/address-form'
 import { DECREASE_ONLY } from './status'
 
 // ReceiptDto, AdjustmentDto y UpdateWarehouseDto (openapi/v1.json) y API_SPEC §13.
@@ -43,7 +44,6 @@ export type AdjustmentForm = z.input<typeof adjustmentSchema>
 
 const required = (max: number, label: string) =>
   z.string().trim().min(1, `Escribe ${label}.`).max(max, `Máximo ${max} caracteres.`)
-const optional = (max: number) => z.string().trim().max(max, `Máximo ${max} caracteres.`)
 
 /** `code` solo al crear (CreateWarehouseDto): 2 a 20 mayúsculas, dígitos y guiones. */
 export const warehouseSchema = z
@@ -57,19 +57,7 @@ export const warehouseSchema = z
       .min(1, 'Mínimo 1.')
       .max(1000, 'Máximo 1000.'),
     hasAddress: z.boolean(),
-    address: z.object({
-      recipientName: optional(120),
-      phone: z.string().trim(),
-      street: optional(150),
-      exteriorNumber: optional(20),
-      interiorNumber: optional(20),
-      neighborhood: optional(120),
-      postalCode: z.string().trim(),
-      stateCode: z.string(),
-      municipalityCode: z.string(),
-      city: optional(120),
-      references: optional(250),
-    }),
+    address: addressFieldsSchema,
   })
   .superRefine((v, ctx) => {
     if (v.creating && !/^[A-Z0-9-]{2,20}$/.test(v.code))
@@ -78,18 +66,7 @@ export const warehouseSchema = z
         path: ['code'],
         message: 'De 2 a 20 mayúsculas, dígitos o guiones.',
       })
-    if (!v.hasAddress) return
-    const a = v.address
-    const need = (field: keyof typeof a, message: string) =>
-      ctx.addIssue({ code: 'custom', path: ['address', field], message })
-    if (!a.recipientName) need('recipientName', 'Escribe el nombre de quien recibe.')
-    if (!/^\d{10}$/.test(a.phone)) need('phone', 'Exactamente 10 dígitos.')
-    if (!a.street) need('street', 'Escribe la calle.')
-    if (!a.exteriorNumber) need('exteriorNumber', 'Escribe el número exterior.')
-    if (!a.neighborhood) need('neighborhood', 'Escribe la colonia.')
-    if (!/^\d{5}$/.test(a.postalCode)) need('postalCode', '5 dígitos.')
-    if (!a.stateCode) need('stateCode', 'Elige el estado.')
-    if (!a.municipalityCode) need('municipalityCode', 'Elige el municipio.')
+    if (v.hasAddress) checkAddress(v.address, ctx, ['address'])
   })
 export type WarehouseForm = z.input<typeof warehouseSchema>
 

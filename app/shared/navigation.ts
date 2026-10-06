@@ -61,6 +61,12 @@ export const NAVIGATION: NavGroup[] = [
         permission: 'orders.read',
       },
       {
+        label: 'Vender en tienda',
+        icon: 'i-lucide-store',
+        to: '/pedidos/nuevo',
+        permission: 'orders.place',
+      },
+      {
         label: 'Pagos',
         icon: 'i-lucide-credit-card',
         to: '/pagos',

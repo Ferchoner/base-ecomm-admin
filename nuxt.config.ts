@@ -24,6 +24,10 @@ export default defineNuxtConfig({
     public: {
       // Base de la API sin el prefijo /v1. Se sobrescribe con NUXT_PUBLIC_API_BASE_URL.
       apiBaseUrl: 'http://localhost:3000',
+      // Versión del aviso de privacidad que el staff presenta a un invitado en la tienda física
+      // (ADR-0161). La API no la expone (GAPS G-19): debe ser la misma que usa la tienda en línea.
+      // Se sobrescribe con NUXT_PUBLIC_PRIVACY_NOTICE_VERSION; vacía, no se aceptan invitados.
+      privacyNoticeVersion: '',
     },
   },
   typescript: {

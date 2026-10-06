@@ -3,7 +3,7 @@ import type { FormSubmitEvent } from '@nuxt/ui'
 import { notifySuccess } from '~/shared/api/feedback'
 import type { ApiProblem } from '~/shared/api/problem'
 import { useSessionStore } from '~/shared/auth/session.store'
-import { useRestock, useRestockWarehouses } from '../api'
+import { useRestock, useWarehouseOptions } from '../api'
 import { restockSchema } from '../schemas'
 import type { RestockForm } from '../schemas'
 import { RESTOCK_REASON_LABEL } from '../status'
@@ -25,7 +25,7 @@ const toast = useToast()
 
 // Por defecto cada línea vuelve al almacén del que salió, aunque esté inactivo; o a uno activo elegido.
 const session = useSessionStore()
-const warehouses = useRestockWarehouses(() => open.value && session.can('inventory.read'))
+const warehouses = useWarehouseOptions(() => open.value && session.can('inventory.read'))
 const ORIGIN = 'origin'
 const destination = ref(ORIGIN)
 const destinationOptions = computed(() => [

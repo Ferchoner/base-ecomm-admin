@@ -25,11 +25,12 @@ NUXT_PUBLIC_API_BASE_URL=<base de la API sin /v1> npm run build
 
 ## Configuración por ambiente
 
-| Variable                   | Cuándo se lee            | Valor                                                                   |
-| -------------------------- | ------------------------ | ----------------------------------------------------------------------- |
-| `NUXT_PUBLIC_API_BASE_URL` | **Al construir** (D-019) | Base de la API sin `/v1` ni barra final. Local: `http://localhost:3000` |
+| Variable                             | Cuándo se lee            | Valor                                                                                                              |
+| ------------------------------------ | ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `NUXT_PUBLIC_API_BASE_URL`           | **Al construir** (D-019) | Base de la API sin `/v1` ni barra final. Local: `http://localhost:3000`                                            |
+| `NUXT_PUBLIC_PRIVACY_NOTICE_VERSION` | **Al construir**         | Versión vigente del aviso de privacidad, la misma de la tienda (G-19). Vacía, Vender en tienda no acepta invitados |
 
-Como el build es estático, **cada ambiente necesita su propio build**. No hay otra variable ni secreto.
+Como el build es estático, **cada ambiente necesita su propio build**. No hay secretos.
 
 Del lado del backend, en cada ambiente:
 

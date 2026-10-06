@@ -153,6 +153,13 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 - **Workaround:** ninguno posible en el frontend: la respuesta perdida no se puede recuperar.
 - **Propuesta para el backend:** aceptar durante unos segundos el refresh token recién rotado (margen de gracia) y responder con el mismo par nuevo, en lugar de tratarlo como reutilización.
 
+### G-19 · Versión vigente del aviso de privacidad no expuesta — GAP (decidido)
+
+- **Evidencia:** `POST /v1/admin/orders` exige `privacyNoticeVersion` para un invitado (API_SPEC §15.7, ADR-0161), pero la API no expone cuál es la versión vigente.
+- **Decisión del usuario (2026-10-06, D-3 del plan):** el backoffice la toma de `NUXT_PUBLIC_PRIVACY_NOTICE_VERSION`, con el mismo valor que la tienda. Vacía, el formulario no ofrece invitados; los clientes registrados y la venta de mostrador sin datos siguen disponibles.
+- **Riesgo:** si cambia el aviso y nadie actualiza la variable, el backoffice registra una versión vieja.
+- **Pregunta pendiente:** ¿se agrega un endpoint (o un campo en `GET /v1/me`) con la versión vigente?
+
 ### G-20 · Transferencia entre almacenes no atómica — ASSUMPTION (decidido)
 
 - **Evidencia:** la API 1.1 no tiene una operación de transferencia (T-163, DEFERRED en base-shop); API_SPEC §13 dice que se hace con dos ajustes `WAREHOUSE_TRANSFER`, uno negativo y uno positivo.

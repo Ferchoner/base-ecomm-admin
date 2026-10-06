@@ -318,3 +318,98 @@ test('pedidos: una venta de mostrador sin datos del comprador se muestra complet
   await expect(page.getByText('Tú', { exact: true })).toBeVisible()
   expect(api.calls.some((c) => c.query.includes('channel=STORE'))).toBe(true)
 })
+
+const SELLER = ['orders.read', 'orders.place', 'inventory.read', 'catalog.read', 'customers.read']
+
+test('vender en tienda: venta de mostrador con cambio de precio, sin duplicar el pedido', async ({
+  page,
+}) => {
+  await mockAuthApi(page, staff(SELLER))
+  const api = await mockSalesApi(page, { orders: [], storeCatalog: true, priceChangeOnPlace: true })
+  await login(page)
+  await page.goto('/pedidos')
+  await page.getByRole('link', { name: 'Nuevo pedido' }).click()
+  await expect(page).toHaveURL(/\/pedidos\/nuevo$/)
+
+  await page.getByRole('radio', { name: /Venta de mostrador/ }).click()
+  await page.getByLabel('Buscar productos').fill('cam')
+  await page.getByRole('button', { name: 'Agregar CAM-M' }).click()
+  await expect(page.getByText('Sin datos del comprador')).toBeVisible()
+  // Sin la versión del aviso de privacidad configurada no se ofrecen invitados (GAPS G-19).
+  await expect(page.getByRole('radio', { name: 'Invitado' })).toBeDisabled()
+  await page.getByRole('radio', { name: 'Sin datos del comprador' }).click()
+  await expect(page.getByText('$599.00').last()).toBeVisible()
+
+  await page.getByRole('button', { name: 'Colocar pedido' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Colocar pedido' }).click()
+  await expect(page.getByText(/El total cambió a \$609\.00/)).toBeVisible()
+  await expect(page.getByText('$609.00').last()).toBeVisible()
+
+  await page.getByRole('button', { name: 'Colocar pedido' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Colocar pedido' }).click()
+  await expect(page.getByRole('heading', { name: 'Pedido T5N8-W2RP' })).toBeVisible()
+
+  const places = api.calls.filter((c) => c.method === 'POST' && c.path === '/v1/admin/orders')
+  expect(places).toHaveLength(2)
+  expect(places[1]!.body).toEqual({
+    lines: [{ variantId: expect.any(String), quantity: 1 }],
+    warehouseId: expect.any(String),
+    fulfillment: 'IN_STORE',
+    expectedTotal: 60900,
+  })
+  expect(places.every((c) => !!c.headers['idempotency-key'])).toBe(true)
+})
+
+test('vender en tienda: cliente registrado con su dirección guardada', async ({ page }) => {
+  await mockAuthApi(page, staff(SELLER))
+  const api = await mockSalesApi(page, { orders: [], storeCatalog: true })
+  await login(page)
+  await page.goto('/pedidos/nuevo')
+
+  await page.getByLabel('Buscar productos').fill('pan')
+  await page.getByRole('button', { name: 'Agregar PAN-32' }).click()
+  await page.getByPlaceholder('Nombre o email').fill('luc')
+  await page.getByRole('button', { name: /Lucía Ramírez/ }).click()
+  await expect(page.getByText('lucia@example.com')).toBeVisible()
+  await expect(page.getByRole('combobox', { name: /Dirección guardada/ })).toContainText(
+    'Av. Madero Poniente 123',
+  )
+  await expect(page.getByText('$998.00').last()).toBeVisible()
+
+  await page.getByRole('button', { name: 'Colocar pedido' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Colocar pedido' }).click()
+  await expect(page.getByRole('heading', { name: 'Pedido T5N8-W2RP' })).toBeVisible()
+  const body = api.calls.find((c) => c.method === 'POST' && c.path === '/v1/admin/orders')?.body
+  expect(body).toMatchObject({
+    fulfillment: 'SHIPPING',
+    customerId: expect.any(String),
+    addressId: expect.any(String),
+    expectedTotal: 99800,
+  })
+  expect(body).not.toHaveProperty('contactEmail')
+  expect(body).not.toHaveProperty('shippingAddress')
+})
+
+test('vender en tienda: entregar una venta de mostrador pagada', async ({ page }) => {
+  await mockAuthApi(page, staff(SELLER))
+  const api = await mockSalesApi(page, {
+    orders: [
+      {
+        code: 'S7T8-U9V0',
+        status: 'PAID',
+        payment: { status: 'CAPTURED' },
+        store: { fulfillment: 'IN_STORE', anonymousBuyer: true },
+      },
+    ],
+    storeCatalog: true,
+  })
+  await login(page)
+  await page.goto('/pedidos')
+  await page.getByRole('link', { name: 'S7T8-U9V0' }).click()
+  await page.getByRole('button', { name: 'Entregar en tienda' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Entregar' }).click()
+  const header = page.locator('header').filter({ hasText: 'Pedido S7T8-U9V0' })
+  await expect(header.getByText('Entregado', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Entregar en tienda' })).toHaveCount(0)
+  expect(api.calls.find((c) => c.path.endsWith('/hand-over'))?.body).toEqual({ version: 3 })
+})

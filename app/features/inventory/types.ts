@@ -4,7 +4,6 @@ export type Warehouse = Schemas['WarehouseDto']
 export type WarehouseCreateInput = Schemas['CreateWarehouseDto']
 export type WarehouseUpdateInput = Schemas['UpdateWarehouseDto']
 export type WarehouseStatus = Warehouse['status']
-export type AddressInput = Schemas['AddressInputDto']
 export type StockItem = Schemas['StockItemDto']
 export type StockItemPage = Page<StockItem>
 export type StockMovement = Schemas['StockMovementDto']

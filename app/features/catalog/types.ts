@@ -42,5 +42,6 @@ export interface ProductListParams {
   status?: string
   brandId?: string
   categoryId?: string
+  storeOnly?: string
   sort?: string
 }

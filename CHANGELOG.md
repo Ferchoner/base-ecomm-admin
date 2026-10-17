@@ -1,6 +1,6 @@
 # Changelog
 
-Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado semántico. Contrato de la API: `Ferchoner/base-shop` commit `ff10406`.
+Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado semántico. Contrato de la API: `Ferchoner/base-shop` commit `7af0f1d` (v1.7.0).
 
 ## [Unreleased]
 
@@ -20,6 +20,8 @@ Sin versión publicada todavía: el MVP corre solo en local (G-07). La primera v
 - **Documentación y release:** documentación del frontend sincronizada con el código, onboarding, despliegue, checklist de release, revisión técnica final, preparación del release y handover.
 
 - **Contrato base-shop `ff10406` (API 1.1, 1.2 y 1.3):** pedidos con canal, tipo de entrega, quién los colocó y almacén; filtros por canal y "Mis ventas en tienda".
+
+- **Contrato base-shop `7af0f1d` (API 1.4 a 1.7):** descuento por línea y promoción en pedidos y en la venta en tienda; almacén de salida y notas del cobro y del reembolso; productos solo en tienda (servicios) con su filtro; GTIN en variantes; la venta en tienda abre como venta de mostrador.
 
 - **Varios almacenes (API 1.1):** pantalla Almacenes para crear, editar la prioridad y desactivar; existencias, entradas y ajustes por almacén; transferencia entre almacenes; almacén de regreso en el reintegro; filtro y columna de almacén en Envíos.
 

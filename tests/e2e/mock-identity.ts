@@ -174,7 +174,12 @@ export async function mockIdentityApi(page: Page, seed: IdentitySeed = {}) {
           emailVerified: false,
         })
         c.version += 1
-        return json(route, 200, { userId: c.id, anonymizedAt: NOW, anonymizedOrderCount: 3 })
+        return json(route, 200, {
+          userId: c.id,
+          anonymizedAt: NOW,
+          anonymizedOrderCount: 3,
+          anonymizedWorkOrderCount: 1,
+        })
       }
       const from = action === 'suspend' ? 'ACTIVE' : 'SUSPENDED'
       if (c.status !== from)

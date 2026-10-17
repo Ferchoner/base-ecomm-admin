@@ -1,9 +1,14 @@
 <script setup lang="ts">
+import { promotionLabel } from '~/shared/status/sales'
 import { formatMoney } from '~/shared/utils/money'
 import type { AdminOrder } from '../types'
 
-/** Líneas y totales de la orden (API_SPEC §8.7, §8.8). Montos con IVA incluido. */
+/**
+ * Líneas y totales de la orden (API_SPEC §8.7, §8.8). Montos con IVA incluido. El descuento de la
+ * promoción va por línea en `discountAmount` (§26.7).
+ */
 const props = defineProps<{ order: AdminOrder }>()
+const hasDiscount = computed(() => props.order.lines.some((l) => l.discountAmount.amount > 0))
 
 function options(o: Record<string, unknown>) {
   return Object.entries(o)
@@ -15,7 +20,14 @@ const totals = computed(() => [
   { label: 'Subtotal', value: formatMoney(props.order.subtotal) },
   { label: 'Envío', value: formatMoney(props.order.shippingCost) },
   ...(props.order.discountTotal.amount
-    ? [{ label: 'Descuento', value: `−${formatMoney(props.order.discountTotal)}` }]
+    ? [
+        {
+          label: props.order.promotion
+            ? `Descuento (${promotionLabel(props.order.promotion)})`
+            : 'Descuento',
+          value: `−${formatMoney(props.order.discountTotal)}`,
+        },
+      ]
     : []),
   { label: 'IVA incluido', value: formatMoney(props.order.taxTotal) },
 ])
@@ -33,6 +45,7 @@ const totals = computed(() => [
             <th scope="col" class="p-2 font-medium">Producto</th>
             <th scope="col" class="p-2 text-right font-medium">Precio</th>
             <th scope="col" class="p-2 text-right font-medium">Cantidad</th>
+            <th v-if="hasDiscount" scope="col" class="p-2 text-right font-medium">Descuento</th>
             <th scope="col" class="p-2 text-right font-medium">Importe</th>
           </tr>
         </thead>
@@ -49,6 +62,9 @@ const totals = computed(() => [
             </td>
             <td class="p-2 text-right">{{ formatMoney(line.unitPrice) }}</td>
             <td class="p-2 text-right">{{ line.quantity }}</td>
+            <td v-if="hasDiscount" class="p-2 text-right text-success">
+              {{ line.discountAmount.amount ? `−${formatMoney(line.discountAmount)}` : '—' }}
+            </td>
             <td class="p-2 text-right">{{ formatMoney(line.lineTotal) }}</td>
           </tr>
         </tbody>

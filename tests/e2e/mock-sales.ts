@@ -338,6 +338,7 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
       shippingCost: money(0),
       shippingTaxAmount: money(0),
       discountTotal: money(0),
+      promotion: null,
       grandTotal: money(sum),
       fulfillment: o.fulfillment,
       channel: o.channel,
@@ -393,8 +394,10 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
               taxRateBp: 1600,
               taxAmount: money(Math.round((l.unit * l.quantity * 16) / 116)),
               lineTotal: money(l.unit * l.quantity),
+              discountAmount: money(0),
             })),
             statusHistory: o.history,
+            fulfilledFrom: null,
           }
         : {}),
     }
@@ -567,6 +570,7 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
         taxRateBp: 1600,
         taxAmount: money(Math.round((lineTotal * 16) / 116)),
         lineTotal: money(lineTotal),
+        discountAmount: money(0),
         sellable: true,
         canFulfill: l.quantity <= v.available,
       }
@@ -577,6 +581,7 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
       lines,
       subtotal: money(subtotal),
       discountTotal: money(0),
+      promotion: null,
       shippingCost: money(shipping),
       shippingTaxAmount: money(Math.round((shipping * 16) / 116)),
       taxTotal: money(Math.round(((subtotal + shipping) * 16) / 116)),

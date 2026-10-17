@@ -45,6 +45,11 @@
                 "orders.manage",
                 "orders.read-blocked",
                 "orders.place",
+                "work-orders.read",
+                "work-orders.manage",
+                "work-orders.read-blocked",
+                "promotions.read",
+                "promotions.manage",
                 "payments.manage",
                 "payments.configure",
                 "shipping.manage",
@@ -809,7 +814,7 @@
                 "$ref": "#/components/schemas/MoneyDto"
               }
             ],
-            "description": "Siempre 0 en el MVP."
+            "description": "Lo que la promoción quitó a las líneas, la suma de sus `discountAmount`; 0 sin promoción (ADR-0168)."
           },
           "estimatedDelivery": {
             "allOf": [
@@ -826,6 +831,16 @@
             "format": "date-time",
             "nullable": true,
             "type": "string"
+          },
+          "fulfilledFrom": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FulfillmentWarehouseDto"
+              }
+            ],
+            "description": "El almacén del que salieron los productos, para el ticket (ADR-0163): el de una venta en la tienda, o el del envío de una orden en línea; `null` mientras esta no tenga envío.",
+            "nullable": true,
+            "type": "object"
           },
           "fulfillment": {
             "description": "`SHIPPING`: se envía a su dirección. `IN_STORE`: el staff la entrega en la tienda física al pagarse, sin dirección, sin costo de envío y sin plazo de entrega (ADR-0161).",
@@ -894,6 +909,16 @@
             "format": "uuid",
             "nullable": true,
             "type": "string"
+          },
+          "promotion": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AppliedPromotionDto"
+              }
+            ],
+            "description": "La promoción de su descuento, con el nombre que vio el cliente, para el ticket; `null` sin descuento (ADR-0168).",
+            "nullable": true,
+            "type": "object"
           },
           "publicCode": {
             "description": "Código público: con él y el email, quien compra consulta su pedido.",
@@ -1026,6 +1051,8 @@
           "blockedAt",
           "shippingAddress",
           "lines",
+          "promotion",
+          "fulfilledFrom",
           "statusHistory",
           "orderNumber",
           "version",
@@ -1036,6 +1063,14 @@
       },
       "AdminOrderLineDto": {
         "properties": {
+          "discountAmount": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "Lo que la promoción de la orden quitó a la línea; 0 sin ella (ADR-0168)."
+          },
           "id": {
             "format": "uuid",
             "type": "string"
@@ -1051,7 +1086,7 @@
                 "$ref": "#/components/schemas/MoneyDto"
               }
             ],
-            "description": "Precio por cantidad, con IVA."
+            "description": "Precio por cantidad, con IVA, antes del descuento."
           },
           "productName": {
             "description": "El nombre del producto al colocar la orden.",
@@ -1072,7 +1107,7 @@
                 "$ref": "#/components/schemas/MoneyDto"
               }
             ],
-            "description": "IVA contenido en `lineTotal`."
+            "description": "IVA contenido en `lineTotal` menos `discountAmount` (ADR-0168)."
           },
           "taxRateBp": {
             "description": "Tasa de IVA en puntos base.",
@@ -1103,6 +1138,7 @@
           "unitPrice",
           "taxAmount",
           "lineTotal",
+          "discountAmount",
           "id",
           "lineNumber",
           "sku",
@@ -1168,6 +1204,11 @@
             "nullable": true,
             "type": "string"
           },
+          "note": {
+            "description": "La nota que el staff escribió al registrar el pago manual (ADR-0163); `null` sin ella, o si no se ha cobrado así. La anonimización la conserva, así que no lleva datos sensibles.",
+            "nullable": true,
+            "type": "string"
+          },
           "provider": {
             "description": "`MANUAL` es el pago en la tienda (ADR-0055); PayPal aún no está habilitado (ADR-0040).",
             "enum": [
@@ -1215,6 +1256,7 @@
           "refundedAmount",
           "capturedAt",
           "method",
+          "note",
           "refunds"
         ],
         "type": "object"
@@ -1338,7 +1380,7 @@
                 "$ref": "#/components/schemas/MoneyDto"
               }
             ],
-            "description": "Siempre 0 en el MVP."
+            "description": "Lo que la promoción quitó a las líneas, la suma de sus `discountAmount`; 0 sin promoción (ADR-0168)."
           },
           "estimatedDelivery": {
             "allOf": [
@@ -1762,12 +1804,17 @@
             ],
             "type": "string"
           },
+          "storeOnly": {
+            "description": "Si solo se vende en la tienda física, como un servicio: nunca en línea (ADR-0165).",
+            "type": "boolean"
+          },
           "storeVisibility": {
-            "description": "Si la tienda lo muestra: `HIDDEN_NO_PRICE` es un producto publicado sin variantes vendibles (activas y con precio vigente).",
+            "description": "Si la tienda lo muestra: `HIDDEN_NO_PRICE` es un producto publicado sin variantes vendibles (activas y con precio vigente), y `STORE_ONLY` uno publicado que solo se vende en la tienda física (ADR-0165).",
             "enum": [
               "VISIBLE",
               "HIDDEN_NO_PRICE",
-              "NOT_PUBLISHED"
+              "NOT_PUBLISHED",
+              "STORE_ONLY"
             ],
             "type": "string"
           },
@@ -1805,6 +1852,7 @@
           "updatedAt",
           "title",
           "slug",
+          "storeOnly",
           "version"
         ],
         "type": "object"
@@ -1992,6 +2040,12 @@
             "description": "SKU y opciones editables: el producto nunca se ha publicado (ADR-0068).",
             "type": "boolean"
           },
+          "gtin": {
+            "description": "Código de barras del fabricante (EAN o UPC), como se capturó; `null` si no tiene (ADR-0163).",
+            "example": "7501055363063",
+            "nullable": true,
+            "type": "string"
+          },
           "heightCm": {
             "description": "Centímetros, un decimal; `null` si no se dio.",
             "nullable": true,
@@ -2042,6 +2096,7 @@
         },
         "required": [
           "id",
+          "gtin",
           "options",
           "status",
           "weightGrams",
@@ -2105,6 +2160,31 @@
           "contactEmail",
           "publicCode",
           "reason"
+        ],
+        "type": "object"
+      },
+      "AppliedPromotionDto": {
+        "properties": {
+          "code": {
+            "description": "El código del cupón, en mayúsculas; `null` en una promoción automática (ADR-0168).",
+            "example": "BUENFIN",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "description": "El nombre de la promoción, como lo ve el cliente.",
+            "example": "Buen Fin 10%",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name"
         ],
         "type": "object"
       },
@@ -2349,6 +2429,58 @@
         },
         "required": [
           "reason"
+        ],
+        "type": "object"
+      },
+      "BlockedWorkOrderDataDto": {
+        "properties": {
+          "accessories": {
+            "nullable": true,
+            "type": "string"
+          },
+          "customerEmail": {
+            "nullable": true,
+            "type": "string"
+          },
+          "customerName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "customerPhone": {
+            "nullable": true,
+            "type": "string"
+          },
+          "diagnosis": {
+            "nullable": true,
+            "type": "string"
+          },
+          "equipmentCondition": {
+            "nullable": true,
+            "type": "string"
+          },
+          "reportedFault": {
+            "nullable": true,
+            "type": "string"
+          },
+          "serialNumber": {
+            "nullable": true,
+            "type": "string"
+          },
+          "workPerformed": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "customerName",
+          "customerPhone",
+          "customerEmail",
+          "serialNumber",
+          "accessories",
+          "equipmentCondition",
+          "reportedFault",
+          "diagnosis",
+          "workPerformed"
         ],
         "type": "object"
       },
@@ -2623,6 +2755,40 @@
         ],
         "type": "object"
       },
+      "ChangeWorkOrderStatusDto": {
+        "properties": {
+          "note": {
+            "description": "Nota del cambio, de 1 a 500 caracteres; obligatoria para `CANCELLED`. Queda en el historial y en la auditoría: no escribas datos personales.",
+            "maxLength": 500,
+            "minLength": 1,
+            "nullable": true,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "status": {
+            "description": "Uno adelante del actual, aunque salte pasos: `RECEIVED` → `DIAGNOSED` → `IN_REPAIR` → `READY` → `DELIVERED`; o `CANCELLED` antes de `DELIVERED` (ADR-0166).",
+            "enum": [
+              "RECEIVED",
+              "DIAGNOSED",
+              "IN_REPAIR",
+              "READY",
+              "DELIVERED",
+              "CANCELLED"
+            ],
+            "type": "string"
+          },
+          "version": {
+            "description": "Versión leída (bloqueo optimista).",
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "status",
+          "version"
+        ],
+        "type": "object"
+      },
       "CheckoutQuoteDto": {
         "properties": {
           "discountTotal": {
@@ -2631,7 +2797,7 @@
                 "$ref": "#/components/schemas/MoneyDto"
               }
             ],
-            "description": "Siempre 0 en el MVP."
+            "description": "Lo que la promoción quita a las líneas vendibles, la suma de sus `discountAmount`; 0 sin promoción (ADR-0168)."
           },
           "estimatedDelivery": {
             "allOf": [
@@ -2667,6 +2833,16 @@
               "$ref": "#/components/schemas/CheckoutQuoteLineDto"
             },
             "type": "array"
+          },
+          "promotion": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AppliedPromotionDto"
+              }
+            ],
+            "description": "La promoción automática que más descuenta, en este canal y en este momento; `null` si ninguna quita algo (ADR-0168).",
+            "nullable": true,
+            "type": "object"
           },
           "readyToPlace": {
             "description": "Todas las líneas son vendibles y surtibles.",
@@ -2712,6 +2888,7 @@
           "shippingCost",
           "shippingTaxAmount",
           "discountTotal",
+          "promotion",
           "grandTotal",
           "freeShippingThreshold",
           "estimatedDelivery",
@@ -2725,13 +2902,23 @@
             "description": "Si la cantidad pedida puede surtirse, sin revelar existencias (ADR-0061).",
             "type": "boolean"
           },
+          "discountAmount": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "Lo que la promoción de la cotización quita a la línea, 0 sin ella (ADR-0168); `null` si la línea no es vendible.",
+            "nullable": true,
+            "type": "object"
+          },
           "lineTotal": {
             "allOf": [
               {
                 "$ref": "#/components/schemas/MoneyDto"
               }
             ],
-            "description": "Precio por cantidad; `null` si la línea no es vendible, y entonces no suma.",
+            "description": "Precio por cantidad, antes del descuento; `null` si la línea no es vendible, y entonces no suma.",
             "nullable": true,
             "type": "object"
           },
@@ -2767,7 +2954,7 @@
                 "$ref": "#/components/schemas/MoneyDto"
               }
             ],
-            "description": "IVA contenido en `lineTotal`, redondeado por línea.",
+            "description": "IVA contenido en `lineTotal` menos `discountAmount`, redondeado por línea (ADR-0168).",
             "nullable": true,
             "type": "object"
           },
@@ -2797,6 +2984,7 @@
           "options",
           "unitPrice",
           "lineTotal",
+          "discountAmount",
           "taxRateBp",
           "taxAmount",
           "quantity",
@@ -3008,6 +3196,10 @@
             "minLength": 1,
             "type": "string"
           },
+          "storeOnly": {
+            "description": "Si solo se vende en la tienda física, como un servicio (ADR-0165); `false` por defecto.",
+            "type": "boolean"
+          },
           "title": {
             "description": "De 1 a 200 caracteres.",
             "example": "Camisa de lino",
@@ -3019,6 +3211,93 @@
         },
         "required": [
           "title"
+        ],
+        "type": "object"
+      },
+      "CreatePromotionDto": {
+        "properties": {
+          "amountOff": {
+            "description": "Monto fijo de descuento en centavos, una vez por orden, repartido entre las líneas a las que aplica. Exactamente uno de `percentage` y `amountOff`.",
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "number"
+          },
+          "channels": {
+            "description": "Dónde aplica: `ONLINE`, `STORE` o los dos; por defecto, los dos.",
+            "items": {
+              "enum": [
+                "ONLINE",
+                "STORE"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "code": {
+            "description": "Código de 4 a 30 letras, números o guiones, que se guarda en mayúsculas: con él es un cupón, que solo aplica a quien lo da; sin él, la promoción se aplica sola. Único, también entre las promociones terminadas (ADR-0168).",
+            "example": "BUENFIN",
+            "nullable": true,
+            "type": "string"
+          },
+          "endsAt": {
+            "description": "Fin, excluido, fecha y hora con zona horaria, posterior al inicio; `null` o ausente, sin fin.",
+            "example": "2026-11-17T06:00:00.000Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "minimumSubtotal": {
+            "description": "Compra mínima en centavos, sobre el subtotal con IVA de la orden; `null` o ausente, sin mínimo.",
+            "maximum": 2147483647,
+            "minimum": 1,
+            "nullable": true,
+            "type": "number"
+          },
+          "name": {
+            "description": "Nombre de 1 a 120 caracteres; lo ve el cliente en su orden y en el ticket.",
+            "example": "Buen Fin 10%",
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "oncePerCustomer": {
+            "description": "Si cada cliente usa el cupón una sola vez, contado por el email de contacto de sus órdenes; por defecto `false`.\nSolo con `code`.",
+            "type": "boolean"
+          },
+          "percentage": {
+            "description": "Porcentaje entero de descuento, de 1 a 100, sobre las líneas a las que aplica. Exactamente uno de `percentage` y `amountOff`.",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "number"
+          },
+          "startsAt": {
+            "description": "Inicio, fecha y hora con zona horaria. Ausente o no posterior al momento actual: empieza ahora.",
+            "example": "2026-11-13T06:00:00.000Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "targets": {
+            "description": "Hasta 100 productos, categorías (con sus subcategorías) y marcas, cada uno una vez; sin ellos, o vacío, aplica a toda la compra.",
+            "items": {
+              "$ref": "#/components/schemas/PromotionTargetDto"
+            },
+            "type": "array",
+            "uniqueItems": true
+          },
+          "usageLimit": {
+            "description": "Cuántas veces se puede usar el cupón en total; `null` o ausente, sin límite. Solo con `code`.",
+            "maximum": 2147483647,
+            "minimum": 1,
+            "nullable": true,
+            "type": "number"
+          }
+        },
+        "required": [
+          "name"
         ],
         "type": "object"
       },
@@ -3058,6 +3337,11 @@
                 "orders.manage",
                 "orders.read-blocked",
                 "orders.place",
+                "work-orders.read",
+                "work-orders.manage",
+                "work-orders.read-blocked",
+                "promotions.read",
+                "promotions.manage",
                 "payments.manage",
                 "payments.configure",
                 "shipping.manage",
@@ -3125,6 +3409,12 @@
       },
       "CreateVariantDto": {
         "properties": {
+          "gtin": {
+            "description": "Código de barras del fabricante (EAN o UPC): 8, 12, 13 o 14 dígitos con su dígito verificador; sin repetirse entre variantes activas (ADR-0163). Opcional.",
+            "example": "7501055363063",
+            "nullable": true,
+            "type": "string"
+          },
           "heightCm": {
             "description": "Centímetros, mayor que 0, un decimal.",
             "maximum": 999999.9,
@@ -3253,6 +3543,11 @@
             "example": 3,
             "type": "number"
           },
+          "anonymizedWorkOrderCount": {
+            "description": "Órdenes de trabajo ligadas al cliente que se anonimizaron (ADR-0167).",
+            "example": 1,
+            "type": "number"
+          },
           "userId": {
             "format": "uuid",
             "type": "string"
@@ -3261,7 +3556,8 @@
         "required": [
           "userId",
           "anonymizedAt",
-          "anonymizedOrderCount"
+          "anonymizedOrderCount",
+          "anonymizedWorkOrderCount"
         ],
         "type": "object"
       },
@@ -3281,6 +3577,19 @@
           "data",
           "meta"
         ],
+        "type": "object"
+      },
+      "CustomerQuoteDto": {
+        "properties": {
+          "couponCode": {
+            "description": "El código de un cupón, sin distinguir mayúsculas (ADR-0168). Reemplaza a la promoción automática, aunque descuente menos; si no aplica, 409 `coupon-not-applicable` con `reason`, sin otra promoción. Los códigos que nadie tiene se limitan por IP.",
+            "example": "BUENFIN",
+            "maxLength": 30,
+            "minLength": 1,
+            "nullable": true,
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "DispatchShipmentDto": {
@@ -3312,6 +3621,19 @@
         },
         "required": [
           "emailVerified"
+        ],
+        "type": "object"
+      },
+      "EndPromotionDto": {
+        "properties": {
+          "version": {
+            "description": "Versión leída (bloqueo optimista).",
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "version"
         ],
         "type": "object"
       },
@@ -3453,6 +3775,28 @@
         ],
         "type": "object"
       },
+      "FulfillmentWarehouseDto": {
+        "properties": {
+          "code": {
+            "example": "TIENDA-CENTRO",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "example": "Tienda Centro",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name"
+        ],
+        "type": "object"
+      },
       "GeoMunicipalityDto": {
         "properties": {
           "code": {
@@ -3561,6 +3905,14 @@
           "cartId": {
             "description": "El `cartId` del carrito de invitado.",
             "format": "uuid",
+            "type": "string"
+          },
+          "couponCode": {
+            "description": "El código de un cupón, sin distinguir mayúsculas (ADR-0168). Reemplaza a la promoción automática, aunque descuente menos; si no aplica, 409 `coupon-not-applicable` con `reason`, sin otra promoción. Los códigos que nadie tiene se limitan por IP.",
+            "example": "BUENFIN",
+            "maxLength": 30,
+            "minLength": 1,
+            "nullable": true,
             "type": "string"
           }
         },
@@ -3673,6 +4025,86 @@
         },
         "required": [
           "imageIds"
+        ],
+        "type": "object"
+      },
+      "LinkSaleDto": {
+        "properties": {
+          "orderId": {
+            "description": "Una orden colocada en la tienda física (`channel` `STORE`) que no venció, ni se canceló, ni se reembolsó.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "version": {
+            "description": "Versión leída de la orden de trabajo (bloqueo optimista).",
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "orderId",
+          "version"
+        ],
+        "type": "object"
+      },
+      "LinkedSaleDto": {
+        "properties": {
+          "grandTotal": {
+            "$ref": "#/components/schemas/MoneyDto"
+          },
+          "linkedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "linkedBy": {
+            "description": "La cuenta de staff que la ligó.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "orderId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "orderNumber": {
+            "description": "Número interno de la venta, para el staff (ADR-0049).",
+            "type": "number"
+          },
+          "paid": {
+            "description": "`true` si la tienda ya tiene su dinero: pagada, por surtir, enviada o entregada. Una pendiente de pago, vencida,\ncancelada o reembolsada no lo está.",
+            "type": "boolean"
+          },
+          "paidAt": {
+            "description": "Cuándo se pagó; `null` si no ha ocurrido.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "placedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "publicCode": {
+            "description": "Código público de la venta, con guion.",
+            "example": "K7M4-Q9XA",
+            "type": "string"
+          },
+          "status": {
+            "description": "Estado de la venta en Ordering, como en `AdminOrder`.",
+            "example": "PAID",
+            "type": "string"
+          }
+        },
+        "required": [
+          "orderId",
+          "grandTotal",
+          "placedAt",
+          "paidAt",
+          "linkedBy",
+          "linkedAt",
+          "publicCode",
+          "orderNumber",
+          "status",
+          "paid"
         ],
         "type": "object"
       },
@@ -3884,7 +4316,7 @@
                 "$ref": "#/components/schemas/MoneyDto"
               }
             ],
-            "description": "Siempre 0 en el MVP."
+            "description": "Lo que la promoción quitó a las líneas, la suma de sus `discountAmount`; 0 sin promoción (ADR-0168)."
           },
           "estimatedDelivery": {
             "allOf": [
@@ -3955,6 +4387,16 @@
             "description": "Cuándo se colocó.",
             "format": "date-time",
             "type": "string"
+          },
+          "promotion": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AppliedPromotionDto"
+              }
+            ],
+            "description": "La promoción de su descuento, con el nombre que vio el cliente; `null` sin descuento (ADR-0168).",
+            "nullable": true,
+            "type": "object"
           },
           "publicCode": {
             "description": "Código público: con él y el email, quien compra consulta su pedido.",
@@ -4062,6 +4504,7 @@
           "payment",
           "shipment",
           "lines",
+          "promotion",
           "shippingAddress",
           "publicCode",
           "itemCount"
@@ -4070,6 +4513,14 @@
       },
       "OrderLineDto": {
         "properties": {
+          "discountAmount": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "Lo que la promoción de la orden quitó a la línea; 0 sin ella (ADR-0168)."
+          },
           "lineNumber": {
             "description": "Número de la línea en la orden, desde 1.",
             "example": 1,
@@ -4081,7 +4532,7 @@
                 "$ref": "#/components/schemas/MoneyDto"
               }
             ],
-            "description": "Precio por cantidad, con IVA."
+            "description": "Precio por cantidad, con IVA, antes del descuento."
           },
           "productName": {
             "description": "El nombre del producto al colocar la orden.",
@@ -4102,7 +4553,7 @@
                 "$ref": "#/components/schemas/MoneyDto"
               }
             ],
-            "description": "IVA contenido en `lineTotal`."
+            "description": "IVA contenido en `lineTotal` menos `discountAmount` (ADR-0168)."
           },
           "taxRateBp": {
             "description": "Tasa de IVA en puntos base.",
@@ -4133,6 +4584,7 @@
           "unitPrice",
           "taxAmount",
           "lineTotal",
+          "discountAmount",
           "lineNumber",
           "sku",
           "productName",
@@ -4209,6 +4661,11 @@
             "format": "uuid",
             "type": "string"
           },
+          "note": {
+            "description": "La nota que el staff escribió al registrar el reembolso manual (ADR-0163); `null` sin ella.",
+            "nullable": true,
+            "type": "string"
+          },
           "status": {
             "description": "`PENDING` hasta que el dinero se devuelve; `COMPLETED` o `FAILED` después.",
             "enum": [
@@ -4223,6 +4680,7 @@
           "id",
           "amount",
           "status",
+          "note",
           "createdAt",
           "completedAt"
         ],
@@ -4305,7 +4763,7 @@
                 "$ref": "#/components/schemas/MoneyDto"
               }
             ],
-            "description": "Siempre 0 en el MVP."
+            "description": "Lo que la promoción quitó a las líneas, la suma de sus `discountAmount`; 0 sin promoción (ADR-0168)."
           },
           "estimatedDelivery": {
             "allOf": [
@@ -4593,6 +5051,11 @@
             "nullable": true,
             "type": "string"
           },
+          "note": {
+            "description": "La nota que el staff escribió al registrar el pago manual (ADR-0163); `null` sin ella o en los demás intentos. La anonimización la conserva, así que no lleva datos sensibles.",
+            "nullable": true,
+            "type": "string"
+          },
           "providerReference": {
             "description": "Comprobante de la tienda en un pago manual.",
             "nullable": true,
@@ -4624,6 +5087,7 @@
           "method",
           "failureCode",
           "registeredBy",
+          "note",
           "createdAt"
         ],
         "type": "object"
@@ -4748,7 +5212,7 @@
             "type": "boolean"
           },
           "operationalMonths": {
-            "description": "Meses que los datos personales de un pedido siguen visibles después de que concluye; después se bloquean.",
+            "description": "Meses que los datos personales de un pedido siguen visibles después de que concluye, y los de una orden de trabajo\ndespués de que se entrega o se cancela; después se bloquean.",
             "example": 12,
             "type": "number"
           }
@@ -4765,6 +5229,14 @@
           "addressId": {
             "description": "Una dirección guardada del cliente; exactamente uno de `addressId` y `shippingAddress`.",
             "format": "uuid",
+            "type": "string"
+          },
+          "couponCode": {
+            "description": "El código de un cupón, sin distinguir mayúsculas (ADR-0168). Reemplaza a la promoción automática, aunque descuente menos; si no aplica, 409 `coupon-not-applicable` con `reason`, sin otra promoción. Los códigos que nadie tiene se limitan por IP.",
+            "example": "BUENFIN",
+            "maxLength": 30,
+            "minLength": 1,
+            "nullable": true,
             "type": "string"
           },
           "expectedTotal": {
@@ -4800,6 +5272,14 @@
             "example": "cliente@example.com",
             "format": "email",
             "maxLength": 254,
+            "type": "string"
+          },
+          "couponCode": {
+            "description": "El código de un cupón, sin distinguir mayúsculas (ADR-0168). Reemplaza a la promoción automática, aunque descuente menos; si no aplica, 409 `coupon-not-applicable` con `reason`, sin otra promoción. Los códigos que nadie tiene se limitan por IP.",
+            "example": "BUENFIN",
+            "maxLength": 30,
+            "minLength": 1,
+            "nullable": true,
             "type": "string"
           },
           "expectedTotal": {
@@ -4847,6 +5327,14 @@
             "example": "cliente@example.com",
             "format": "email",
             "maxLength": 254,
+            "type": "string"
+          },
+          "couponCode": {
+            "description": "El código de un cupón, sin distinguir mayúsculas (ADR-0168). Reemplaza a la promoción automática, aunque descuente menos; si no aplica, 409 `coupon-not-applicable` con `reason`, sin otra promoción. Los códigos que nadie tiene se limitan por IP.",
+            "example": "BUENFIN",
+            "maxLength": 30,
+            "minLength": 1,
+            "nullable": true,
             "type": "string"
           },
           "customerId": {
@@ -5251,6 +5739,8 @@
               "/problems/field-locked",
               "/problems/empty-cart",
               "/problems/source-cart-unavailable",
+              "/problems/sale-not-linkable",
+              "/problems/coupon-not-applicable",
               "/problems/idempotency-key-mismatch",
               "/problems/payload-too-large",
               "/problems/unsupported-media-type",
@@ -5387,6 +5877,33 @@
         ],
         "type": "object"
       },
+      "ProductImportSummaryDto": {
+        "properties": {
+          "dryRun": {
+            "description": "`true` si solo se validó el archivo, sin guardar productos.",
+            "type": "boolean"
+          },
+          "products": {
+            "description": "Productos creados, en borrador.",
+            "type": "number"
+          },
+          "rows": {
+            "description": "Filas del archivo, sin el encabezado: una por variante.",
+            "type": "number"
+          },
+          "variants": {
+            "description": "Variantes creadas, una por fila.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "rows",
+          "products",
+          "variants",
+          "dryRun"
+        ],
+        "type": "object"
+      },
       "ProductSummaryDto": {
         "properties": {
           "available": {
@@ -5489,6 +6006,334 @@
         },
         "required": [
           "version"
+        ],
+        "type": "object"
+      },
+      "PromotionDto": {
+        "properties": {
+          "amountOff": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "Monto fijo de descuento, una vez por orden; `null` con `percentage`.",
+            "nullable": true,
+            "type": "object"
+          },
+          "channels": {
+            "items": {
+              "enum": [
+                "ONLINE",
+                "STORE"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "code": {
+            "description": "El código del cupón, en mayúsculas; `null` en una promoción automática (ADR-0168).",
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdBy": {
+            "description": "La cuenta de staff que la creó.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "endedAt": {
+            "description": "Cuándo se terminó a mano.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "endedBy": {
+            "description": "La cuenta de staff que la terminó.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "endsAt": {
+            "description": "Fin, excluido; `null` sin fin.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "minimumSubtotal": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "Compra mínima sobre el subtotal con IVA; `null` sin mínimo.",
+            "nullable": true,
+            "type": "object"
+          },
+          "name": {
+            "description": "Lo ve el cliente en su orden y en el ticket.",
+            "type": "string"
+          },
+          "oncePerCustomer": {
+            "description": "Si cada cliente usa el cupón una sola vez.",
+            "type": "boolean"
+          },
+          "percentage": {
+            "description": "Porcentaje entero de descuento; `null` con `amountOff`.",
+            "nullable": true,
+            "type": "number"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "description": "Al momento de la consulta: `SCHEDULED` antes de su inicio, `ACTIVE` hasta su fin, `ENDED` desde entonces o desde que se terminó.",
+            "enum": [
+              "SCHEDULED",
+              "ACTIVE",
+              "ENDED"
+            ],
+            "type": "string"
+          },
+          "targetCount": {
+            "description": "Cuántos productos, categorías y marcas tiene; 0 aplica a toda la compra.",
+            "type": "number"
+          },
+          "targets": {
+            "description": "Productos, luego categorías, luego marcas; vacía, aplica a toda la compra.",
+            "items": {
+              "$ref": "#/components/schemas/PromotionTargetViewDto"
+            },
+            "type": "array"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "usageLimit": {
+            "description": "Cuántas veces se puede usar el cupón; `null` sin límite.",
+            "nullable": true,
+            "type": "number"
+          },
+          "uses": {
+            "description": "Las órdenes que cuentan un uso del cupón: colocadas, y ni vencidas ni canceladas. Un pago tardío puede pasar el\nlímite.",
+            "type": "number"
+          },
+          "version": {
+            "description": "Para el bloqueo optimista.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "percentage",
+          "amountOff",
+          "channels",
+          "minimumSubtotal",
+          "startsAt",
+          "endsAt",
+          "endedAt",
+          "code",
+          "usageLimit",
+          "targets",
+          "endedBy",
+          "createdBy",
+          "createdAt",
+          "updatedAt",
+          "version",
+          "name",
+          "targetCount",
+          "oncePerCustomer",
+          "uses"
+        ],
+        "type": "object"
+      },
+      "PromotionListDto": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/PromotionSummaryDto"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "PromotionSummaryDto": {
+        "properties": {
+          "amountOff": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "Monto fijo de descuento, una vez por orden; `null` con `percentage`.",
+            "nullable": true,
+            "type": "object"
+          },
+          "channels": {
+            "items": {
+              "enum": [
+                "ONLINE",
+                "STORE"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "code": {
+            "description": "El código del cupón, en mayúsculas; `null` en una promoción automática (ADR-0168).",
+            "nullable": true,
+            "type": "string"
+          },
+          "endedAt": {
+            "description": "Cuándo se terminó a mano.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "endsAt": {
+            "description": "Fin, excluido; `null` sin fin.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "minimumSubtotal": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "Compra mínima sobre el subtotal con IVA; `null` sin mínimo.",
+            "nullable": true,
+            "type": "object"
+          },
+          "name": {
+            "description": "Lo ve el cliente en su orden y en el ticket.",
+            "type": "string"
+          },
+          "oncePerCustomer": {
+            "description": "Si cada cliente usa el cupón una sola vez.",
+            "type": "boolean"
+          },
+          "percentage": {
+            "description": "Porcentaje entero de descuento; `null` con `amountOff`.",
+            "nullable": true,
+            "type": "number"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "description": "Al momento de la consulta: `SCHEDULED` antes de su inicio, `ACTIVE` hasta su fin, `ENDED` desde entonces o desde que se terminó.",
+            "enum": [
+              "SCHEDULED",
+              "ACTIVE",
+              "ENDED"
+            ],
+            "type": "string"
+          },
+          "targetCount": {
+            "description": "Cuántos productos, categorías y marcas tiene; 0 aplica a toda la compra.",
+            "type": "number"
+          },
+          "usageLimit": {
+            "description": "Cuántas veces se puede usar el cupón; `null` sin límite.",
+            "nullable": true,
+            "type": "number"
+          },
+          "uses": {
+            "description": "Las órdenes que cuentan un uso del cupón: colocadas, y ni vencidas ni canceladas. Un pago tardío puede pasar el\nlímite.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "percentage",
+          "amountOff",
+          "channels",
+          "minimumSubtotal",
+          "startsAt",
+          "endsAt",
+          "endedAt",
+          "code",
+          "usageLimit",
+          "name",
+          "targetCount",
+          "oncePerCustomer",
+          "uses"
+        ],
+        "type": "object"
+      },
+      "PromotionTargetDto": {
+        "properties": {
+          "id": {
+            "description": "El ID del producto, la categoría o la marca.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": {
+            "description": "`PRODUCT`, `CATEGORY` (con sus subcategorías) o `BRAND`; debe existir y estar en uso.",
+            "enum": [
+              "PRODUCT",
+              "CATEGORY",
+              "BRAND"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id"
+        ],
+        "type": "object"
+      },
+      "PromotionTargetViewDto": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "description": "El título del producto, o el nombre de la categoría o la marca; `null` si el catálogo ya no lo tiene.",
+            "nullable": true,
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "PRODUCT",
+              "CATEGORY",
+              "BRAND"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "name"
         ],
         "type": "object"
       },
@@ -5597,6 +6442,132 @@
         ],
         "type": "object"
       },
+      "ReceiptImportSummaryDto": {
+        "properties": {
+          "dryRun": {
+            "description": "`true` si solo se validó el archivo, sin guardar entradas.",
+            "type": "boolean"
+          },
+          "rows": {
+            "description": "Filas del archivo, sin el encabezado: una entrada de mercancía cada una.",
+            "type": "number"
+          },
+          "units": {
+            "description": "Unidades recibidas, la suma de las cantidades.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "rows",
+          "units",
+          "dryRun"
+        ],
+        "type": "object"
+      },
+      "ReceiveWorkOrderDto": {
+        "properties": {
+          "accessories": {
+            "description": "Accesorios que se reciben con el equipo, como el cargador.",
+            "maxLength": 500,
+            "nullable": true,
+            "type": "string"
+          },
+          "customerEmail": {
+            "description": "Email del cliente; se guarda sin espacios y en minúsculas.",
+            "format": "email",
+            "maxLength": 254,
+            "nullable": true,
+            "type": "string"
+          },
+          "customerId": {
+            "description": "Un cliente registrado y activo, para ligarle la orden; el nombre y el teléfono se piden igual, porque la cuenta no guarda teléfono (ADR-0166).",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "customerName": {
+            "description": "Nombre del cliente, de 1 a 120 caracteres.",
+            "example": "María López Hernández",
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "customerPhone": {
+            "description": "Teléfono del cliente: exactamente 10 dígitos.",
+            "example": "4431234567",
+            "pattern": "^[0-9]{10}$",
+            "type": "string"
+          },
+          "equipmentBrand": {
+            "description": "Marca del equipo.",
+            "maxLength": 60,
+            "nullable": true,
+            "type": "string"
+          },
+          "equipmentCondition": {
+            "description": "Cómo se recibe el equipo, como golpes o rayones.",
+            "maxLength": 1000,
+            "nullable": true,
+            "type": "string"
+          },
+          "equipmentModel": {
+            "description": "Modelo del equipo.",
+            "maxLength": 60,
+            "nullable": true,
+            "type": "string"
+          },
+          "equipmentType": {
+            "description": "Tipo de equipo, de 1 a 60 caracteres.",
+            "example": "Laptop",
+            "maxLength": 60,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "estimatedCost": {
+            "description": "Costo estimado en centavos, informativo: la orden de trabajo no cobra; se cobra con ventas de mostrador (ADR-0165).",
+            "example": 35000,
+            "maximum": 2147483647,
+            "minimum": 0,
+            "nullable": true,
+            "type": "number"
+          },
+          "reportedFault": {
+            "description": "La falla que reporta el cliente, de 1 a 2,000 caracteres.",
+            "example": "No enciende",
+            "maxLength": 2000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "serialNumber": {
+            "description": "Número de serie.",
+            "maxLength": 60,
+            "nullable": true,
+            "type": "string"
+          },
+          "technicianId": {
+            "description": "El técnico asignado: una cuenta de staff activa.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "warehouseId": {
+            "description": "El almacén activo de la tienda que recibe el equipo, como en la venta de mostrador (ADR-0161).",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "warehouseId",
+          "customerName",
+          "customerPhone",
+          "equipmentType",
+          "reportedFault"
+        ],
+        "type": "object"
+      },
       "RecordTrackingDto": {
         "properties": {
           "carrierName": {
@@ -5663,6 +6634,11 @@
             "format": "uuid",
             "type": "string"
           },
+          "note": {
+            "description": "La nota que el staff escribió al registrar el reembolso manual (ADR-0163); `null` sin ella o en los demás.",
+            "nullable": true,
+            "type": "string"
+          },
           "providerRefundId": {
             "description": "Comprobante del reembolso: el del proveedor o, en uno manual, el que registró el staff; `null` mientras está\npendiente.",
             "nullable": true,
@@ -5690,6 +6666,7 @@
           "status",
           "providerRefundId",
           "registeredBy",
+          "note",
           "createdAt",
           "completedAt"
         ],
@@ -5979,7 +6956,7 @@
                 "$ref": "#/components/schemas/PersonalDataRetentionDto"
               }
             ],
-            "description": "El ciclo de los datos personales de órdenes y envíos (ADR-0151)."
+            "description": "El ciclo de los datos personales de órdenes, envíos y órdenes de trabajo (ADR-0151, ADR-0167)."
           },
           "processedWebhookEventDays": {
             "description": "Días que se conserva un evento de webhook de pagos procesado.",
@@ -6087,6 +7064,11 @@
                 "orders.manage",
                 "orders.read-blocked",
                 "orders.place",
+                "work-orders.read",
+                "work-orders.manage",
+                "work-orders.read-blocked",
+                "promotions.read",
+                "promotions.manage",
                 "payments.manage",
                 "payments.configure",
                 "shipping.manage",
@@ -6142,6 +7124,56 @@
         "required": [
           "data",
           "meta"
+        ],
+        "type": "object"
+      },
+      "ServiceNoteDto": {
+        "properties": {
+          "store": {
+            "$ref": "#/components/schemas/ServiceNoteStoreDto"
+          },
+          "terms": {
+            "description": "Las condiciones del servicio (`WORK_ORDER_FOOTER`); vacías hasta que el negocio las defina con su asesor\n(ADR-0165). Pueden traer saltos de línea.",
+            "type": "string"
+          },
+          "workOrder": {
+            "$ref": "#/components/schemas/WorkOrderDto"
+          }
+        },
+        "required": [
+          "workOrder",
+          "store",
+          "terms"
+        ],
+        "type": "object"
+      },
+      "ServiceNoteStoreDto": {
+        "properties": {
+          "address": {
+            "description": "Dirección (`STORE_ADDRESS`).",
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "description": "Nombre de la tienda (`STORE_NAME`).",
+            "type": "string"
+          },
+          "phone": {
+            "description": "Teléfono (`STORE_PHONE`).",
+            "nullable": true,
+            "type": "string"
+          },
+          "taxId": {
+            "description": "RFC (`STORE_TAX_ID`).",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "address",
+          "taxId",
+          "phone",
+          "name"
         ],
         "type": "object"
       },
@@ -6423,6 +7455,14 @@
       },
       "StaffQuoteDto": {
         "properties": {
+          "couponCode": {
+            "description": "El código de un cupón, sin distinguir mayúsculas (ADR-0168). Reemplaza a la promoción automática, aunque descuente menos; si no aplica, 409 `coupon-not-applicable` con `reason`, sin otra promoción. Los códigos que nadie tiene se limitan por IP.",
+            "example": "BUENFIN",
+            "maxLength": 30,
+            "minLength": 1,
+            "nullable": true,
+            "type": "string"
+          },
           "fulfillment": {
             "description": "`SHIPPING` (por defecto): se envía a una dirección. `IN_STORE`: venta de mostrador, que el staff entrega en la tienda al pagarse, sin dirección ni costo de envío; el comprador puede no dar sus datos (ADR-0161).",
             "enum": [
@@ -6893,6 +7933,46 @@
         ],
         "type": "object"
       },
+      "StoreProfileDto": {
+        "properties": {
+          "address": {
+            "description": "Dirección de la tienda en una línea (`STORE_ADDRESS`); `null` si no se configuró.",
+            "example": "Av. Madero Poniente 123, Centro, 58000 Morelia, Mich.",
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "description": "Nombre de la tienda (`STORE_NAME`).",
+            "example": "Tienda Ejemplo",
+            "type": "string"
+          },
+          "phone": {
+            "description": "Teléfono de la tienda (`STORE_PHONE`); `null` si no se configuró.",
+            "example": "443 123 4567",
+            "nullable": true,
+            "type": "string"
+          },
+          "taxId": {
+            "description": "RFC de la tienda, en mayúsculas (`STORE_TAX_ID`); `null` si no se configuró.",
+            "example": "EJE260101AB1",
+            "nullable": true,
+            "type": "string"
+          },
+          "ticketFooter": {
+            "description": "Leyenda al pie del ticket (`TICKET_FOOTER`); por defecto, que no es un comprobante fiscal.",
+            "example": "Este ticket no es un comprobante fiscal.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "address",
+          "taxId",
+          "phone",
+          "name",
+          "ticketFooter"
+        ],
+        "type": "object"
+      },
       "StoreVariantDto": {
         "properties": {
           "available": {
@@ -7158,6 +8238,10 @@
             "minLength": 1,
             "type": "string"
           },
+          "storeOnly": {
+            "description": "Solo en la tienda física, o también en línea (ADR-0165); se cambia también publicado.",
+            "type": "boolean"
+          },
           "title": {
             "description": "De 1 a 200 caracteres.",
             "maxLength": 200,
@@ -7167,6 +8251,93 @@
           },
           "version": {
             "description": "Versión leída del producto (bloqueo optimista).",
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "type": "object"
+      },
+      "UpdatePromotionDto": {
+        "properties": {
+          "amountOff": {
+            "description": "Monto fijo de descuento en centavos, una vez por orden, repartido entre las líneas a las que aplica. Exactamente uno de `percentage` y `amountOff`.",
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "number"
+          },
+          "channels": {
+            "description": "Dónde aplica: `ONLINE`, `STORE` o los dos.",
+            "items": {
+              "enum": [
+                "ONLINE",
+                "STORE"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "code": {
+            "description": "Código del cupón, de 4 a 30 letras, números o guiones; `null` lo quita y la promoción se aplica sola. Solo antes de su inicio.",
+            "nullable": true,
+            "type": "string"
+          },
+          "endsAt": {
+            "description": "Fin, excluido, posterior al inicio y, ya iniciada, al momento actual; `null` lo quita.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "minimumSubtotal": {
+            "description": "Compra mínima en centavos; `null` la quita.",
+            "maximum": 2147483647,
+            "minimum": 1,
+            "nullable": true,
+            "type": "number"
+          },
+          "name": {
+            "description": "Nombre de 1 a 120 caracteres.",
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "oncePerCustomer": {
+            "description": "Si cada cliente usa el cupón una sola vez; solo antes de su inicio.",
+            "type": "boolean"
+          },
+          "percentage": {
+            "description": "Porcentaje entero de descuento, de 1 a 100, sobre las líneas a las que aplica. Exactamente uno de `percentage` y `amountOff`.",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "number"
+          },
+          "startsAt": {
+            "description": "Inicio, fecha y hora con zona horaria; no posterior al momento actual, empieza ahora.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "targets": {
+            "description": "Reemplaza la lista: hasta 100 productos, categorías y marcas; vacía, toda la compra.",
+            "items": {
+              "$ref": "#/components/schemas/PromotionTargetDto"
+            },
+            "type": "array",
+            "uniqueItems": true
+          },
+          "usageLimit": {
+            "description": "Usos en total del cupón, nunca menos de los que ya tiene; `null` lo quita. Se cambia también ya iniciada.",
+            "maximum": 2147483647,
+            "minimum": 1,
+            "nullable": true,
+            "type": "number"
+          },
+          "version": {
+            "description": "Versión leída (bloqueo optimista).",
             "minimum": 1,
             "type": "number"
           }
@@ -7206,6 +8377,11 @@
                 "orders.manage",
                 "orders.read-blocked",
                 "orders.place",
+                "work-orders.read",
+                "work-orders.manage",
+                "work-orders.read-blocked",
+                "promotions.read",
+                "promotions.manage",
                 "payments.manage",
                 "payments.configure",
                 "shipping.manage",
@@ -7288,6 +8464,12 @@
       },
       "UpdateVariantDto": {
         "properties": {
+          "gtin": {
+            "description": "Código de barras del fabricante, con las reglas del alta; se puede corregir aunque el producto ya se haya publicado, y `null` lo quita (ADR-0163).",
+            "example": "7501055363063",
+            "nullable": true,
+            "type": "string"
+          },
           "heightCm": {
             "description": "Centímetros, mayor que 0, un decimal; `null` lo quita.",
             "maximum": 999999.9,
@@ -7372,6 +8554,218 @@
         },
         "type": "object"
       },
+      "UpdateWorkOrderDto": {
+        "properties": {
+          "accessories": {
+            "description": "`null` los quita.",
+            "maxLength": 500,
+            "nullable": true,
+            "type": "string"
+          },
+          "customerEmail": {
+            "description": "`null` lo quita.",
+            "format": "email",
+            "maxLength": 254,
+            "nullable": true,
+            "type": "string"
+          },
+          "customerId": {
+            "description": "Un cliente registrado y activo; `null` desliga la orden de la cuenta.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "customerName": {
+            "description": "De 1 a 120 caracteres.",
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "customerPhone": {
+            "description": "Exactamente 10 dígitos.",
+            "pattern": "^[0-9]{10}$",
+            "type": "string"
+          },
+          "diagnosis": {
+            "description": "El diagnóstico del técnico; `null` lo quita.",
+            "maxLength": 4000,
+            "nullable": true,
+            "type": "string"
+          },
+          "equipmentBrand": {
+            "description": "`null` la quita.",
+            "maxLength": 60,
+            "nullable": true,
+            "type": "string"
+          },
+          "equipmentCondition": {
+            "description": "`null` lo quita.",
+            "maxLength": 1000,
+            "nullable": true,
+            "type": "string"
+          },
+          "equipmentModel": {
+            "description": "`null` lo quita.",
+            "maxLength": 60,
+            "nullable": true,
+            "type": "string"
+          },
+          "equipmentType": {
+            "description": "De 1 a 60 caracteres.",
+            "maxLength": 60,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "estimatedCost": {
+            "description": "Costo estimado en centavos, informativo; `null` lo quita.",
+            "maximum": 2147483647,
+            "minimum": 0,
+            "nullable": true,
+            "type": "number"
+          },
+          "reportedFault": {
+            "description": "De 1 a 2,000 caracteres.",
+            "maxLength": 2000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "serialNumber": {
+            "description": "`null` lo quita.",
+            "maxLength": 60,
+            "nullable": true,
+            "type": "string"
+          },
+          "technicianId": {
+            "description": "Un técnico nuevo debe ser una cuenta de staff activa; `null` lo quita.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "version": {
+            "description": "Versión leída (bloqueo optimista).",
+            "minimum": 1,
+            "type": "number"
+          },
+          "workPerformed": {
+            "description": "El trabajo realizado; `null` lo quita.",
+            "maxLength": 4000,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "type": "object"
+      },
+      "VariantLookupDto": {
+        "properties": {
+          "gtin": {
+            "description": "Código de barras del fabricante; `null` si no tiene.",
+            "example": "7501055363063",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "matchedBy": {
+            "description": "Si el código coincidió con su SKU o con su GTIN.",
+            "enum": [
+              "SKU",
+              "GTIN"
+            ],
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Sus valores de las opciones del producto, por nombre.",
+            "example": {
+              "color": "Azul",
+              "talla": "M"
+            },
+            "type": "object"
+          },
+          "product": {
+            "$ref": "#/components/schemas/VariantLookupProductDto"
+          },
+          "sku": {
+            "example": "CAM-LIN-AZ-M",
+            "type": "string"
+          },
+          "status": {
+            "description": "`ACTIVE` o `DISCONTINUED`; una descontinuada no se vende.",
+            "enum": [
+              "ACTIVE",
+              "DISCONTINUED"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "gtin",
+          "options",
+          "status",
+          "matchedBy",
+          "product",
+          "sku"
+        ],
+        "type": "object"
+      },
+      "VariantLookupListDto": {
+        "properties": {
+          "data": {
+            "description": "Las activas primero; vacía si ninguna coincide.",
+            "items": {
+              "$ref": "#/components/schemas/VariantLookupDto"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "VariantLookupProductDto": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "slug": {
+            "example": "camisa-de-lino",
+            "type": "string"
+          },
+          "status": {
+            "description": "Solo `PUBLISHED` se vende.",
+            "enum": [
+              "DRAFT",
+              "PUBLISHED",
+              "ARCHIVED"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "example": "Camisa de lino",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "title",
+          "slug"
+        ],
+        "type": "object"
+      },
       "WarehouseDto": {
         "properties": {
           "address": {
@@ -7441,6 +8835,372 @@
         },
         "required": [
           "data"
+        ],
+        "type": "object"
+      },
+      "WorkOrderDto": {
+        "properties": {
+          "accessories": {
+            "nullable": true,
+            "type": "string"
+          },
+          "anonymizedAt": {
+            "description": "Cuándo se anonimizaron los datos del cliente.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "blockedAt": {
+            "description": "Cuándo se bloquearon los datos del cliente (ADR-0167): se muestran como anonimizados, y se consultan con `POST …/blocked-data`.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "closedAt": {
+            "description": "Cuándo se entregó o se canceló.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "customerEmail": {
+            "nullable": true,
+            "type": "string"
+          },
+          "customerId": {
+            "description": "El cliente registrado ligado.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "customerName": {
+            "description": "Nombre del cliente; `null` si la orden de trabajo está bloqueada o anonimizada (ADR-0167).",
+            "nullable": true,
+            "type": "string"
+          },
+          "customerPhone": {
+            "description": "10 dígitos; `null` si la orden de trabajo está bloqueada o anonimizada.",
+            "nullable": true,
+            "type": "string"
+          },
+          "diagnosis": {
+            "nullable": true,
+            "type": "string"
+          },
+          "equipmentBrand": {
+            "nullable": true,
+            "type": "string"
+          },
+          "equipmentCondition": {
+            "nullable": true,
+            "type": "string"
+          },
+          "equipmentModel": {
+            "nullable": true,
+            "type": "string"
+          },
+          "equipmentType": {
+            "type": "string"
+          },
+          "estimatedCost": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "Informativo; la orden de trabajo no cobra (ADR-0165).",
+            "nullable": true,
+            "type": "object"
+          },
+          "folio": {
+            "description": "Folio consecutivo (ADR-0166).",
+            "example": "OT-000123",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "paidTotal": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "El total de las ventas ligadas que están pagadas."
+          },
+          "receivedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "receivedBy": {
+            "description": "La cuenta de staff que recibió el equipo.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "reportedFault": {
+            "description": "La falla reportada; `null` si la orden de trabajo está bloqueada o anonimizada.",
+            "nullable": true,
+            "type": "string"
+          },
+          "sales": {
+            "description": "Las ventas de mostrador que la cobran, en el orden en que se ligaron, con su estado al momento (ADR-0167).",
+            "items": {
+              "$ref": "#/components/schemas/LinkedSaleDto"
+            },
+            "type": "array"
+          },
+          "serialNumber": {
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "RECEIVED",
+              "DIAGNOSED",
+              "IN_REPAIR",
+              "READY",
+              "DELIVERED",
+              "CANCELLED"
+            ],
+            "type": "string"
+          },
+          "statusHistory": {
+            "description": "Del más antiguo al más reciente.",
+            "items": {
+              "$ref": "#/components/schemas/WorkOrderStatusEntryDto"
+            },
+            "type": "array"
+          },
+          "technicianId": {
+            "description": "El técnico asignado.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "unpaidTotal": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "El total de las ventas ligadas que esperan su pago; las vencidas, canceladas o reembolsadas no cuentan."
+          },
+          "version": {
+            "description": "Para el bloqueo optimista.",
+            "type": "number"
+          },
+          "warehouseId": {
+            "description": "El almacén de la tienda que recibió el equipo.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "workPerformed": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "customerName",
+          "customerPhone",
+          "equipmentBrand",
+          "equipmentModel",
+          "serialNumber",
+          "warehouseId",
+          "technicianId",
+          "receivedAt",
+          "closedAt",
+          "customerId",
+          "customerEmail",
+          "accessories",
+          "equipmentCondition",
+          "reportedFault",
+          "diagnosis",
+          "workPerformed",
+          "estimatedCost",
+          "receivedBy",
+          "blockedAt",
+          "anonymizedAt",
+          "statusHistory",
+          "sales",
+          "paidTotal",
+          "unpaidTotal",
+          "version",
+          "folio",
+          "equipmentType"
+        ],
+        "type": "object"
+      },
+      "WorkOrderListDto": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/WorkOrderSummaryDto"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "WorkOrderReasonDto": {
+        "properties": {
+          "reason": {
+            "description": "La referencia de la reclamación, el requerimiento o la solicitud, de 1 a 500 caracteres. Queda en la auditoría:\nno escribas datos personales.",
+            "example": "Solicitud ARCO 2026-014",
+            "maxLength": 500,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "type": "object"
+      },
+      "WorkOrderStatusEntryDto": {
+        "properties": {
+          "actorId": {
+            "description": "La cuenta de staff que hizo el cambio.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "fromStatus": {
+            "description": "`null` al recibir el equipo.",
+            "enum": [
+              "RECEIVED",
+              "DIAGNOSED",
+              "IN_REPAIR",
+              "READY",
+              "DELIVERED",
+              "CANCELLED"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "note": {
+            "description": "La nota del cambio; `null` sin ella.",
+            "nullable": true,
+            "type": "string"
+          },
+          "occurredAt": {
+            "description": "Cuándo ocurrió.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "toStatus": {
+            "description": "El estado al que pasó.",
+            "enum": [
+              "RECEIVED",
+              "DIAGNOSED",
+              "IN_REPAIR",
+              "READY",
+              "DELIVERED",
+              "CANCELLED"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "fromStatus",
+          "toStatus",
+          "actorId",
+          "note",
+          "occurredAt"
+        ],
+        "type": "object"
+      },
+      "WorkOrderSummaryDto": {
+        "properties": {
+          "closedAt": {
+            "description": "Cuándo se entregó o se canceló.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "customerName": {
+            "description": "Nombre del cliente; `null` si la orden de trabajo está bloqueada o anonimizada (ADR-0167).",
+            "nullable": true,
+            "type": "string"
+          },
+          "customerPhone": {
+            "description": "10 dígitos; `null` si la orden de trabajo está bloqueada o anonimizada.",
+            "nullable": true,
+            "type": "string"
+          },
+          "equipmentBrand": {
+            "nullable": true,
+            "type": "string"
+          },
+          "equipmentModel": {
+            "nullable": true,
+            "type": "string"
+          },
+          "equipmentType": {
+            "type": "string"
+          },
+          "folio": {
+            "description": "Folio consecutivo (ADR-0166).",
+            "example": "OT-000123",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "receivedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "serialNumber": {
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "RECEIVED",
+              "DIAGNOSED",
+              "IN_REPAIR",
+              "READY",
+              "DELIVERED",
+              "CANCELLED"
+            ],
+            "type": "string"
+          },
+          "technicianId": {
+            "description": "El técnico asignado.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "warehouseId": {
+            "description": "El almacén de la tienda que recibió el equipo.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "customerName",
+          "customerPhone",
+          "equipmentBrand",
+          "equipmentModel",
+          "serialNumber",
+          "warehouseId",
+          "technicianId",
+          "receivedAt",
+          "closedAt",
+          "folio",
+          "equipmentType"
         ],
         "type": "object"
       }
@@ -9006,6 +10766,137 @@
         ]
       }
     },
+    "/v1/admin/catalog/product-imports": {
+      "post": {
+        "description": "CSV en UTF-8 con una fila por variante: las filas con el mismo slug forman un producto nuevo, que queda en borrador. Columnas slug, title y sku, obligatorias; description, brand y categories (por su slug, separadas por |), gtin, weightGrams, lengthCm, widthCm, heightCm y una columna option:<nombre> por opción, opcionales. Los datos del producto van en su primera fila; las siguientes los dejan vacíos o los repiten iguales. Todo o nada: con un error en cualquier fila no se carga ninguna. Hasta 5,000 filas y 5 MB.",
+        "operationId": "AdminProductImportsController_import_v1",
+        "parameters": [
+          {
+            "description": "Valida el archivo y responde el resumen sin guardar nada.",
+            "in": "query",
+            "name": "dryRun",
+            "required": false,
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductImportSummaryDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`duplicate-value`: Valor duplicado"
+          },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`payload-too-large`: Contenido demasiado grande"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cargar productos desde un archivo CSV",
+        "tags": [
+          "Administración: catálogo"
+        ],
+        "x-required-permissions": [
+          "catalog.write"
+        ]
+      }
+    },
     "/v1/admin/catalog/products": {
       "get": {
         "description": "Paginado, sin la descripción de cada producto. Filtros por parte del título o del SKU, por estado, marca y categoría; orden por última modificación, la más reciente primero por defecto, título, alta o publicación.",
@@ -9056,7 +10947,16 @@
             }
           },
           {
-            "description": "Parte del título o de un SKU, sin distinguir mayúsculas.",
+            "description": "`true`: solo los productos que se venden solo en la tienda física; `false`: solo los que se venden también en línea.",
+            "in": "query",
+            "name": "storeOnly",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Parte del título, de un SKU o de un GTIN, sin distinguir mayúsculas.",
             "in": "query",
             "name": "q",
             "required": false,
@@ -10509,7 +12409,7 @@
     },
     "/v1/admin/catalog/products/{productId}/variants/{variantId}": {
       "patch": {
-        "description": "SKU y opciones solo mientras el producto nunca se ha publicado (409 `field-locked`); peso y medidas siempre.",
+        "description": "SKU y opciones solo mientras el producto nunca se ha publicado (409 `field-locked`); GTIN, peso y medidas siempre.",
         "operationId": "AdminProductsController_updateVariant_v1",
         "parameters": [
           {
@@ -10773,7 +12673,7 @@
     },
     "/v1/admin/catalog/products/{productId}/variants/{variantId}/reactivate": {
       "post": {
-        "description": "Con el mismo SKU y opciones; 409 `duplicate-value` si otra variante activa tiene su combinación.",
+        "description": "Con el mismo SKU, GTIN y opciones; 409 `duplicate-value` si otra variante activa tiene su combinación o su GTIN.",
         "operationId": "AdminProductsController_reactivateVariant_v1",
         "parameters": [
           {
@@ -10900,6 +12800,98 @@
         ],
         "x-required-permissions": [
           "catalog.write"
+        ]
+      }
+    },
+    "/v1/admin/catalog/variants/lookup": {
+      "get": {
+        "description": "El SKU exacto, sin distinguir mayúsculas, o el GTIN (EAN o UPC) completado con ceros a 14 dígitos, así que un UPC y el mismo código como EAN-13 son uno. Devuelve una lista, con las variantes activas primero: un SKU de dígitos puede coincidir con el GTIN de otra variante, y varias descontinuadas pueden compartir un GTIN. Vacía si ninguna coincide.",
+        "operationId": "AdminVariantsController_lookUp_v1",
+        "parameters": [
+          {
+            "description": "El código leído o capturado: el SKU, sin distinguir mayúsculas, o el GTIN, con o sin ceros a la izquierda.",
+            "in": "query",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "example": "7501055363063",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VariantLookupListDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Buscar una variante por su código",
+        "tags": [
+          "Administración: catálogo"
+        ],
+        "x-required-permissions": [
+          "catalog.read"
         ]
       }
     },
@@ -11537,7 +13529,7 @@
     },
     "/v1/admin/identity/customers/{userId}/anonymize": {
       "post": {
-        "description": "Irreversible. Vacía el email, los nombres y la contraseña (estado ANONYMIZED, email libre); borra sus sesiones, enlaces, direcciones y carritos; y quita el email de contacto y los datos de quien recibe de sus órdenes y envíos, que conservan estado, municipio y código postal. Si tiene órdenes sin concluir, espera a que terminen (ADR-0067, ADR-0145). El cliente queda consultable en `GET /v1/admin/identity/customers/{userId}`.",
+        "description": "Irreversible. Vacía el email, los nombres y la contraseña (estado ANONYMIZED, email libre); borra sus sesiones, enlaces, direcciones y carritos; quita el email de contacto y los datos de quien recibe de sus órdenes y envíos, que conservan estado, municipio y código postal; y anonimiza las órdenes de trabajo ligadas a él (ADR-0167). Si tiene órdenes sin concluir, u órdenes de trabajo sin entregar ni cancelar, espera a que terminen: 409 `active-orders-exist` (ADR-0067, ADR-0145). El cliente queda consultable en `GET /v1/admin/identity/customers/{userId}`.",
         "operationId": "AnonymizationsController_anonymizeCustomer_v1",
         "parameters": [
           {
@@ -13476,6 +15468,137 @@
         ]
       }
     },
+    "/v1/admin/inventory/receipt-imports": {
+      "post": {
+        "description": "CSV en UTF-8 con las columnas sku, warehouse (el código del almacén, activo) y quantity (de 1 a 100,000), obligatorias, y note, opcional, en cualquier orden. Cada fila suma sus unidades a la existencia de la variante en el almacén y deja su movimiento. Todo o nada: con un error en cualquier fila no se carga ninguna. Un archivo idéntico a uno ya cargado responde 409, para no sumar dos veces. Hasta 5,000 filas y 1 MB.",
+        "operationId": "AdminReceiptImportsController_import_v1",
+        "parameters": [
+          {
+            "description": "Valida el archivo y responde el resumen sin guardar nada.",
+            "in": "query",
+            "name": "dryRun",
+            "required": false,
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptImportSummaryDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`duplicate-value`: Valor duplicado"
+          },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`payload-too-large`: Contenido demasiado grande"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cargar entradas de mercancía desde un archivo CSV",
+        "tags": [
+          "Administración: inventario"
+        ],
+        "x-required-permissions": [
+          "inventory.write"
+        ]
+      }
+    },
     "/v1/admin/inventory/receipts": {
       "post": {
         "description": "Crea el stock item de la variante en su primera entrada.",
@@ -14534,7 +16657,7 @@
         ]
       },
       "post": {
-        "description": "UC-ORD-13 (ADR-0161). Exige `Idempotency-Key`. Para un cliente registrado y activo, con el email verificado, cuyo contacto es el email de su cuenta; o para un invitado, con `contactEmail` y la versión del aviso de privacidad que el staff le presentó. Exactamente uno de `customerId` y `contactEmail`, y uno de `addressId` y `shippingAddress`; `addressId` solo con `customerId`. Recalcula todo sin cache; si el total difiere de `expectedTotal` responde 409 `total-mismatch` con `currentTotal`. Reserva todo el stock en el almacén `warehouseId` o nada, y crea la orden `STORE` en `PENDING_PAYMENT`, en una sola transacción; sin carrito, una orden vencida no regresa a ninguno. Si el almacén no existe o está inactivo, 404. Hasta 30 órdenes por cuenta de staff cada 10 minutos. Se audita como `orders.place`.",
+        "description": "UC-ORD-13 (ADR-0161). Exige `Idempotency-Key`. Para un cliente registrado y activo, con el email verificado, cuyo contacto es el email de su cuenta; o para un invitado, con `contactEmail` y la versión del aviso de privacidad que el staff le presentó. Exactamente uno de `customerId` y `contactEmail`, y uno de `addressId` y `shippingAddress`; `addressId` solo con `customerId`. Recalcula todo sin cache; si el total difiere de `expectedTotal` responde 409 `total-mismatch` con `currentTotal`. Reserva todo el stock en el almacén `warehouseId` o nada, y crea la orden `STORE` en `PENDING_PAYMENT`, en una sola transacción; sin carrito, una orden vencida no regresa a ninguno. Con `couponCode`, el cupón se revisa y cuenta su uso en la misma transacción; si no aplica, 409 `coupon-not-applicable` con `reason`, y hasta 10 códigos que nadie tiene por IP cada 15 minutos. Si el almacén no existe o está inactivo, 404. Hasta 30 órdenes por cuenta de staff cada 10 minutos. Se audita como `orders.place`.",
         "operationId": "AdminOrdersController_place_v1",
         "parameters": [
           {
@@ -14617,7 +16740,7 @@
                 }
               }
             },
-            "description": "`idempotency-request-in-progress`: Solicitud en proceso\n\n`variant-not-sellable`: Producto no disponible; `total-mismatch`: El total cambió; `insufficient-stock`: Stock insuficiente"
+            "description": "`idempotency-request-in-progress`: Solicitud en proceso\n\n`variant-not-sellable`: Producto no disponible; `total-mismatch`: El total cambió; `coupon-not-applicable`: Cupón que no aplica; `insufficient-stock`: Stock insuficiente"
           },
           "422": {
             "content": {
@@ -14666,7 +16789,7 @@
     },
     "/v1/admin/orders/quote": {
       "post": {
-        "description": "UC-ORD-12 (ADR-0161). Sin efectos secundarios y sin cache: precios, IVA, envío y disponibilidad de ahora. Las líneas no vendibles o no surtibles no son un error: se marcan y `readyToPlace` queda en `false`. Los totales suman solo las líneas vendibles. Las líneas vienen en la solicitud, sin carrito, y la disponibilidad es la del almacén `warehouseId`. Si el almacén no existe o está inactivo, o una variante no existe, 404.",
+        "description": "UC-ORD-12 (ADR-0161). Sin efectos secundarios y sin cache: precios, IVA, envío y disponibilidad de ahora. Las líneas no vendibles o no surtibles no son un error: se marcan y `readyToPlace` queda en `false`. Los totales suman solo las líneas vendibles. Con `couponCode`, el cupón reemplaza a la promoción automática; si no aplica, 409 `coupon-not-applicable` con `reason`, y hasta 10 códigos que nadie tiene por IP cada 15 minutos. Las líneas vienen en la solicitud, sin carrito, y la disponibilidad es la del almacén `warehouseId`. Si el almacén no existe o está inactivo, o una variante no existe, 404.",
         "operationId": "AdminOrdersController_quote_v1",
         "parameters": [],
         "requestBody": {
@@ -14729,6 +16852,16 @@
               }
             },
             "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`coupon-not-applicable`: Cupón que no aplica"
           },
           "429": {
             "content": {
@@ -16939,6 +19072,633 @@
         ]
       }
     },
+    "/v1/admin/promotions": {
+      "get": {
+        "description": "UC-PRM-02. Sin sus productos, categorías y marcas, que da la consulta de cada una. El estado se calcula al momento de la consulta.",
+        "operationId": "AdminPromotionsController_list_v1",
+        "parameters": [
+          {
+            "description": "Página, de 1 a 1,000,000.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "maximum": 1000000,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Resultados por página, de 1 a 100.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Uno o más estados separados por comas, al momento de la consulta: `SCHEDULED`, `ACTIVE`, `ENDED`.",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "example": "SCHEDULED,ACTIVE",
+              "items": {
+                "enum": [
+                  "SCHEDULED",
+                  "ACTIVE",
+                  "ENDED"
+                ],
+                "type": "string"
+              },
+              "type": "string"
+            }
+          },
+          {
+            "description": "Las que aplican en este canal.",
+            "in": "query",
+            "name": "channel",
+            "required": false,
+            "schema": {
+              "enum": [
+                "ONLINE",
+                "STORE"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "`ORDER`: las de toda la compra. `ITEMS`: las de ciertos productos, categorías o marcas.",
+            "in": "query",
+            "name": "appliesTo",
+            "required": false,
+            "schema": {
+              "enum": [
+                "ORDER",
+                "ITEMS"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "`AUTOMATIC`: las que se aplican solas. `COUPON`: los cupones, con su código.",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "enum": [
+                "AUTOMATIC",
+                "COUPON"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Parte del nombre, o el código exacto de un cupón, sin distinguir mayúsculas.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "maxLength": 254,
+              "type": "string"
+            }
+          },
+          {
+            "description": "`startsAt` o `name`, con `-` para orden descendente; por defecto `-startsAt`.",
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromotionListDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Listar promociones",
+        "tags": [
+          "Administración: promociones"
+        ],
+        "x-required-permissions": [
+          "promotions.read"
+        ]
+      },
+      "post": {
+        "description": "UC-PRM-01 (ADR-0168). Un porcentaje entero (`percentage`, de 1 a 100) o un monto fijo por orden (`amountOff`), exactamente uno; sobre toda la compra, o sobre los productos, categorías (con sus subcategorías) y marcas de `targets`, que deben existir y estar en uso: un producto archivado, o una categoría o marca inactiva, no. En línea, en la tienda física o en los dos; con compra mínima opcional. Sin `startsAt`, o con uno que ya pasó, empieza ahora. Con `code` es un cupón (ADR-0168): solo aplica a quien lo da, con sus límites opcionales `usageLimit` y `oncePerCustomer`; un código que ya tiene otra promoción, aunque haya terminado, responde 409 `duplicate-value`. Se audita como `promotions.create`.",
+        "operationId": "AdminPromotionsController_create_v1",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePromotionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromotionDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`duplicate-value`: Valor duplicado"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Crear una promoción",
+        "tags": [
+          "Administración: promociones"
+        ],
+        "x-required-permissions": [
+          "promotions.manage"
+        ]
+      }
+    },
+    "/v1/admin/promotions/{promotionId}": {
+      "get": {
+        "description": "UC-PRM-02. Con sus productos, categorías y marcas, cada uno con su nombre actual en el catálogo.",
+        "operationId": "AdminPromotionsController_get_v1",
+        "parameters": [
+          {
+            "description": "ID de la promoción.",
+            "in": "path",
+            "name": "promotionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromotionDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consultar una promoción",
+        "tags": [
+          "Administración: promociones"
+        ],
+        "x-required-permissions": [
+          "promotions.read"
+        ]
+      },
+      "patch": {
+        "description": "UC-PRM-03 (ADR-0168). Solo cambian los campos enviados; `percentage` o `amountOff` reemplazan el descuento, y `targets`, la lista completa. Antes de su inicio se cambia todo; ya iniciada, solo `name`, `endsAt`, que debe ser posterior al momento actual, y `usageLimit`, nunca por debajo de `uses`: otro cambio responde 409 `invalid-state-transition`, igual que editar una terminada. Un código que ya tiene otra promoción responde 409 `duplicate-value`. Un producto, categoría o marca nuevo debe existir y estar en uso; los que ya tenía se quedan aunque ya no lo estén. Sin cambios, no se guarda ni se audita. Se audita como `promotions.update`.",
+        "operationId": "AdminPromotionsController_update_v1",
+        "parameters": [
+          {
+            "description": "ID de la promoción.",
+            "in": "path",
+            "name": "promotionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePromotionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromotionDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual; `duplicate-value`: Valor duplicado"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Editar una promoción",
+        "tags": [
+          "Administración: promociones"
+        ],
+        "x-required-permissions": [
+          "promotions.manage"
+        ]
+      }
+    },
+    "/v1/admin/promotions/{promotionId}/end": {
+      "post": {
+        "description": "UC-PRM-03 (ADR-0168). Una vigente deja de aplicar ahora, y una programada ya no empieza; se conserva, porque las órdenes guardan cuál recibieron. Una terminada responde 409 `invalid-state-transition`. Se audita como `promotions.end`.",
+        "operationId": "AdminPromotionsController_end_v1",
+        "parameters": [
+          {
+            "description": "ID de la promoción.",
+            "in": "path",
+            "name": "promotionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EndPromotionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromotionDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Terminar una promoción",
+        "tags": [
+          "Administración: promociones"
+        ],
+        "x-required-permissions": [
+          "promotions.manage"
+        ]
+      }
+    },
     "/v1/admin/shipping/method": {
       "get": {
         "description": "El único método de envío, con su costo, el umbral de envío gratis y el plazo de entrega (ADR-0041, ADR-0092).",
@@ -18035,6 +20795,1360 @@
         ],
         "x-required-permissions": [
           "shipping.manage"
+        ]
+      }
+    },
+    "/v1/admin/store-profile": {
+      "get": {
+        "description": "Nombre, dirección, RFC, teléfono y leyenda de la tienda, iguales para todas las tiendas, de las variables de configuración: cambiarlos exige reiniciar la API (ADR-0163). El ticket no es un comprobante fiscal, y su leyenda por defecto lo dice.",
+        "operationId": "AdminStoreProfileController_get_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoreProfileDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consultar los datos de la tienda para el ticket",
+        "tags": [
+          "Administración: órdenes"
+        ],
+        "x-required-permissions": [
+          "orders.read"
+        ]
+      }
+    },
+    "/v1/admin/work-orders": {
+      "get": {
+        "description": "UC-WRK-02. Sin historial ni textos largos. `q` busca el folio exacto, o parte del nombre o del teléfono del cliente, o del número de serie.",
+        "operationId": "AdminWorkOrdersController_list_v1",
+        "parameters": [
+          {
+            "description": "Página, de 1 a 1,000,000.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "maximum": 1000000,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Resultados por página, de 1 a 100.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Uno o más estados separados por comas: `RECEIVED`, `DIAGNOSED`, `IN_REPAIR`, `READY`, `DELIVERED`, `CANCELLED`.",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "example": "RECEIVED,DIAGNOSED",
+              "items": {
+                "enum": [
+                  "RECEIVED",
+                  "DIAGNOSED",
+                  "IN_REPAIR",
+                  "READY",
+                  "DELIVERED",
+                  "CANCELLED"
+                ],
+                "type": "string"
+              },
+              "type": "string"
+            }
+          },
+          {
+            "description": "El folio exacto (`OT-000123`, `ot-123` o `123`), o parte del nombre o del teléfono del cliente, o del número de\nserie, sin distinguir mayúsculas.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "maxLength": 254,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Las que recibió la tienda de este almacén.",
+            "in": "query",
+            "name": "warehouseId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Las asignadas a este técnico.",
+            "in": "query",
+            "name": "technicianId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Las ligadas a este cliente registrado.",
+            "in": "query",
+            "name": "customerId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Fecha o fecha y hora ISO 8601; incluida.",
+            "in": "query",
+            "name": "receivedFrom",
+            "required": false,
+            "schema": {
+              "example": "2026-10-01",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Fecha o fecha y hora ISO 8601; incluida (una fecha sola incluye todo el día).",
+            "in": "query",
+            "name": "receivedTo",
+            "required": false,
+            "schema": {
+              "example": "2026-10-31",
+              "type": "string"
+            }
+          },
+          {
+            "description": "`receivedAt` o `folio`, con `-` para orden descendente; por defecto `-receivedAt`.",
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOrderListDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Listar y buscar órdenes de trabajo",
+        "tags": [
+          "Administración: órdenes de trabajo"
+        ],
+        "x-required-permissions": [
+          "work-orders.read"
+        ]
+      },
+      "post": {
+        "description": "UC-WRK-01 (ADR-0166). Exige `Idempotency-Key`, para que un doble envío no imprima dos folios. Nace en `RECEIVED`, con el siguiente folio consecutivo, en la tienda del almacén `warehouseId` y a nombre de quien la recibe. El nombre y el teléfono del cliente son obligatorios, aunque se ligue un cliente registrado con `customerId`. Si el almacén no existe o está inactivo, si `customerId` no es de un cliente activo o si `technicianId` no es de una cuenta de staff activa, 404. Se audita como `work-orders.create`, sin los datos personales.",
+        "operationId": "AdminWorkOrdersController_receive_v1",
+        "parameters": [
+          {
+            "description": "Llave de idempotencia de 1 a 255 caracteres; se recomienda un UUID (API_SPEC.md, sección 4).",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "example": "0192a3b4-5c6d-7e8f-9a0b-1c2d3e4f5a6b",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceiveWorkOrderDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOrderDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`idempotency-key-missing`: Falta la llave de idempotencia; `validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`idempotency-request-in-progress`: Solicitud en proceso"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`idempotency-key-mismatch`: Llave de idempotencia reutilizada"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Recibir un equipo: crear la orden de trabajo",
+        "tags": [
+          "Administración: órdenes de trabajo"
+        ],
+        "x-required-permissions": [
+          "work-orders.manage"
+        ]
+      }
+    },
+    "/v1/admin/work-orders/{workOrderId}": {
+      "get": {
+        "description": "UC-WRK-02. Todos sus datos y el historial de estados.",
+        "operationId": "AdminWorkOrdersController_get_v1",
+        "parameters": [
+          {
+            "description": "ID interno de la orden de trabajo; el staff la busca por su folio.",
+            "in": "path",
+            "name": "workOrderId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOrderDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consultar una orden de trabajo, con su historial",
+        "tags": [
+          "Administración: órdenes de trabajo"
+        ],
+        "x-required-permissions": [
+          "work-orders.read"
+        ]
+      },
+      "patch": {
+        "description": "UC-WRK-03 (ADR-0166). Solo cambian los campos enviados. Una orden entregada o cancelada ya no se edita: 409 `invalid-state-transition`. Un cliente ligado nuevo debe estar activo, y un técnico nuevo, ser una cuenta de staff activa; si no, 404. Sin cambios, no se guarda ni se audita. Se audita como `work-orders.update`, sin los datos personales.",
+        "operationId": "AdminWorkOrdersController_update_v1",
+        "parameters": [
+          {
+            "description": "ID interno de la orden de trabajo; el staff la busca por su folio.",
+            "in": "path",
+            "name": "workOrderId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorkOrderDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOrderDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Corregir los datos y registrar el diagnóstico y el trabajo",
+        "tags": [
+          "Administración: órdenes de trabajo"
+        ],
+        "x-required-permissions": [
+          "work-orders.manage"
+        ]
+      }
+    },
+    "/v1/admin/work-orders/{workOrderId}/anonymize": {
+      "post": {
+        "description": "Por una solicitud recibida fuera del sistema (BR-PRIV-02, ADR-0167): borra el nombre, el teléfono, el email, el número de serie y los textos que pueden citar al cliente; conserva el folio, los estados, el equipo, el costo estimado y las ventas. Solo una orden de trabajo entregada o cancelada; abierta, o ya anonimizada, 409 `invalid-state-transition`. Las órdenes de trabajo de un cliente con cuenta se anonimizan con su cuenta. Se audita como `work-orders.anonymize` con el motivo y sin los valores, y borra la respuesta guardada al recibir el equipo.",
+        "operationId": "AdminWorkOrdersController_anonymize_v1",
+        "parameters": [
+          {
+            "description": "ID interno de la orden de trabajo; el staff la busca por su folio.",
+            "in": "path",
+            "name": "workOrderId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkOrderReasonDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOrderDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`invalid-state-transition`: Acción no permitida en el estado actual"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Anonimizar una orden de trabajo de un cliente sin cuenta",
+        "tags": [
+          "Administración: órdenes de trabajo"
+        ],
+        "x-required-permissions": [
+          "customers.manage"
+        ]
+      }
+    },
+    "/v1/admin/work-orders/{workOrderId}/blocked-data": {
+      "post": {
+        "description": "Para atender una reclamación o un requerimiento (ADR-0167), como en los pedidos (ADR-0152): los datos del cliente, el número de serie y los textos, como se guardaron. Solo en una orden de trabajo bloqueada (`blockedAt`); en una que no lo está, cuyos datos ya se ven, o en una anonimizada, que ya no los tiene, 409 `invalid-state-transition`. Se audita como `work-orders.read-blocked-data` con el motivo y sin los datos; si la auditoría falla, no se devuelve nada.",
+        "operationId": "AdminWorkOrdersController_readBlockedData_v1",
+        "parameters": [
+          {
+            "description": "ID interno de la orden de trabajo; el staff la busca por su folio.",
+            "in": "path",
+            "name": "workOrderId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkOrderReasonDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlockedWorkOrderDataDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`invalid-state-transition`: Acción no permitida en el estado actual"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consultar los datos personales bloqueados de una orden de trabajo",
+        "tags": [
+          "Administración: órdenes de trabajo"
+        ],
+        "x-required-permissions": [
+          "work-orders.read-blocked"
+        ]
+      }
+    },
+    "/v1/admin/work-orders/{workOrderId}/sales": {
+      "post": {
+        "description": "UC-WRK-05 (ADR-0167). Solo una orden colocada en la tienda física (`channel` `STORE`); otra, o una que no existe, 404. Una venta vencida, cancelada o reembolsada no se liga: 409 `sale-not-linkable` con `saleStatus`. Una venta cobra una sola orden de trabajo: si ya está ligada, a esta o a otra, 409 `duplicate-value`. Una orden de trabajo entregada o cancelada ya no liga ventas: 409 `invalid-state-transition`. La orden de trabajo no cobra: la venta tiene su propio pago, y entregar no lo exige. Se audita como `work-orders.sale-link`.",
+        "operationId": "AdminWorkOrdersController_linkSale_v1",
+        "parameters": [
+          {
+            "description": "ID interno de la orden de trabajo; el staff la busca por su folio.",
+            "in": "path",
+            "name": "workOrderId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkSaleDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOrderDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual; `sale-not-linkable`: Venta que no se puede ligar; `duplicate-value`: Valor duplicado"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ligar una venta de mostrador que cobra la orden de trabajo",
+        "tags": [
+          "Administración: órdenes de trabajo"
+        ],
+        "x-required-permissions": [
+          "work-orders.manage"
+        ]
+      }
+    },
+    "/v1/admin/work-orders/{workOrderId}/sales/{orderId}": {
+      "delete": {
+        "description": "UC-WRK-05 (ADR-0167). Con la versión leída de la orden de trabajo en `version`. Una venta que la orden de trabajo no tiene, 404; una orden de trabajo entregada o cancelada, 409 `invalid-state-transition`. Se audita como `work-orders.sale-unlink`.",
+        "operationId": "AdminWorkOrdersController_unlinkSale_v1",
+        "parameters": [
+          {
+            "description": "ID interno de la orden de trabajo; el staff la busca por su folio.",
+            "in": "path",
+            "name": "workOrderId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "ID interno del pedido; quien compra usa el código público.",
+            "in": "path",
+            "name": "orderId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Versión leída de la orden de trabajo (bloqueo optimista).",
+            "in": "query",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "example": 3,
+              "minimum": 1,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOrderDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Desligar una venta ligada por error",
+        "tags": [
+          "Administración: órdenes de trabajo"
+        ],
+        "x-required-permissions": [
+          "work-orders.manage"
+        ]
+      }
+    },
+    "/v1/admin/work-orders/{workOrderId}/service-note": {
+      "get": {
+        "description": "UC-WRK-06 (ADR-0167). La orden de trabajo con sus ventas, los datos de la tienda, los mismos del ticket (ADR-0163), y las condiciones del servicio de `WORK_ORDER_FOOTER`, vacías hasta que el negocio las defina. La línea de firma la dibuja el frontend; la firma no se guarda.",
+        "operationId": "AdminWorkOrdersController_serviceNote_v1",
+        "parameters": [
+          {
+            "description": "ID interno de la orden de trabajo; el staff la busca por su folio.",
+            "in": "path",
+            "name": "workOrderId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceNoteDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consultar los datos para imprimir la nota de servicio",
+        "tags": [
+          "Administración: órdenes de trabajo"
+        ],
+        "x-required-permissions": [
+          "work-orders.read"
+        ]
+      }
+    },
+    "/v1/admin/work-orders/{workOrderId}/status": {
+      "post": {
+        "description": "UC-WRK-04 (ADR-0166). Hacia adelante, aunque salte pasos (`RECEIVED` → `DIAGNOSED` → `IN_REPAIR` → `READY` → `DELIVERED`), o a `CANCELLED` con `note`, antes de `DELIVERED`. Nunca regresa: un estado que no está adelante, o una orden entregada o cancelada, responde 409 `invalid-state-transition`. Entregar no exige pago (ADR-0165). El historial guarda quién, cuándo y la nota. Se audita como `work-orders.status`, con la nota como motivo.",
+        "operationId": "AdminWorkOrdersController_changeStatus_v1",
+        "parameters": [
+          {
+            "description": "ID interno de la orden de trabajo; el staff la busca por su folio.",
+            "in": "path",
+            "name": "workOrderId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeWorkOrderStatusDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOrderDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cambiar el estado de una orden de trabajo",
+        "tags": [
+          "Administración: órdenes de trabajo"
+        ],
+        "x-required-permissions": [
+          "work-orders.manage"
         ]
       }
     },
@@ -19363,7 +23477,7 @@
     },
     "/v1/checkout/quote": {
       "post": {
-        "description": "Sin efectos secundarios y sin cache: precios, IVA, envío y disponibilidad de ahora. Las líneas no vendibles o no surtibles no son un error: se marcan y `readyToPlace` queda en `false`. Los totales suman solo las líneas vendibles.",
+        "description": "Sin efectos secundarios y sin cache: precios, IVA, envío y disponibilidad de ahora. Las líneas no vendibles o no surtibles no son un error: se marcan y `readyToPlace` queda en `false`. Los totales suman solo las líneas vendibles. Con `couponCode`, el cupón reemplaza a la promoción automática; si no aplica, 409 `coupon-not-applicable` con `reason`, y hasta 10 códigos que nadie tiene por IP cada 15 minutos.",
         "operationId": "CheckoutController_quote_v1",
         "parameters": [],
         "requestBody": {
@@ -19425,7 +23539,7 @@
                 }
               }
             },
-            "description": "`cart-not-active`: Carrito no activo; `empty-cart`: Carrito vacío"
+            "description": "`cart-not-active`: Carrito no activo; `empty-cart`: Carrito vacío; `coupon-not-applicable`: Cupón que no aplica"
           },
           "429": {
             "content": {
@@ -20630,9 +24744,19 @@
     },
     "/v1/me/checkout/quote": {
       "post": {
-        "description": "Sin efectos secundarios y sin cache: precios, IVA, envío y disponibilidad de ahora. Las líneas no vendibles o no surtibles no son un error: se marcan y `readyToPlace` queda en `false`. Los totales suman solo las líneas vendibles. Sin carrito activo, 409 `empty-cart`.",
+        "description": "Sin efectos secundarios y sin cache: precios, IVA, envío y disponibilidad de ahora. Las líneas no vendibles o no surtibles no son un error: se marcan y `readyToPlace` queda en `false`. Los totales suman solo las líneas vendibles. Con `couponCode`, el cupón reemplaza a la promoción automática; si no aplica, 409 `coupon-not-applicable` con `reason`, y hasta 10 códigos que nadie tiene por IP cada 15 minutos. Sin carrito activo, 409 `empty-cart`.",
         "operationId": "MeCheckoutController_quote_v1",
         "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerQuoteDto"
+              }
+            }
+          },
+          "required": false
+        },
         "responses": {
           "200": {
             "content": {
@@ -20682,7 +24806,7 @@
                 }
               }
             },
-            "description": "`empty-cart`: Carrito vacío"
+            "description": "`empty-cart`: Carrito vacío; `coupon-not-applicable`: Cupón que no aplica"
           },
           "429": {
             "content": {
@@ -20971,7 +25095,7 @@
         ]
       },
       "post": {
-        "description": "Exige `Idempotency-Key`. Recalcula todo sin cache; si el total difiere de `expectedTotal` responde 409 `total-mismatch` con `currentTotal` y no crea la orden. Reserva todo el stock o nada, crea la orden en `PENDING_PAYMENT` y deja el carrito `CHECKED_OUT`, en una sola transacción. Hasta 10 órdenes por usuario o carrito cada 10 minutos. Usa el carrito activo del cliente, que necesita el email verificado; el contacto es el email de la cuenta. Exactamente uno de `addressId` y `shippingAddress`.",
+        "description": "Exige `Idempotency-Key`. Recalcula todo sin cache; si el total difiere de `expectedTotal` responde 409 `total-mismatch` con `currentTotal` y no crea la orden. Con `couponCode`, el cupón se vuelve a revisar y cuenta su uso en la misma transacción: si no aplica, 409 `coupon-not-applicable` con `reason`, y hasta 10 códigos que nadie tiene por IP cada 15 minutos. Reserva todo el stock o nada, crea la orden en `PENDING_PAYMENT` y deja el carrito `CHECKED_OUT`, en una sola transacción. Hasta 10 órdenes por usuario o carrito cada 10 minutos. Usa el carrito activo del cliente, que necesita el email verificado; el contacto es el email de la cuenta. Exactamente uno de `addressId` y `shippingAddress`.",
         "operationId": "MeOrdersController_place_v1",
         "parameters": [
           {
@@ -21054,7 +25178,7 @@
                 }
               }
             },
-            "description": "`idempotency-request-in-progress`: Solicitud en proceso\n\n`cart-not-active`: Carrito no activo; `empty-cart`: Carrito vacío; `variant-not-sellable`: Producto no disponible; `total-mismatch`: El total cambió; `insufficient-stock`: Stock insuficiente"
+            "description": "`idempotency-request-in-progress`: Solicitud en proceso\n\n`cart-not-active`: Carrito no activo; `empty-cart`: Carrito vacío; `variant-not-sellable`: Producto no disponible; `total-mismatch`: El total cambió; `coupon-not-applicable`: Cupón que no aplica; `insufficient-stock`: Stock insuficiente"
           },
           "422": {
             "content": {
@@ -21528,7 +25652,7 @@
     },
     "/v1/orders": {
       "post": {
-        "description": "Exige `Idempotency-Key`. Recalcula todo sin cache; si el total difiere de `expectedTotal` responde 409 `total-mismatch` con `currentTotal` y no crea la orden. Reserva todo el stock o nada, crea la orden en `PENDING_PAYMENT` y deja el carrito `CHECKED_OUT`, en una sola transacción. Hasta 10 órdenes por usuario o carrito cada 10 minutos. Además, hasta 5 órdenes de invitado por email de contacto cada hora. El invitado consulta su pedido con el email de contacto y el código público.",
+        "description": "Exige `Idempotency-Key`. Recalcula todo sin cache; si el total difiere de `expectedTotal` responde 409 `total-mismatch` con `currentTotal` y no crea la orden. Con `couponCode`, el cupón se vuelve a revisar y cuenta su uso en la misma transacción: si no aplica, 409 `coupon-not-applicable` con `reason`, y hasta 10 códigos que nadie tiene por IP cada 15 minutos. Reserva todo el stock o nada, crea la orden en `PENDING_PAYMENT` y deja el carrito `CHECKED_OUT`, en una sola transacción. Hasta 10 órdenes por usuario o carrito cada 10 minutos. Además, hasta 5 órdenes de invitado por email de contacto cada hora. El invitado consulta su pedido con el email de contacto y el código público.",
         "operationId": "OrdersController_place_v1",
         "parameters": [
           {
@@ -21601,7 +25725,7 @@
                 }
               }
             },
-            "description": "`idempotency-request-in-progress`: Solicitud en proceso\n\n`cart-not-active`: Carrito no activo; `empty-cart`: Carrito vacío; `variant-not-sellable`: Producto no disponible; `total-mismatch`: El total cambió; `insufficient-stock`: Stock insuficiente"
+            "description": "`idempotency-request-in-progress`: Solicitud en proceso\n\n`cart-not-active`: Carrito no activo; `empty-cart`: Carrito vacío; `variant-not-sellable`: Producto no disponible; `total-mismatch`: El total cambió; `coupon-not-applicable`: Cupón que no aplica; `insufficient-stock`: Stock insuficiente"
           },
           "422": {
             "content": {

@@ -18,7 +18,9 @@ definePageMeta({ title: 'Productos', permission: 'catalog.read' })
 
 const session = useSessionStore()
 const canWrite = computed(() => session.can('catalog.write'))
-const list = useListParams({ filters: ['q', 'status', 'brandId', 'categoryId', 'sort'] })
+const list = useListParams({
+  filters: ['q', 'status', 'brandId', 'categoryId', 'storeOnly', 'sort'],
+})
 const filters = list.filters
 
 const search = ref(filters.value.q ?? '')
@@ -32,6 +34,7 @@ const { data, isPending, error, refetch, isFetching } = useProducts(() => ({
   status: filters.value.status,
   brandId: filters.value.brandId,
   categoryId: filters.value.categoryId,
+  storeOnly: filters.value.storeOnly,
   sort: filters.value.sort ?? '-updatedAt',
 }))
 
@@ -61,13 +64,20 @@ const hasFilters = computed(
       filters.value.q ||
       filters.value.status ||
       filters.value.brandId ||
-      filters.value.categoryId
+      filters.value.categoryId ||
+      filters.value.storeOnly
     ),
 )
 function clearFilters() {
   search.value = ''
   list.resetFilters()
 }
+
+/** Filtro `storeOnly` del listado (API_SPEC §11.6, ADR-0165). */
+const STORE_ONLY_OPTIONS = [
+  { value: 'true', label: 'Solo en tienda física' },
+  { value: 'false', label: 'También en línea' },
+]
 
 const columns: TableColumn<Product>[] = [
   { id: 'image', header: '' },
@@ -94,7 +104,7 @@ function openRow(_: Event, row: TableRow<Product>) {
       <UInput
         v-model="search"
         icon="i-lucide-search"
-        placeholder="Buscar por título o SKU"
+        placeholder="Buscar por título, SKU o GTIN"
         aria-label="Buscar productos"
         class="w-full sm:w-64"
       />
@@ -127,6 +137,14 @@ function openRow(_: Event, row: TableRow<Product>) {
         aria-label="Filtrar por categoría"
         class="w-full sm:w-52"
         @update:model-value="(v: string) => list.setFilter('categoryId', v)"
+      />
+      <USelect
+        :model-value="filters.storeOnly"
+        :items="STORE_ONLY_OPTIONS"
+        placeholder="Todos los canales"
+        aria-label="Filtrar por canal de venta"
+        class="w-full sm:w-48"
+        @update:model-value="(v) => list.setFilter('storeOnly', v as string)"
       />
       <USelect
         :model-value="filters.sort ?? '-updatedAt'"

@@ -5,6 +5,7 @@ import { notifySuccess } from '~/shared/api/feedback'
 import type { ApiProblem } from '~/shared/api/problem'
 import type { Money } from '~/shared/api/types'
 import { useSessionStore } from '~/shared/auth/session.store'
+import { promotionLabel } from '~/shared/status/sales'
 import { useConfirm } from '~/shared/ui/use-confirm'
 import { useDebounced } from '~/shared/utils/debounce'
 import { problemFieldErrors } from '~/shared/utils/form-errors'
@@ -36,7 +37,8 @@ const privacyNoticeVersion = String(useRuntimeConfig().public.privacyNoticeVersi
 
 const state = reactive<StoreOrderForm>({
   warehouseId: '',
-  fulfillment: 'SHIPPING',
+  // La venta de mostrador es la más común: es la opción inicial (PLAN_API_1.7 RQ-3, D-083).
+  fulfillment: 'IN_STORE',
   lines: [],
   buyer: canSearchCustomers.value ? 'customer' : 'guest',
   customerId: undefined,
@@ -66,8 +68,8 @@ watch(
   { immediate: true },
 )
 const FULFILLMENT_OPTIONS = [
-  { value: 'SHIPPING', label: 'Envío a domicilio' },
   { value: 'IN_STORE', label: 'Venta de mostrador (se entrega en la tienda)' },
+  { value: 'SHIPPING', label: 'Envío a domicilio' },
 ]
 
 // ── Productos ──
@@ -350,9 +352,14 @@ async function onSubmit(event: FormSubmitEvent<StoreOrderForm>) {
                     class="w-28"
                   />
                 </UFormField>
-                <span class="w-24 text-right font-medium">{{
-                  money(quoteLine(line.variantId)?.lineTotal)
-                }}</span>
+                <span class="w-24 text-right">
+                  <span class="font-medium">{{ money(quoteLine(line.variantId)?.lineTotal) }}</span>
+                  <span
+                    v-if="quoteLine(line.variantId)?.discountAmount.amount"
+                    class="block text-xs text-success"
+                    >−{{ money(quoteLine(line.variantId)!.discountAmount) }}</span
+                  >
+                </span>
                 <UButton
                   icon="i-lucide-trash-2"
                   color="neutral"
@@ -491,7 +498,14 @@ async function onSubmit(event: FormSubmitEvent<StoreOrderForm>) {
               :items="[
                 { label: 'Subtotal', value: money(quote.data.value.subtotal) },
                 ...(quote.data.value.discountTotal.amount
-                  ? [{ label: 'Descuento', value: `−${money(quote.data.value.discountTotal)}` }]
+                  ? [
+                      {
+                        label: quote.data.value.promotion
+                          ? `Descuento (${promotionLabel(quote.data.value.promotion)})`
+                          : 'Descuento',
+                        value: `−${money(quote.data.value.discountTotal)}`,
+                      },
+                    ]
                   : []),
                 {
                   label: 'Envío',

@@ -14,11 +14,12 @@ export const PRODUCT_STATUS: Record<ProductStatus, StatusStyle> = {
   ARCHIVED: { label: 'Archivado', color: 'neutral' },
 }
 
-/** API_SPEC §11.6 (ADR-0016). */
+/** API_SPEC §11.6 (ADR-0016, ADR-0165). */
 export const STORE_VISIBILITY: Record<StoreVisibility, StatusStyle> = {
   VISIBLE: { label: 'Visible en tienda', color: 'success' },
   HIDDEN_NO_PRICE: { label: 'Oculto: sin variante con precio', color: 'error' },
   NOT_PUBLISHED: { label: 'No publicado', color: 'neutral' },
+  STORE_ONLY: { label: 'Solo en tienda física', color: 'info' },
 }
 
 export const VARIANT_STATUS: Record<VariantStatus, StatusStyle> = {

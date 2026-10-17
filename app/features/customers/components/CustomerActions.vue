@@ -51,7 +51,10 @@ async function submit(reason: string) {
     notifySuccess(
       toast,
       'Cliente anonimizado',
-      `También se anonimizaron ${result.anonymizedOrderCount} pedidos.`,
+      `También se anonimizaron ${result.anonymizedOrderCount} pedidos` +
+        (result.anonymizedWorkOrderCount
+          ? ` y ${result.anonymizedWorkOrderCount} ${result.anonymizedWorkOrderCount === 1 ? 'orden' : 'órdenes'} de trabajo.`
+          : '.'),
     )
   } else if (kind) {
     await status.mutateAsync({ action: kind, reason, version })
@@ -96,7 +99,7 @@ async function submit(reason: string) {
       :acknowledge="open === 'anonymize' ? 'Entiendo que no se puede deshacer.' : undefined"
       :hints="{
         'active-orders-exist':
-          'Tiene pedidos sin concluir. Espera a que se entreguen, venzan o se reembolsen.',
+          'Tiene pedidos sin concluir u órdenes de trabajo sin entregar ni cancelar. Espera a que concluyan.',
       }"
       :submit="submit"
     />

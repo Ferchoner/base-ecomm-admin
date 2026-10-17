@@ -1,6 +1,6 @@
 # GAPS
 
-Comparación del contrato real (API_SOURCE_OF_TRUTH.md, commit `ff10406`; hasta el 2026-10-06, `a46829b`) con las necesidades de un backoffice e-commerce.
+Comparación del contrato real (API_SOURCE_OF_TRUTH.md, commit `7af0f1d`, v1.7.0; hasta el 2026-10-17, `ff10406`) con las necesidades de un backoffice e-commerce.
 
 Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTADO · ASSUMPTION · BLOCKER.
 
@@ -172,6 +172,32 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 - **Evidencia:** `AdminOrder.placedBy` es el ID de la cuenta de staff (API_SPEC §8.9, ADR-0161). El nombre exige `staff.manage`, que el rol Vendedor no tiene.
 - **Workaround:** el detalle muestra "Tú" cuando es la cuenta actual y el ID en otro caso; el listado filtra "Mis ventas en tienda" por `placedBy`.
 - **Pregunta pendiente:** ¿se agrega el nombre de quien colocó la orden a `AdminOrder`?
+
+### G-22 · Sin carga masiva para editar productos existentes o agregarles variantes — NO DISPONIBLE
+
+- **Evidencia:** `POST /v1/admin/catalog/product-imports` "Solo crea: no edita productos existentes" (API_SPEC §11.11, ADR-0164).
+- **Workaround:** agregar variantes o GTIN a un producto existente se hace uno por uno.
+- **Pregunta pendiente:** ¿el backend agrega una carga de variantes o de edición?
+
+### G-23 · Lista de técnicos no disponible en la API — ASSUMPTION (decidido, D-085)
+
+- **Evidencia:** `WorkOrder.technicianId` es el ID de una cuenta de staff (API_SPEC §25.1); listar al staff exige `staff.manage`, que el Vendedor no tiene.
+- **Decisión del usuario:** asumir un servicio. El backoffice supone `GET /v1/admin/work-orders/technicians` (`work-orders.read`) → `{ data: [{ id, name }] }`. Mientras responda 404, ofrece "Asignármela" y muestra el técnico como "Tú" o su ID.
+- **Pregunta pendiente:** pedir al backend el servicio; ajustar la función al contrato real cuando se publique. `receivedBy` y `actorId` siguen sin nombre (G-13, G-21).
+
+### G-24 · La búsqueda por código no trae existencias ni precio — GAP menor
+
+- **Evidencia:** `VariantLookup` trae `id`, `sku`, `gtin`, `options`, `status`, `matchedBy` y `product` (API_SPEC §11.10).
+- **Workaround:** la venta en tienda consulta el disponible con `stock-items?variantId&warehouseId`; el precio llega en la cotización.
+
+### G-25 · Impresión directa a impresora térmica — ASSUMPTION
+
+- **Evidencia:** la API no genera PDF ni imágenes (ADR-0163); el navegador imprime solo con su diálogo.
+- **Decisión:** se imprime con `window.print()` y estilos de impresión; cortar papel, abrir el cajón o imprimir sin diálogo exigiría software local, fuera de alcance.
+
+### G-26 · Hardware del lector — ASSUMPTION
+
+- **Supuesto:** lector en modo teclado (HID) con sufijo Enter; lector 2D (imager) donde se usen etiquetas compactas con Data Matrix o QR, porque un lector láser lineal no las lee.
 
 ## Comportamientos que el frontend debe respetar (no son gaps)
 

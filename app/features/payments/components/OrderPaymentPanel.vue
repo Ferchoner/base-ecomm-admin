@@ -28,12 +28,14 @@ defineProps<{ payment: OrderPayment | null }>()
         ...(payment.method
           ? [{ label: 'Cobrado con', value: PAYMENT_METHOD[payment.method] ?? payment.method }]
           : []),
+        ...(payment.note ? [{ label: 'Nota del cobro', value: payment.note }] : []),
       ]"
     />
     <ul v-if="payment.refunds.length" class="space-y-1">
       <li v-for="r in payment.refunds" :key="r.id" class="flex flex-wrap items-center gap-2">
         <StatusBadge :value="r.status" :styles="REFUND_STATUS" />
         <span>{{ formatMoney(r.amount) }}</span>
+        <span v-if="r.note" class="text-muted">· {{ r.note }}</span>
       </li>
     </ul>
     <UButton :to="`/pagos/${payment.id}`" color="neutral" variant="link" class="px-0" size="sm"

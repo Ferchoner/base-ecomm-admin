@@ -200,6 +200,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/catalog/product-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cargar productos desde un archivo CSV
+         * @description CSV en UTF-8 con una fila por variante: las filas con el mismo slug forman un producto nuevo, que queda en borrador. Columnas slug, title y sku, obligatorias; description, brand y categories (por su slug, separadas por |), gtin, weightGrams, lengthCm, widthCm, heightCm y una columna option:<nombre> por opción, opcionales. Los datos del producto van en su primera fila; las siguientes los dejan vacíos o los repiten iguales. Todo o nada: con un error en cualquier fila no se carga ninguna. Hasta 5,000 filas y 5 MB.
+         */
+        post: operations["AdminProductImportsController_import_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/catalog/products": {
         parameters: {
             query?: never;
@@ -407,7 +427,7 @@ export interface paths {
         head?: never;
         /**
          * Editar una variante
-         * @description SKU y opciones solo mientras el producto nunca se ha publicado (409 `field-locked`); peso y medidas siempre.
+         * @description SKU y opciones solo mientras el producto nunca se ha publicado (409 `field-locked`); GTIN, peso y medidas siempre.
          */
         patch: operations["AdminProductsController_updateVariant_v1"];
         trace?: never;
@@ -443,9 +463,29 @@ export interface paths {
         put?: never;
         /**
          * Reactivar una variante descontinuada
-         * @description Con el mismo SKU y opciones; 409 `duplicate-value` si otra variante activa tiene su combinación.
+         * @description Con el mismo SKU, GTIN y opciones; 409 `duplicate-value` si otra variante activa tiene su combinación o su GTIN.
          */
         post: operations["AdminProductsController_reactivateVariant_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/catalog/variants/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Buscar una variante por su código
+         * @description El SKU exacto, sin distinguir mayúsculas, o el GTIN (EAN o UPC) completado con ceros a 14 dígitos, así que un UPC y el mismo código como EAN-13 son uno. Devuelve una lista, con las variantes activas primero: un SKU de dígitos puede coincidir con el GTIN de otra variante, y varias descontinuadas pueden compartir un GTIN. Vacía si ninguna coincide.
+         */
+        get: operations["AdminVariantsController_lookUp_v1"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -563,7 +603,7 @@ export interface paths {
         put?: never;
         /**
          * Anonimizar a un cliente
-         * @description Irreversible. Vacía el email, los nombres y la contraseña (estado ANONYMIZED, email libre); borra sus sesiones, enlaces, direcciones y carritos; y quita el email de contacto y los datos de quien recibe de sus órdenes y envíos, que conservan estado, municipio y código postal. Si tiene órdenes sin concluir, espera a que terminen (ADR-0067, ADR-0145). El cliente queda consultable en `GET /v1/admin/identity/customers/{userId}`.
+         * @description Irreversible. Vacía el email, los nombres y la contraseña (estado ANONYMIZED, email libre); borra sus sesiones, enlaces, direcciones y carritos; quita el email de contacto y los datos de quien recibe de sus órdenes y envíos, que conservan estado, municipio y código postal; y anonimiza las órdenes de trabajo ligadas a él (ADR-0167). Si tiene órdenes sin concluir, u órdenes de trabajo sin entregar ni cancelar, espera a que terminen: 409 `active-orders-exist` (ADR-0067, ADR-0145). El cliente queda consultable en `GET /v1/admin/identity/customers/{userId}`.
          */
         post: operations["AnonymizationsController_anonymizeCustomer_v1"];
         delete?: never;
@@ -828,6 +868,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/inventory/receipt-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cargar entradas de mercancía desde un archivo CSV
+         * @description CSV en UTF-8 con las columnas sku, warehouse (el código del almacén, activo) y quantity (de 1 a 100,000), obligatorias, y note, opcional, en cualquier orden. Cada fila suma sus unidades a la existencia de la variante en el almacén y deja su movimiento. Todo o nada: con un error en cualquier fila no se carga ninguna. Un archivo idéntico a uno ya cargado responde 409, para no sumar dos veces. Hasta 5,000 filas y 1 MB.
+         */
+        post: operations["AdminReceiptImportsController_import_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/inventory/receipts": {
         parameters: {
             query?: never;
@@ -967,7 +1027,7 @@ export interface paths {
         put?: never;
         /**
          * Colocar un pedido en la tienda física a nombre de un cliente
-         * @description UC-ORD-13 (ADR-0161). Exige `Idempotency-Key`. Para un cliente registrado y activo, con el email verificado, cuyo contacto es el email de su cuenta; o para un invitado, con `contactEmail` y la versión del aviso de privacidad que el staff le presentó. Exactamente uno de `customerId` y `contactEmail`, y uno de `addressId` y `shippingAddress`; `addressId` solo con `customerId`. Recalcula todo sin cache; si el total difiere de `expectedTotal` responde 409 `total-mismatch` con `currentTotal`. Reserva todo el stock en el almacén `warehouseId` o nada, y crea la orden `STORE` en `PENDING_PAYMENT`, en una sola transacción; sin carrito, una orden vencida no regresa a ninguno. Si el almacén no existe o está inactivo, 404. Hasta 30 órdenes por cuenta de staff cada 10 minutos. Se audita como `orders.place`.
+         * @description UC-ORD-13 (ADR-0161). Exige `Idempotency-Key`. Para un cliente registrado y activo, con el email verificado, cuyo contacto es el email de su cuenta; o para un invitado, con `contactEmail` y la versión del aviso de privacidad que el staff le presentó. Exactamente uno de `customerId` y `contactEmail`, y uno de `addressId` y `shippingAddress`; `addressId` solo con `customerId`. Recalcula todo sin cache; si el total difiere de `expectedTotal` responde 409 `total-mismatch` con `currentTotal`. Reserva todo el stock en el almacén `warehouseId` o nada, y crea la orden `STORE` en `PENDING_PAYMENT`, en una sola transacción; sin carrito, una orden vencida no regresa a ninguno. Con `couponCode`, el cupón se revisa y cuenta su uso en la misma transacción; si no aplica, 409 `coupon-not-applicable` con `reason`, y hasta 10 códigos que nadie tiene por IP cada 15 minutos. Si el almacén no existe o está inactivo, 404. Hasta 30 órdenes por cuenta de staff cada 10 minutos. Se audita como `orders.place`.
          */
         post: operations["AdminOrdersController_place_v1"];
         delete?: never;
@@ -987,7 +1047,7 @@ export interface paths {
         put?: never;
         /**
          * Cotizar un pedido en la tienda física
-         * @description UC-ORD-12 (ADR-0161). Sin efectos secundarios y sin cache: precios, IVA, envío y disponibilidad de ahora. Las líneas no vendibles o no surtibles no son un error: se marcan y `readyToPlace` queda en `false`. Los totales suman solo las líneas vendibles. Las líneas vienen en la solicitud, sin carrito, y la disponibilidad es la del almacén `warehouseId`. Si el almacén no existe o está inactivo, o una variante no existe, 404.
+         * @description UC-ORD-12 (ADR-0161). Sin efectos secundarios y sin cache: precios, IVA, envío y disponibilidad de ahora. Las líneas no vendibles o no surtibles no son un error: se marcan y `readyToPlace` queda en `false`. Los totales suman solo las líneas vendibles. Con `couponCode`, el cupón reemplaza a la promoción automática; si no aplica, 409 `coupon-not-applicable` con `reason`, y hasta 10 códigos que nadie tiene por IP cada 15 minutos. Las líneas vienen en la solicitud, sin carrito, y la disponibilidad es la del almacén `warehouseId`. Si el almacén no existe o está inactivo, o una variante no existe, 404.
          */
         post: operations["AdminOrdersController_quote_v1"];
         delete?: never;
@@ -1324,6 +1384,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/promotions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar promociones
+         * @description UC-PRM-02. Sin sus productos, categorías y marcas, que da la consulta de cada una. El estado se calcula al momento de la consulta.
+         */
+        get: operations["AdminPromotionsController_list_v1"];
+        put?: never;
+        /**
+         * Crear una promoción
+         * @description UC-PRM-01 (ADR-0168). Un porcentaje entero (`percentage`, de 1 a 100) o un monto fijo por orden (`amountOff`), exactamente uno; sobre toda la compra, o sobre los productos, categorías (con sus subcategorías) y marcas de `targets`, que deben existir y estar en uso: un producto archivado, o una categoría o marca inactiva, no. En línea, en la tienda física o en los dos; con compra mínima opcional. Sin `startsAt`, o con uno que ya pasó, empieza ahora. Con `code` es un cupón (ADR-0168): solo aplica a quien lo da, con sus límites opcionales `usageLimit` y `oncePerCustomer`; un código que ya tiene otra promoción, aunque haya terminado, responde 409 `duplicate-value`. Se audita como `promotions.create`.
+         */
+        post: operations["AdminPromotionsController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/promotions/{promotionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar una promoción
+         * @description UC-PRM-02. Con sus productos, categorías y marcas, cada uno con su nombre actual en el catálogo.
+         */
+        get: operations["AdminPromotionsController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Editar una promoción
+         * @description UC-PRM-03 (ADR-0168). Solo cambian los campos enviados; `percentage` o `amountOff` reemplazan el descuento, y `targets`, la lista completa. Antes de su inicio se cambia todo; ya iniciada, solo `name`, `endsAt`, que debe ser posterior al momento actual, y `usageLimit`, nunca por debajo de `uses`: otro cambio responde 409 `invalid-state-transition`, igual que editar una terminada. Un código que ya tiene otra promoción responde 409 `duplicate-value`. Un producto, categoría o marca nuevo debe existir y estar en uso; los que ya tenía se quedan aunque ya no lo estén. Sin cambios, no se guarda ni se audita. Se audita como `promotions.update`.
+         */
+        patch: operations["AdminPromotionsController_update_v1"];
+        trace?: never;
+    };
+    "/v1/admin/promotions/{promotionId}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Terminar una promoción
+         * @description UC-PRM-03 (ADR-0168). Una vigente deja de aplicar ahora, y una programada ya no empieza; se conserva, porque las órdenes guardan cuál recibieron. Una terminada responde 409 `invalid-state-transition`. Se audita como `promotions.end`.
+         */
+        post: operations["AdminPromotionsController_end_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/shipping/method": {
         parameters: {
             query?: never;
@@ -1466,6 +1594,194 @@ export interface paths {
          * @description Desde `DELIVERY_FAILED`; es definitivo. El stock que regresa se reintegra con `POST /v1/admin/orders/{orderId}/restocks` (ADR-0053). Se audita como `shipments.return`, con la nota como motivo.
          */
         post: operations["AdminShipmentsController_markReturned_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/store-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar los datos de la tienda para el ticket
+         * @description Nombre, dirección, RFC, teléfono y leyenda de la tienda, iguales para todas las tiendas, de las variables de configuración: cambiarlos exige reiniciar la API (ADR-0163). El ticket no es un comprobante fiscal, y su leyenda por defecto lo dice.
+         */
+        get: operations["AdminStoreProfileController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/work-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar y buscar órdenes de trabajo
+         * @description UC-WRK-02. Sin historial ni textos largos. `q` busca el folio exacto, o parte del nombre o del teléfono del cliente, o del número de serie.
+         */
+        get: operations["AdminWorkOrdersController_list_v1"];
+        put?: never;
+        /**
+         * Recibir un equipo: crear la orden de trabajo
+         * @description UC-WRK-01 (ADR-0166). Exige `Idempotency-Key`, para que un doble envío no imprima dos folios. Nace en `RECEIVED`, con el siguiente folio consecutivo, en la tienda del almacén `warehouseId` y a nombre de quien la recibe. El nombre y el teléfono del cliente son obligatorios, aunque se ligue un cliente registrado con `customerId`. Si el almacén no existe o está inactivo, si `customerId` no es de un cliente activo o si `technicianId` no es de una cuenta de staff activa, 404. Se audita como `work-orders.create`, sin los datos personales.
+         */
+        post: operations["AdminWorkOrdersController_receive_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/work-orders/{workOrderId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar una orden de trabajo, con su historial
+         * @description UC-WRK-02. Todos sus datos y el historial de estados.
+         */
+        get: operations["AdminWorkOrdersController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Corregir los datos y registrar el diagnóstico y el trabajo
+         * @description UC-WRK-03 (ADR-0166). Solo cambian los campos enviados. Una orden entregada o cancelada ya no se edita: 409 `invalid-state-transition`. Un cliente ligado nuevo debe estar activo, y un técnico nuevo, ser una cuenta de staff activa; si no, 404. Sin cambios, no se guarda ni se audita. Se audita como `work-orders.update`, sin los datos personales.
+         */
+        patch: operations["AdminWorkOrdersController_update_v1"];
+        trace?: never;
+    };
+    "/v1/admin/work-orders/{workOrderId}/anonymize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Anonimizar una orden de trabajo de un cliente sin cuenta
+         * @description Por una solicitud recibida fuera del sistema (BR-PRIV-02, ADR-0167): borra el nombre, el teléfono, el email, el número de serie y los textos que pueden citar al cliente; conserva el folio, los estados, el equipo, el costo estimado y las ventas. Solo una orden de trabajo entregada o cancelada; abierta, o ya anonimizada, 409 `invalid-state-transition`. Las órdenes de trabajo de un cliente con cuenta se anonimizan con su cuenta. Se audita como `work-orders.anonymize` con el motivo y sin los valores, y borra la respuesta guardada al recibir el equipo.
+         */
+        post: operations["AdminWorkOrdersController_anonymize_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/work-orders/{workOrderId}/blocked-data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Consultar los datos personales bloqueados de una orden de trabajo
+         * @description Para atender una reclamación o un requerimiento (ADR-0167), como en los pedidos (ADR-0152): los datos del cliente, el número de serie y los textos, como se guardaron. Solo en una orden de trabajo bloqueada (`blockedAt`); en una que no lo está, cuyos datos ya se ven, o en una anonimizada, que ya no los tiene, 409 `invalid-state-transition`. Se audita como `work-orders.read-blocked-data` con el motivo y sin los datos; si la auditoría falla, no se devuelve nada.
+         */
+        post: operations["AdminWorkOrdersController_readBlockedData_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/work-orders/{workOrderId}/sales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ligar una venta de mostrador que cobra la orden de trabajo
+         * @description UC-WRK-05 (ADR-0167). Solo una orden colocada en la tienda física (`channel` `STORE`); otra, o una que no existe, 404. Una venta vencida, cancelada o reembolsada no se liga: 409 `sale-not-linkable` con `saleStatus`. Una venta cobra una sola orden de trabajo: si ya está ligada, a esta o a otra, 409 `duplicate-value`. Una orden de trabajo entregada o cancelada ya no liga ventas: 409 `invalid-state-transition`. La orden de trabajo no cobra: la venta tiene su propio pago, y entregar no lo exige. Se audita como `work-orders.sale-link`.
+         */
+        post: operations["AdminWorkOrdersController_linkSale_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/work-orders/{workOrderId}/sales/{orderId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Desligar una venta ligada por error
+         * @description UC-WRK-05 (ADR-0167). Con la versión leída de la orden de trabajo en `version`. Una venta que la orden de trabajo no tiene, 404; una orden de trabajo entregada o cancelada, 409 `invalid-state-transition`. Se audita como `work-orders.sale-unlink`.
+         */
+        delete: operations["AdminWorkOrdersController_unlinkSale_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/work-orders/{workOrderId}/service-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar los datos para imprimir la nota de servicio
+         * @description UC-WRK-06 (ADR-0167). La orden de trabajo con sus ventas, los datos de la tienda, los mismos del ticket (ADR-0163), y las condiciones del servicio de `WORK_ORDER_FOOTER`, vacías hasta que el negocio las defina. La línea de firma la dibuja el frontend; la firma no se guarda.
+         */
+        get: operations["AdminWorkOrdersController_serviceNote_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/work-orders/{workOrderId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cambiar el estado de una orden de trabajo
+         * @description UC-WRK-04 (ADR-0166). Hacia adelante, aunque salte pasos (`RECEIVED` → `DIAGNOSED` → `IN_REPAIR` → `READY` → `DELIVERED`), o a `CANCELLED` con `note`, antes de `DELIVERED`. Nunca regresa: un estado que no está adelante, o una orden entregada o cancelada, responde 409 `invalid-state-transition`. Entregar no exige pago (ADR-0165). El historial guarda quién, cuándo y la nota. Se audita como `work-orders.status`, con la nota como motivo.
+         */
+        post: operations["AdminWorkOrdersController_changeStatus_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1807,7 +2123,7 @@ export interface paths {
         put?: never;
         /**
          * Cotizar el carrito de un invitado
-         * @description Sin efectos secundarios y sin cache: precios, IVA, envío y disponibilidad de ahora. Las líneas no vendibles o no surtibles no son un error: se marcan y `readyToPlace` queda en `false`. Los totales suman solo las líneas vendibles.
+         * @description Sin efectos secundarios y sin cache: precios, IVA, envío y disponibilidad de ahora. Las líneas no vendibles o no surtibles no son un error: se marcan y `readyToPlace` queda en `false`. Los totales suman solo las líneas vendibles. Con `couponCode`, el cupón reemplaza a la promoción automática; si no aplica, 409 `coupon-not-applicable` con `reason`, y hasta 10 códigos que nadie tiene por IP cada 15 minutos.
          */
         post: operations["CheckoutController_quote_v1"];
         delete?: never;
@@ -2023,7 +2339,7 @@ export interface paths {
         put?: never;
         /**
          * Cotizar mi carrito
-         * @description Sin efectos secundarios y sin cache: precios, IVA, envío y disponibilidad de ahora. Las líneas no vendibles o no surtibles no son un error: se marcan y `readyToPlace` queda en `false`. Los totales suman solo las líneas vendibles. Sin carrito activo, 409 `empty-cart`.
+         * @description Sin efectos secundarios y sin cache: precios, IVA, envío y disponibilidad de ahora. Las líneas no vendibles o no surtibles no son un error: se marcan y `readyToPlace` queda en `false`. Los totales suman solo las líneas vendibles. Con `couponCode`, el cupón reemplaza a la promoción automática; si no aplica, 409 `coupon-not-applicable` con `reason`, y hasta 10 códigos que nadie tiene por IP cada 15 minutos. Sin carrito activo, 409 `empty-cart`.
          */
         post: operations["MeCheckoutController_quote_v1"];
         delete?: never;
@@ -2067,7 +2383,7 @@ export interface paths {
         put?: never;
         /**
          * Colocar mi orden
-         * @description Exige `Idempotency-Key`. Recalcula todo sin cache; si el total difiere de `expectedTotal` responde 409 `total-mismatch` con `currentTotal` y no crea la orden. Reserva todo el stock o nada, crea la orden en `PENDING_PAYMENT` y deja el carrito `CHECKED_OUT`, en una sola transacción. Hasta 10 órdenes por usuario o carrito cada 10 minutos. Usa el carrito activo del cliente, que necesita el email verificado; el contacto es el email de la cuenta. Exactamente uno de `addressId` y `shippingAddress`.
+         * @description Exige `Idempotency-Key`. Recalcula todo sin cache; si el total difiere de `expectedTotal` responde 409 `total-mismatch` con `currentTotal` y no crea la orden. Con `couponCode`, el cupón se vuelve a revisar y cuenta su uso en la misma transacción: si no aplica, 409 `coupon-not-applicable` con `reason`, y hasta 10 códigos que nadie tiene por IP cada 15 minutos. Reserva todo el stock o nada, crea la orden en `PENDING_PAYMENT` y deja el carrito `CHECKED_OUT`, en una sola transacción. Hasta 10 órdenes por usuario o carrito cada 10 minutos. Usa el carrito activo del cliente, que necesita el email verificado; el contacto es el email de la cuenta. Exactamente uno de `addressId` y `shippingAddress`.
          */
         post: operations["MeOrdersController_place_v1"];
         delete?: never;
@@ -2167,7 +2483,7 @@ export interface paths {
         put?: never;
         /**
          * Colocar la orden de un invitado
-         * @description Exige `Idempotency-Key`. Recalcula todo sin cache; si el total difiere de `expectedTotal` responde 409 `total-mismatch` con `currentTotal` y no crea la orden. Reserva todo el stock o nada, crea la orden en `PENDING_PAYMENT` y deja el carrito `CHECKED_OUT`, en una sola transacción. Hasta 10 órdenes por usuario o carrito cada 10 minutos. Además, hasta 5 órdenes de invitado por email de contacto cada hora. El invitado consulta su pedido con el email de contacto y el código público.
+         * @description Exige `Idempotency-Key`. Recalcula todo sin cache; si el total difiere de `expectedTotal` responde 409 `total-mismatch` con `currentTotal` y no crea la orden. Con `couponCode`, el cupón se vuelve a revisar y cuenta su uso en la misma transacción: si no aplica, 409 `coupon-not-applicable` con `reason`, y hasta 10 códigos que nadie tiene por IP cada 15 minutos. Reserva todo el stock o nada, crea la orden en `PENDING_PAYMENT` y deja el carrito `CHECKED_OUT`, en una sola transacción. Hasta 10 órdenes por usuario o carrito cada 10 minutos. Además, hasta 5 órdenes de invitado por email de contacto cada hora. El invitado consulta su pedido con el email de contacto y el código público.
          */
         post: operations["OrdersController_place_v1"];
         delete?: never;
@@ -2316,7 +2632,7 @@ export interface components {
             /** @description Staff con contraseña temporal, que solo puede cambiarla. */
             mustChangePassword: boolean;
             /** @description Permisos de los roles del staff; vacío en un cliente. */
-            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
+            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
             /** @description Roles del staff; vacío en un cliente. */
             roles: components["schemas"]["StaffRoleDto"][];
             /**
@@ -2696,7 +3012,7 @@ export interface components {
              * @description Cuándo se entregó; `null` si no ha ocurrido.
              */
             deliveredAt: string | null;
-            /** @description Siempre 0 en el MVP. */
+            /** @description Lo que la promoción quitó a las líneas, la suma de sus `discountAmount`; 0 sin promoción (ADR-0168). */
             discountTotal: components["schemas"]["MoneyDto"];
             /** @description Plazo estimado de entrega, desde la confirmación del pago (ADR-0083); `null` en una orden `IN_STORE`. */
             estimatedDelivery: components["schemas"]["EstimatedDeliveryDto"] | null;
@@ -2705,6 +3021,8 @@ export interface components {
              * @description Cuándo venció sin pago; `null` si no ha ocurrido.
              */
             expiredAt: string | null;
+            /** @description El almacén del que salieron los productos, para el ticket (ADR-0163): el de una venta en la tienda, o el del envío de una orden en línea; `null` mientras esta no tenga envío. */
+            fulfilledFrom: components["schemas"]["FulfillmentWarehouseDto"] | null;
             /**
              * @description `SHIPPING`: se envía a su dirección. `IN_STORE`: el staff la entrega en la tienda física al pagarse, sin dirección, sin costo de envío y sin plazo de entrega (ADR-0161).
              * @enum {string}
@@ -2744,6 +3062,8 @@ export interface components {
              * @description La cuenta de staff que colocó una orden `STORE`; `null` en una `ONLINE`.
              */
             placedBy: string | null;
+            /** @description La promoción de su descuento, con el nombre que vio el cliente, para el ticket; `null` sin descuento (ADR-0168). */
+            promotion: components["schemas"]["AppliedPromotionDto"] | null;
             /**
              * @description Código público: con él y el email, quien compra consulta su pedido.
              * @example K7M4-Q9XA
@@ -2789,6 +3109,8 @@ export interface components {
             warehouseId: string | null;
         };
         AdminOrderLineDto: {
+            /** @description Lo que la promoción de la orden quitó a la línea; 0 sin ella (ADR-0168). */
+            discountAmount: components["schemas"]["MoneyDto"];
             /** Format: uuid */
             id: string;
             /**
@@ -2796,7 +3118,7 @@ export interface components {
              * @example 1
              */
             lineNumber: number;
-            /** @description Precio por cantidad, con IVA. */
+            /** @description Precio por cantidad, con IVA, antes del descuento. */
             lineTotal: components["schemas"]["MoneyDto"];
             /**
              * @description El nombre del producto al colocar la orden.
@@ -2807,7 +3129,7 @@ export interface components {
             quantity: number;
             /** @example CAM-LIN-AZ-M */
             sku: string;
-            /** @description IVA contenido en `lineTotal`. */
+            /** @description IVA contenido en `lineTotal` menos `discountAmount` (ADR-0168). */
             taxAmount: components["schemas"]["MoneyDto"];
             /**
              * @description Tasa de IVA en puntos base.
@@ -2847,6 +3169,8 @@ export interface components {
              * @enum {string|null}
              */
             method: "CASH" | "CARD_TERMINAL" | "TRANSFER" | null;
+            /** @description La nota que el staff escribió al registrar el pago manual (ADR-0163); `null` sin ella, o si no se ha cobrado así. La anonimización la conserva, así que no lleva datos sensibles. */
+            note: string | null;
             /**
              * @description `MANUAL` es el pago en la tienda (ADR-0055); PayPal aún no está habilitado (ADR-0040).
              * @enum {string}
@@ -2932,7 +3256,7 @@ export interface components {
              * @description Cuándo se entregó; `null` si no ha ocurrido.
              */
             deliveredAt: string | null;
-            /** @description Siempre 0 en el MVP. */
+            /** @description Lo que la promoción quitó a las líneas, la suma de sus `discountAmount`; 0 sin promoción (ADR-0168). */
             discountTotal: components["schemas"]["MoneyDto"];
             /** @description Plazo estimado de entrega, desde la confirmación del pago (ADR-0083); `null` en una orden `IN_STORE`. */
             estimatedDelivery: components["schemas"]["EstimatedDeliveryDto"] | null;
@@ -3113,11 +3437,13 @@ export interface components {
              * @enum {string}
              */
             status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+            /** @description Si solo se vende en la tienda física, como un servicio: nunca en línea (ADR-0165). */
+            storeOnly: boolean;
             /**
-             * @description Si la tienda lo muestra: `HIDDEN_NO_PRICE` es un producto publicado sin variantes vendibles (activas y con precio vigente).
+             * @description Si la tienda lo muestra: `HIDDEN_NO_PRICE` es un producto publicado sin variantes vendibles (activas y con precio vigente), y `STORE_ONLY` uno publicado que solo se vende en la tienda física (ADR-0165).
              * @enum {string}
              */
-            storeVisibility: "VISIBLE" | "HIDDEN_NO_PRICE" | "NOT_PUBLISHED";
+            storeVisibility: "VISIBLE" | "HIDDEN_NO_PRICE" | "NOT_PUBLISHED" | "STORE_ONLY";
             /** @example Camisa de lino */
             title: string;
             /** Format: date-time */
@@ -3210,6 +3536,11 @@ export interface components {
         AdminVariantDto: {
             /** @description SKU y opciones editables: el producto nunca se ha publicado (ADR-0068). */
             editableIdentity: boolean;
+            /**
+             * @description Código de barras del fabricante (EAN o UPC), como se capturó; `null` si no tiene (ADR-0163).
+             * @example 7501055363063
+             */
+            gtin: string | null;
             /** @description Centímetros, un decimal; `null` si no se dio. */
             heightCm: number | null;
             /** Format: uuid */
@@ -3264,6 +3595,20 @@ export interface components {
              * @example ARCO-2026-0042
              */
             reason: string;
+        };
+        AppliedPromotionDto: {
+            /**
+             * @description El código del cupón, en mayúsculas; `null` en una promoción automática (ADR-0168).
+             * @example BUENFIN
+             */
+            code: string | null;
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description El nombre de la promoción, como lo ve el cliente.
+             * @example Buen Fin 10%
+             */
+            name: string;
         };
         AuditEntryDto: {
             /**
@@ -3395,6 +3740,17 @@ export interface components {
              */
             reason: string;
         };
+        BlockedWorkOrderDataDto: {
+            accessories: string | null;
+            customerEmail: string | null;
+            customerName: string | null;
+            customerPhone: string | null;
+            diagnosis: string | null;
+            equipmentCondition: string | null;
+            reportedFault: string | null;
+            serialNumber: string | null;
+            workPerformed: string | null;
+        };
         CancelOrderDto: {
             /**
              * @description Motivo, de 1 a 500 caracteres. Queda en el historial y en la auditoría: no escribas datos personales.
@@ -3514,8 +3870,19 @@ export interface components {
              */
             newPassword: string;
         };
+        ChangeWorkOrderStatusDto: {
+            /** @description Nota del cambio, de 1 a 500 caracteres; obligatoria para `CANCELLED`. Queda en el historial y en la auditoría: no escribas datos personales. */
+            note?: string | null;
+            /**
+             * @description Uno adelante del actual, aunque salte pasos: `RECEIVED` → `DIAGNOSED` → `IN_REPAIR` → `READY` → `DELIVERED`; o `CANCELLED` antes de `DELIVERED` (ADR-0166).
+             * @enum {string}
+             */
+            status: "RECEIVED" | "DIAGNOSED" | "IN_REPAIR" | "READY" | "DELIVERED" | "CANCELLED";
+            /** @description Versión leída (bloqueo optimista). */
+            version: number;
+        };
         CheckoutQuoteDto: {
-            /** @description Siempre 0 en el MVP. */
+            /** @description Lo que la promoción quita a las líneas vendibles, la suma de sus `discountAmount`; 0 sin promoción (ADR-0168). */
             discountTotal: components["schemas"]["MoneyDto"];
             /** @description Plazo estimado de entrega, desde la confirmación del pago (ADR-0083); `null` en una cotización del staff con `fulfillment` `IN_STORE` (ADR-0161). */
             estimatedDelivery: components["schemas"]["EstimatedDeliveryDto"] | null;
@@ -3525,6 +3892,8 @@ export interface components {
             grandTotal: components["schemas"]["MoneyDto"];
             /** @description Las líneas del carrito, también las que no se pueden comprar, marcadas. */
             lines: components["schemas"]["CheckoutQuoteLineDto"][];
+            /** @description La promoción automática que más descuenta, en este canal y en este momento; `null` si ninguna quita algo (ADR-0168). */
+            promotion: components["schemas"]["AppliedPromotionDto"] | null;
             /** @description Todas las líneas son vendibles y surtibles. */
             readyToPlace: boolean;
             /** @description Con IVA incluido; 0 desde `freeShippingThreshold`. */
@@ -3539,7 +3908,9 @@ export interface components {
         CheckoutQuoteLineDto: {
             /** @description Si la cantidad pedida puede surtirse, sin revelar existencias (ADR-0061). */
             canFulfill: boolean;
-            /** @description Precio por cantidad; `null` si la línea no es vendible, y entonces no suma. */
+            /** @description Lo que la promoción de la cotización quita a la línea, 0 sin ella (ADR-0168); `null` si la línea no es vendible. */
+            discountAmount: components["schemas"]["MoneyDto"] | null;
+            /** @description Precio por cantidad, antes del descuento; `null` si la línea no es vendible, y entonces no suma. */
             lineTotal: components["schemas"]["MoneyDto"] | null;
             /**
              * @description Los valores de las opciones de la variante, por nombre.
@@ -3558,7 +3929,7 @@ export interface components {
             sellable: boolean;
             /** @example CAM-LIN-AZ-M */
             sku: string;
-            /** @description IVA contenido en `lineTotal`, redondeado por línea. */
+            /** @description IVA contenido en `lineTotal` menos `discountAmount`, redondeado por línea (ADR-0168). */
             taxAmount: components["schemas"]["MoneyDto"] | null;
             /**
              * @description Tasa de IVA en puntos base.
@@ -3685,11 +4056,54 @@ export interface components {
              * @example camisa-lino
              */
             slug?: string;
+            /** @description Si solo se vende en la tienda física, como un servicio (ADR-0165); `false` por defecto. */
+            storeOnly?: boolean;
             /**
              * @description De 1 a 200 caracteres.
              * @example Camisa de lino
              */
             title: string;
+        };
+        CreatePromotionDto: {
+            /** @description Monto fijo de descuento en centavos, una vez por orden, repartido entre las líneas a las que aplica. Exactamente uno de `percentage` y `amountOff`. */
+            amountOff?: number;
+            /** @description Dónde aplica: `ONLINE`, `STORE` o los dos; por defecto, los dos. */
+            channels?: ("ONLINE" | "STORE")[];
+            /**
+             * @description Código de 4 a 30 letras, números o guiones, que se guarda en mayúsculas: con él es un cupón, que solo aplica a quien lo da; sin él, la promoción se aplica sola. Único, también entre las promociones terminadas (ADR-0168).
+             * @example BUENFIN
+             */
+            code?: string | null;
+            /**
+             * Format: date-time
+             * @description Fin, excluido, fecha y hora con zona horaria, posterior al inicio; `null` o ausente, sin fin.
+             * @example 2026-11-17T06:00:00.000Z
+             */
+            endsAt?: string | null;
+            /** @description Compra mínima en centavos, sobre el subtotal con IVA de la orden; `null` o ausente, sin mínimo. */
+            minimumSubtotal?: number | null;
+            /**
+             * @description Nombre de 1 a 120 caracteres; lo ve el cliente en su orden y en el ticket.
+             * @example Buen Fin 10%
+             */
+            name: string;
+            /**
+             * @description Si cada cliente usa el cupón una sola vez, contado por el email de contacto de sus órdenes; por defecto `false`.
+             *     Solo con `code`.
+             */
+            oncePerCustomer?: boolean;
+            /** @description Porcentaje entero de descuento, de 1 a 100, sobre las líneas a las que aplica. Exactamente uno de `percentage` y `amountOff`. */
+            percentage?: number;
+            /**
+             * Format: date-time
+             * @description Inicio, fecha y hora con zona horaria. Ausente o no posterior al momento actual: empieza ahora.
+             * @example 2026-11-13T06:00:00.000Z
+             */
+            startsAt?: string | null;
+            /** @description Hasta 100 productos, categorías (con sus subcategorías) y marcas, cada uno una vez; sin ellos, o vacío, aplica a toda la compra. */
+            targets?: components["schemas"]["PromotionTargetDto"][];
+            /** @description Cuántas veces se puede usar el cupón en total; `null` o ausente, sin límite. Solo con `code`. */
+            usageLimit?: number | null;
         };
         CreateRoleDto: {
             /**
@@ -3709,7 +4123,7 @@ export interface components {
              *       "orders.read"
              *     ]
              */
-            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
+            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
         };
         CreateStaffDto: {
             /**
@@ -3732,6 +4146,11 @@ export interface components {
             roleIds: string[];
         };
         CreateVariantDto: {
+            /**
+             * @description Código de barras del fabricante (EAN o UPC): 8, 12, 13 o 14 dígitos con su dígito verificador; sin repetirse entre variantes activas (ADR-0163). Opcional.
+             * @example 7501055363063
+             */
+            gtin?: string | null;
             /** @description Centímetros, mayor que 0, un decimal. */
             heightCm?: number | null;
             /** @description Centímetros, mayor que 0, un decimal. */
@@ -3800,12 +4219,24 @@ export interface components {
              * @example 3
              */
             anonymizedOrderCount: number;
+            /**
+             * @description Órdenes de trabajo ligadas al cliente que se anonimizaron (ADR-0167).
+             * @example 1
+             */
+            anonymizedWorkOrderCount: number;
             /** Format: uuid */
             userId: string;
         };
         CustomerListDto: {
             data: components["schemas"]["AdminCustomerDto"][];
             meta: components["schemas"]["PageMetaDto"];
+        };
+        CustomerQuoteDto: {
+            /**
+             * @description El código de un cupón, sin distinguir mayúsculas (ADR-0168). Reemplaza a la promoción automática, aunque descuente menos; si no aplica, 409 `coupon-not-applicable` con `reason`, sin otra promoción. Los códigos que nadie tiene se limitan por IP.
+             * @example BUENFIN
+             */
+            couponCode?: string | null;
         };
         DispatchShipmentDto: {
             /**
@@ -3822,6 +4253,10 @@ export interface components {
              * @enum {boolean}
              */
             emailVerified: true;
+        };
+        EndPromotionDto: {
+            /** @description Versión leída (bloqueo optimista). */
+            version: number;
         };
         EstimatedDeliveryDto: {
             /**
@@ -3903,6 +4338,14 @@ export interface components {
              */
             message: string;
         };
+        FulfillmentWarehouseDto: {
+            /** @example TIENDA-CENTRO */
+            code: string;
+            /** Format: uuid */
+            id: string;
+            /** @example Tienda Centro */
+            name: string;
+        };
         GeoMunicipalityDto: {
             /**
              * @description Clave del INEGI, 5 dígitos: los 2 del estado y los 3 del municipio.
@@ -3955,6 +4398,11 @@ export interface components {
              * @description El `cartId` del carrito de invitado.
              */
             cartId: string;
+            /**
+             * @description El código de un cupón, sin distinguir mayúsculas (ADR-0168). Reemplaza a la promoción automática, aunque descuente menos; si no aplica, 409 `coupon-not-applicable` con `reason`, sin otra promoción. Los códigos que nadie tiene se limitan por IP.
+             * @example BUENFIN
+             */
+            couponCode?: string | null;
         };
         GuestReorderDto: {
             /**
@@ -3999,6 +4447,51 @@ export interface components {
         ImageOrderDto: {
             /** @description Todas las imágenes del producto, cada una una vez, en el nuevo orden. */
             imageIds: string[];
+        };
+        LinkSaleDto: {
+            /**
+             * Format: uuid
+             * @description Una orden colocada en la tienda física (`channel` `STORE`) que no venció, ni se canceló, ni se reembolsó.
+             */
+            orderId: string;
+            /** @description Versión leída de la orden de trabajo (bloqueo optimista). */
+            version: number;
+        };
+        LinkedSaleDto: {
+            grandTotal: components["schemas"]["MoneyDto"];
+            /** Format: date-time */
+            linkedAt: string;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que la ligó.
+             */
+            linkedBy: string;
+            /** Format: uuid */
+            orderId: string;
+            /** @description Número interno de la venta, para el staff (ADR-0049). */
+            orderNumber: number;
+            /**
+             * @description `true` si la tienda ya tiene su dinero: pagada, por surtir, enviada o entregada. Una pendiente de pago, vencida,
+             *     cancelada o reembolsada no lo está.
+             */
+            paid: boolean;
+            /**
+             * Format: date-time
+             * @description Cuándo se pagó; `null` si no ha ocurrido.
+             */
+            paidAt: string | null;
+            /** Format: date-time */
+            placedAt: string;
+            /**
+             * @description Código público de la venta, con guion.
+             * @example K7M4-Q9XA
+             */
+            publicCode: string;
+            /**
+             * @description Estado de la venta en Ordering, como en `AdminOrder`.
+             * @example PAID
+             */
+            status: string;
         };
         LoginDto: {
             /**
@@ -4109,7 +4602,7 @@ export interface components {
              * @description Cuándo se entregó; `null` si no ha ocurrido.
              */
             deliveredAt: string | null;
-            /** @description Siempre 0 en el MVP. */
+            /** @description Lo que la promoción quitó a las líneas, la suma de sus `discountAmount`; 0 sin promoción (ADR-0168). */
             discountTotal: components["schemas"]["MoneyDto"];
             /** @description Plazo estimado de entrega, desde la confirmación del pago (ADR-0083); `null` en una orden `IN_STORE`. */
             estimatedDelivery: components["schemas"]["EstimatedDeliveryDto"] | null;
@@ -4146,6 +4639,8 @@ export interface components {
              * @description Cuándo se colocó.
              */
             placedAt: string;
+            /** @description La promoción de su descuento, con el nombre que vio el cliente; `null` sin descuento (ADR-0168). */
+            promotion: components["schemas"]["AppliedPromotionDto"] | null;
             /**
              * @description Código público: con él y el email, quien compra consulta su pedido.
              * @example K7M4-Q9XA
@@ -4182,12 +4677,14 @@ export interface components {
             taxTotal: components["schemas"]["MoneyDto"];
         };
         OrderLineDto: {
+            /** @description Lo que la promoción de la orden quitó a la línea; 0 sin ella (ADR-0168). */
+            discountAmount: components["schemas"]["MoneyDto"];
             /**
              * @description Número de la línea en la orden, desde 1.
              * @example 1
              */
             lineNumber: number;
-            /** @description Precio por cantidad, con IVA. */
+            /** @description Precio por cantidad, con IVA, antes del descuento. */
             lineTotal: components["schemas"]["MoneyDto"];
             /**
              * @description El nombre del producto al colocar la orden.
@@ -4198,7 +4695,7 @@ export interface components {
             quantity: number;
             /** @example CAM-LIN-AZ-M */
             sku: string;
-            /** @description IVA contenido en `lineTotal`. */
+            /** @description IVA contenido en `lineTotal` menos `discountAmount` (ADR-0168). */
             taxAmount: components["schemas"]["MoneyDto"];
             /**
              * @description Tasa de IVA en puntos base.
@@ -4245,6 +4742,8 @@ export interface components {
             createdAt: string;
             /** Format: uuid */
             id: string;
+            /** @description La nota que el staff escribió al registrar el reembolso manual (ADR-0163); `null` sin ella. */
+            note: string | null;
             /**
              * @description `PENDING` hasta que el dinero se devuelve; `COMPLETED` o `FAILED` después.
              * @enum {string}
@@ -4291,7 +4790,7 @@ export interface components {
              * @description Cuándo se entregó; `null` si no ha ocurrido.
              */
             deliveredAt: string | null;
-            /** @description Siempre 0 en el MVP. */
+            /** @description Lo que la promoción quitó a las líneas, la suma de sus `discountAmount`; 0 sin promoción (ADR-0168). */
             discountTotal: components["schemas"]["MoneyDto"];
             /** @description Plazo estimado de entrega, desde la confirmación del pago (ADR-0083); `null` en una orden `IN_STORE`. */
             estimatedDelivery: components["schemas"]["EstimatedDeliveryDto"] | null;
@@ -4430,6 +4929,8 @@ export interface components {
              * @enum {string|null}
              */
             method: "CASH" | "CARD_TERMINAL" | "TRANSFER" | null;
+            /** @description La nota que el staff escribió al registrar el pago manual (ADR-0163); `null` sin ella o en los demás intentos. La anonimización la conserva, así que no lleva datos sensibles. */
+            note: string | null;
             /** @description Comprobante de la tienda en un pago manual. */
             providerReference: string | null;
             /** @description Staff que registró el pago manual. */
@@ -4497,7 +4998,8 @@ export interface components {
             /** @description Si el ciclo está activo; si no, los datos se conservan. */
             enabled: boolean;
             /**
-             * @description Meses que los datos personales de un pedido siguen visibles después de que concluye; después se bloquean.
+             * @description Meses que los datos personales de un pedido siguen visibles después de que concluye, y los de una orden de trabajo
+             *     después de que se entrega o se cancela; después se bloquean.
              * @example 12
              */
             operationalMonths: number;
@@ -4508,6 +5010,11 @@ export interface components {
              * @description Una dirección guardada del cliente; exactamente uno de `addressId` y `shippingAddress`.
              */
             addressId?: string;
+            /**
+             * @description El código de un cupón, sin distinguir mayúsculas (ADR-0168). Reemplaza a la promoción automática, aunque descuente menos; si no aplica, 409 `coupon-not-applicable` con `reason`, sin otra promoción. Los códigos que nadie tiene se limitan por IP.
+             * @example BUENFIN
+             */
+            couponCode?: string | null;
             /**
              * @description `grandTotal.amount` de la cotización aceptada, en centavos.
              * @example 129700
@@ -4528,6 +5035,11 @@ export interface components {
              * @example cliente@example.com
              */
             contactEmail: string;
+            /**
+             * @description El código de un cupón, sin distinguir mayúsculas (ADR-0168). Reemplaza a la promoción automática, aunque descuente menos; si no aplica, 409 `coupon-not-applicable` con `reason`, sin otra promoción. Los códigos que nadie tiene se limitan por IP.
+             * @example BUENFIN
+             */
+            couponCode?: string | null;
             /**
              * @description `grandTotal.amount` de la cotización aceptada, en centavos.
              * @example 129700
@@ -4553,6 +5065,11 @@ export interface components {
              * @example cliente@example.com
              */
             contactEmail?: string;
+            /**
+             * @description El código de un cupón, sin distinguir mayúsculas (ADR-0168). Reemplaza a la promoción automática, aunque descuente menos; si no aplica, 409 `coupon-not-applicable` con `reason`, sin otra promoción. Los códigos que nadie tiene se limitan por IP.
+             * @example BUENFIN
+             */
+            couponCode?: string | null;
             /**
              * Format: uuid
              * @description Un cliente registrado y activo, con el email verificado: el contacto es el email de su cuenta. Exactamente uno de `customerId` y `contactEmail`.
@@ -4739,7 +5256,7 @@ export interface components {
              * @example /problems/not-found
              * @enum {string}
              */
-            type: "/problems/validation-error" | "/problems/password-policy-violation" | "/problems/invalid-or-expired-token" | "/problems/idempotency-key-missing" | "/problems/unauthenticated" | "/problems/invalid-credentials" | "/problems/invalid-refresh-token" | "/problems/invalid-webhook-signature" | "/problems/forbidden" | "/problems/email-not-verified" | "/problems/staff-cannot-purchase" | "/problems/password-change-required" | "/problems/manual-payments-disabled" | "/problems/not-found" | "/problems/version-conflict" | "/problems/total-mismatch" | "/problems/insufficient-stock" | "/problems/variant-not-sellable" | "/problems/invalid-state-transition" | "/problems/duplicate-value" | "/problems/resource-in-use" | "/problems/price-period-conflict" | "/problems/idempotency-request-in-progress" | "/problems/cart-not-active" | "/problems/cart-line-limit-reached" | "/problems/image-limit-reached" | "/problems/address-limit-reached" | "/problems/last-superadmin" | "/problems/restock-not-allowed" | "/problems/active-orders-exist" | "/problems/field-locked" | "/problems/empty-cart" | "/problems/source-cart-unavailable" | "/problems/idempotency-key-mismatch" | "/problems/payload-too-large" | "/problems/unsupported-media-type" | "/problems/rate-limit-exceeded" | "/problems/internal-error";
+            type: "/problems/validation-error" | "/problems/password-policy-violation" | "/problems/invalid-or-expired-token" | "/problems/idempotency-key-missing" | "/problems/unauthenticated" | "/problems/invalid-credentials" | "/problems/invalid-refresh-token" | "/problems/invalid-webhook-signature" | "/problems/forbidden" | "/problems/email-not-verified" | "/problems/staff-cannot-purchase" | "/problems/password-change-required" | "/problems/manual-payments-disabled" | "/problems/not-found" | "/problems/version-conflict" | "/problems/total-mismatch" | "/problems/insufficient-stock" | "/problems/variant-not-sellable" | "/problems/invalid-state-transition" | "/problems/duplicate-value" | "/problems/resource-in-use" | "/problems/price-period-conflict" | "/problems/idempotency-request-in-progress" | "/problems/cart-not-active" | "/problems/cart-line-limit-reached" | "/problems/image-limit-reached" | "/problems/address-limit-reached" | "/problems/last-superadmin" | "/problems/restock-not-allowed" | "/problems/active-orders-exist" | "/problems/field-locked" | "/problems/empty-cart" | "/problems/source-cart-unavailable" | "/problems/sale-not-linkable" | "/problems/coupon-not-applicable" | "/problems/idempotency-key-mismatch" | "/problems/payload-too-large" | "/problems/unsupported-media-type" | "/problems/rate-limit-exceeded" | "/problems/internal-error";
         };
         ProductDetailDto: {
             /** @description Alguna variante vendible está disponible (ADR-0061). */
@@ -4777,6 +5294,16 @@ export interface components {
             /** @description Solo variantes vendibles, de la más antigua a la más nueva. */
             variants: components["schemas"]["StoreVariantDto"][];
         };
+        ProductImportSummaryDto: {
+            /** @description `true` si solo se validó el archivo, sin guardar productos. */
+            dryRun: boolean;
+            /** @description Productos creados, en borrador. */
+            products: number;
+            /** @description Filas del archivo, sin el encabezado: una por variante. */
+            rows: number;
+            /** @description Variantes creadas, una por fila. */
+            variants: number;
+        };
         ProductSummaryDto: {
             /** @description Alguna variante vendible está disponible (ADR-0061). */
             available: boolean;
@@ -4804,6 +5331,134 @@ export interface components {
         ProductVersionDto: {
             /** @description Versión leída del producto (bloqueo optimista). */
             version: number;
+        };
+        PromotionDto: {
+            /** @description Monto fijo de descuento, una vez por orden; `null` con `percentage`. */
+            amountOff: components["schemas"]["MoneyDto"] | null;
+            channels: ("ONLINE" | "STORE")[];
+            /** @description El código del cupón, en mayúsculas; `null` en una promoción automática (ADR-0168). */
+            code: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que la creó.
+             */
+            createdBy: string;
+            /**
+             * Format: date-time
+             * @description Cuándo se terminó a mano.
+             */
+            endedAt: string | null;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que la terminó.
+             */
+            endedBy: string | null;
+            /**
+             * Format: date-time
+             * @description Fin, excluido; `null` sin fin.
+             */
+            endsAt: string | null;
+            /** Format: uuid */
+            id: string;
+            /** @description Compra mínima sobre el subtotal con IVA; `null` sin mínimo. */
+            minimumSubtotal: components["schemas"]["MoneyDto"] | null;
+            /** @description Lo ve el cliente en su orden y en el ticket. */
+            name: string;
+            /** @description Si cada cliente usa el cupón una sola vez. */
+            oncePerCustomer: boolean;
+            /** @description Porcentaje entero de descuento; `null` con `amountOff`. */
+            percentage: number | null;
+            /** Format: date-time */
+            startsAt: string;
+            /**
+             * @description Al momento de la consulta: `SCHEDULED` antes de su inicio, `ACTIVE` hasta su fin, `ENDED` desde entonces o desde que se terminó.
+             * @enum {string}
+             */
+            status: "SCHEDULED" | "ACTIVE" | "ENDED";
+            /** @description Cuántos productos, categorías y marcas tiene; 0 aplica a toda la compra. */
+            targetCount: number;
+            /** @description Productos, luego categorías, luego marcas; vacía, aplica a toda la compra. */
+            targets: components["schemas"]["PromotionTargetViewDto"][];
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description Cuántas veces se puede usar el cupón; `null` sin límite. */
+            usageLimit: number | null;
+            /**
+             * @description Las órdenes que cuentan un uso del cupón: colocadas, y ni vencidas ni canceladas. Un pago tardío puede pasar el
+             *     límite.
+             */
+            uses: number;
+            /** @description Para el bloqueo optimista. */
+            version: number;
+        };
+        PromotionListDto: {
+            data: components["schemas"]["PromotionSummaryDto"][];
+            meta: components["schemas"]["PageMetaDto"];
+        };
+        PromotionSummaryDto: {
+            /** @description Monto fijo de descuento, una vez por orden; `null` con `percentage`. */
+            amountOff: components["schemas"]["MoneyDto"] | null;
+            channels: ("ONLINE" | "STORE")[];
+            /** @description El código del cupón, en mayúsculas; `null` en una promoción automática (ADR-0168). */
+            code: string | null;
+            /**
+             * Format: date-time
+             * @description Cuándo se terminó a mano.
+             */
+            endedAt: string | null;
+            /**
+             * Format: date-time
+             * @description Fin, excluido; `null` sin fin.
+             */
+            endsAt: string | null;
+            /** Format: uuid */
+            id: string;
+            /** @description Compra mínima sobre el subtotal con IVA; `null` sin mínimo. */
+            minimumSubtotal: components["schemas"]["MoneyDto"] | null;
+            /** @description Lo ve el cliente en su orden y en el ticket. */
+            name: string;
+            /** @description Si cada cliente usa el cupón una sola vez. */
+            oncePerCustomer: boolean;
+            /** @description Porcentaje entero de descuento; `null` con `amountOff`. */
+            percentage: number | null;
+            /** Format: date-time */
+            startsAt: string;
+            /**
+             * @description Al momento de la consulta: `SCHEDULED` antes de su inicio, `ACTIVE` hasta su fin, `ENDED` desde entonces o desde que se terminó.
+             * @enum {string}
+             */
+            status: "SCHEDULED" | "ACTIVE" | "ENDED";
+            /** @description Cuántos productos, categorías y marcas tiene; 0 aplica a toda la compra. */
+            targetCount: number;
+            /** @description Cuántas veces se puede usar el cupón; `null` sin límite. */
+            usageLimit: number | null;
+            /**
+             * @description Las órdenes que cuentan un uso del cupón: colocadas, y ni vencidas ni canceladas. Un pago tardío puede pasar el
+             *     límite.
+             */
+            uses: number;
+        };
+        PromotionTargetDto: {
+            /**
+             * Format: uuid
+             * @description El ID del producto, la categoría o la marca.
+             */
+            id: string;
+            /**
+             * @description `PRODUCT`, `CATEGORY` (con sus subcategorías) o `BRAND`; debe existir y estar en uso.
+             * @enum {string}
+             */
+            type: "PRODUCT" | "CATEGORY" | "BRAND";
+        };
+        PromotionTargetViewDto: {
+            /** Format: uuid */
+            id: string;
+            /** @description El título del producto, o el nombre de la categoría o la marca; `null` si el catálogo ya no lo tiene. */
+            name: string | null;
+            /** @enum {string} */
+            type: "PRODUCT" | "CATEGORY" | "BRAND";
         };
         PublicCategoryDto: {
             /** @description Subcategorías visibles. */
@@ -4851,6 +5506,71 @@ export interface components {
              */
             warehouseId: string;
         };
+        ReceiptImportSummaryDto: {
+            /** @description `true` si solo se validó el archivo, sin guardar entradas. */
+            dryRun: boolean;
+            /** @description Filas del archivo, sin el encabezado: una entrada de mercancía cada una. */
+            rows: number;
+            /** @description Unidades recibidas, la suma de las cantidades. */
+            units: number;
+        };
+        ReceiveWorkOrderDto: {
+            /** @description Accesorios que se reciben con el equipo, como el cargador. */
+            accessories?: string | null;
+            /**
+             * Format: email
+             * @description Email del cliente; se guarda sin espacios y en minúsculas.
+             */
+            customerEmail?: string | null;
+            /**
+             * Format: uuid
+             * @description Un cliente registrado y activo, para ligarle la orden; el nombre y el teléfono se piden igual, porque la cuenta no guarda teléfono (ADR-0166).
+             */
+            customerId?: string | null;
+            /**
+             * @description Nombre del cliente, de 1 a 120 caracteres.
+             * @example María López Hernández
+             */
+            customerName: string;
+            /**
+             * @description Teléfono del cliente: exactamente 10 dígitos.
+             * @example 4431234567
+             */
+            customerPhone: string;
+            /** @description Marca del equipo. */
+            equipmentBrand?: string | null;
+            /** @description Cómo se recibe el equipo, como golpes o rayones. */
+            equipmentCondition?: string | null;
+            /** @description Modelo del equipo. */
+            equipmentModel?: string | null;
+            /**
+             * @description Tipo de equipo, de 1 a 60 caracteres.
+             * @example Laptop
+             */
+            equipmentType: string;
+            /**
+             * @description Costo estimado en centavos, informativo: la orden de trabajo no cobra; se cobra con ventas de mostrador (ADR-0165).
+             * @example 35000
+             */
+            estimatedCost?: number | null;
+            /**
+             * @description La falla que reporta el cliente, de 1 a 2,000 caracteres.
+             * @example No enciende
+             */
+            reportedFault: string;
+            /** @description Número de serie. */
+            serialNumber?: string | null;
+            /**
+             * Format: uuid
+             * @description El técnico asignado: una cuenta de staff activa.
+             */
+            technicianId?: string | null;
+            /**
+             * Format: uuid
+             * @description El almacén activo de la tienda que recibe el equipo, como en la venta de mostrador (ADR-0161).
+             */
+            warehouseId: string;
+        };
         RecordTrackingDto: {
             /**
              * @description Paquetería, de 1 a 100 caracteres; `null`, junto con `trackingNumber`, para quitarlas de un envío pendiente (ADR-0141).
@@ -4883,6 +5603,8 @@ export interface components {
             createdAt: string;
             /** Format: uuid */
             id: string;
+            /** @description La nota que el staff escribió al registrar el reembolso manual (ADR-0163); `null` sin ella o en los demás. */
+            note: string | null;
             /**
              * @description Comprobante del reembolso: el del proveedor o, en uno manual, el que registró el staff; `null` mientras está
              *     pendiente.
@@ -5033,7 +5755,7 @@ export interface components {
              * @example 30
              */
             inactiveGuestCartDays: number;
-            /** @description El ciclo de los datos personales de órdenes y envíos (ADR-0151). */
+            /** @description El ciclo de los datos personales de órdenes, envíos y órdenes de trabajo (ADR-0151, ADR-0167). */
             personalData: components["schemas"]["PersonalDataRetentionDto"];
             /**
              * @description Días que se conserva un evento de webhook de pagos procesado.
@@ -5084,7 +5806,7 @@ export interface components {
              *       "orders.read"
              *     ]
              */
-            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
+            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
             /** Format: date-time */
             updatedAt: string;
             /** @description Staff con este rol. */
@@ -5095,6 +5817,25 @@ export interface components {
         RoleListDto: {
             data: components["schemas"]["RoleDto"][];
             meta: components["schemas"]["PageMetaDto"];
+        };
+        ServiceNoteDto: {
+            store: components["schemas"]["ServiceNoteStoreDto"];
+            /**
+             * @description Las condiciones del servicio (`WORK_ORDER_FOOTER`); vacías hasta que el negocio las defina con su asesor
+             *     (ADR-0165). Pueden traer saltos de línea.
+             */
+            terms: string;
+            workOrder: components["schemas"]["WorkOrderDto"];
+        };
+        ServiceNoteStoreDto: {
+            /** @description Dirección (`STORE_ADDRESS`). */
+            address: string | null;
+            /** @description Nombre de la tienda (`STORE_NAME`). */
+            name: string;
+            /** @description Teléfono (`STORE_PHONE`). */
+            phone: string | null;
+            /** @description RFC (`STORE_TAX_ID`). */
+            taxId: string | null;
         };
         SetPriceDto: {
             /**
@@ -5215,6 +5956,11 @@ export interface components {
             variantId: string;
         };
         StaffQuoteDto: {
+            /**
+             * @description El código de un cupón, sin distinguir mayúsculas (ADR-0168). Reemplaza a la promoción automática, aunque descuente menos; si no aplica, 409 `coupon-not-applicable` con `reason`, sin otra promoción. Los códigos que nadie tiene se limitan por IP.
+             * @example BUENFIN
+             */
+            couponCode?: string | null;
             /**
              * @description `SHIPPING` (por defecto): se envía a una dirección. `IN_STORE`: venta de mostrador, que el staff entrega en la tienda al pagarse, sin dirección ni costo de envío; el comprador puede no dar sus datos (ADR-0161).
              * @enum {string}
@@ -5414,6 +6160,33 @@ export interface components {
             /** @example camisas */
             slug: string;
         };
+        StoreProfileDto: {
+            /**
+             * @description Dirección de la tienda en una línea (`STORE_ADDRESS`); `null` si no se configuró.
+             * @example Av. Madero Poniente 123, Centro, 58000 Morelia, Mich.
+             */
+            address: string | null;
+            /**
+             * @description Nombre de la tienda (`STORE_NAME`).
+             * @example Tienda Ejemplo
+             */
+            name: string;
+            /**
+             * @description Teléfono de la tienda (`STORE_PHONE`); `null` si no se configuró.
+             * @example 443 123 4567
+             */
+            phone: string | null;
+            /**
+             * @description RFC de la tienda, en mayúsculas (`STORE_TAX_ID`); `null` si no se configuró.
+             * @example EJE260101AB1
+             */
+            taxId: string | null;
+            /**
+             * @description Leyenda al pie del ticket (`TICKET_FOOTER`); por defecto, que no es un comprobante fiscal.
+             * @example Este ticket no es un comprobante fiscal.
+             */
+            ticketFooter: string;
+        };
         StoreVariantDto: {
             /** @description Si tiene existencias para comprarla ahora. */
             available: boolean;
@@ -5523,9 +6296,43 @@ export interface components {
             description?: string | null;
             /** @description Solo mientras el producto nunca se ha publicado (ADR-0068). */
             slug?: string;
+            /** @description Solo en la tienda física, o también en línea (ADR-0165); se cambia también publicado. */
+            storeOnly?: boolean;
             /** @description De 1 a 200 caracteres. */
             title?: string;
             /** @description Versión leída del producto (bloqueo optimista). */
+            version: number;
+        };
+        UpdatePromotionDto: {
+            /** @description Monto fijo de descuento en centavos, una vez por orden, repartido entre las líneas a las que aplica. Exactamente uno de `percentage` y `amountOff`. */
+            amountOff?: number;
+            /** @description Dónde aplica: `ONLINE`, `STORE` o los dos. */
+            channels?: ("ONLINE" | "STORE")[];
+            /** @description Código del cupón, de 4 a 30 letras, números o guiones; `null` lo quita y la promoción se aplica sola. Solo antes de su inicio. */
+            code?: string | null;
+            /**
+             * Format: date-time
+             * @description Fin, excluido, posterior al inicio y, ya iniciada, al momento actual; `null` lo quita.
+             */
+            endsAt?: string | null;
+            /** @description Compra mínima en centavos; `null` la quita. */
+            minimumSubtotal?: number | null;
+            /** @description Nombre de 1 a 120 caracteres. */
+            name?: string;
+            /** @description Si cada cliente usa el cupón una sola vez; solo antes de su inicio. */
+            oncePerCustomer?: boolean;
+            /** @description Porcentaje entero de descuento, de 1 a 100, sobre las líneas a las que aplica. Exactamente uno de `percentage` y `amountOff`. */
+            percentage?: number;
+            /**
+             * Format: date-time
+             * @description Inicio, fecha y hora con zona horaria; no posterior al momento actual, empieza ahora.
+             */
+            startsAt?: string;
+            /** @description Reemplaza la lista: hasta 100 productos, categorías y marcas; vacía, toda la compra. */
+            targets?: components["schemas"]["PromotionTargetDto"][];
+            /** @description Usos en total del cupón, nunca menos de los que ya tiene; `null` lo quita. Se cambia también ya iniciada. */
+            usageLimit?: number | null;
+            /** @description Versión leída (bloqueo optimista). */
             version: number;
         };
         UpdateRoleDto: {
@@ -5534,7 +6341,7 @@ export interface components {
             /** @description Nombre único, de 1 a 50 caracteres. */
             name?: string;
             /** @description Reemplaza el conjunto. El rol superadministrador no cambia sus permisos. */
-            permissions?: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
+            permissions?: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
             /** @description Versión leída (bloqueo optimista). */
             version: number;
         };
@@ -5568,6 +6375,11 @@ export interface components {
             version: number;
         };
         UpdateVariantDto: {
+            /**
+             * @description Código de barras del fabricante, con las reglas del alta; se puede corregir aunque el producto ya se haya publicado, y `null` lo quita (ADR-0163).
+             * @example 7501055363063
+             */
+            gtin?: string | null;
             /** @description Centímetros, mayor que 0, un decimal; `null` lo quita. */
             heightCm?: number | null;
             /** @description Centímetros, mayor que 0, un decimal; `null` lo quita. */
@@ -5605,6 +6417,98 @@ export interface components {
              */
             priority?: number;
         };
+        UpdateWorkOrderDto: {
+            /** @description `null` los quita. */
+            accessories?: string | null;
+            /**
+             * Format: email
+             * @description `null` lo quita.
+             */
+            customerEmail?: string | null;
+            /**
+             * Format: uuid
+             * @description Un cliente registrado y activo; `null` desliga la orden de la cuenta.
+             */
+            customerId?: string | null;
+            /** @description De 1 a 120 caracteres. */
+            customerName?: string;
+            /** @description Exactamente 10 dígitos. */
+            customerPhone?: string;
+            /** @description El diagnóstico del técnico; `null` lo quita. */
+            diagnosis?: string | null;
+            /** @description `null` la quita. */
+            equipmentBrand?: string | null;
+            /** @description `null` lo quita. */
+            equipmentCondition?: string | null;
+            /** @description `null` lo quita. */
+            equipmentModel?: string | null;
+            /** @description De 1 a 60 caracteres. */
+            equipmentType?: string;
+            /** @description Costo estimado en centavos, informativo; `null` lo quita. */
+            estimatedCost?: number | null;
+            /** @description De 1 a 2,000 caracteres. */
+            reportedFault?: string;
+            /** @description `null` lo quita. */
+            serialNumber?: string | null;
+            /**
+             * Format: uuid
+             * @description Un técnico nuevo debe ser una cuenta de staff activa; `null` lo quita.
+             */
+            technicianId?: string | null;
+            /** @description Versión leída (bloqueo optimista). */
+            version: number;
+            /** @description El trabajo realizado; `null` lo quita. */
+            workPerformed?: string | null;
+        };
+        VariantLookupDto: {
+            /**
+             * @description Código de barras del fabricante; `null` si no tiene.
+             * @example 7501055363063
+             */
+            gtin: string | null;
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description Si el código coincidió con su SKU o con su GTIN.
+             * @enum {string}
+             */
+            matchedBy: "SKU" | "GTIN";
+            /**
+             * @description Sus valores de las opciones del producto, por nombre.
+             * @example {
+             *       "color": "Azul",
+             *       "talla": "M"
+             *     }
+             */
+            options: {
+                [key: string]: string;
+            };
+            product: components["schemas"]["VariantLookupProductDto"];
+            /** @example CAM-LIN-AZ-M */
+            sku: string;
+            /**
+             * @description `ACTIVE` o `DISCONTINUED`; una descontinuada no se vende.
+             * @enum {string}
+             */
+            status: "ACTIVE" | "DISCONTINUED";
+        };
+        VariantLookupListDto: {
+            /** @description Las activas primero; vacía si ninguna coincide. */
+            data: components["schemas"]["VariantLookupDto"][];
+        };
+        VariantLookupProductDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example camisa-de-lino */
+            slug: string;
+            /**
+             * @description Solo `PUBLISHED` se vende.
+             * @enum {string}
+             */
+            status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+            /** @example Camisa de lino */
+            title: string;
+        };
         WarehouseDto: {
             /** @description `null` mientras no se capture. */
             address: components["schemas"]["PostalAddressDto"] | null;
@@ -5632,6 +6536,153 @@ export interface components {
         };
         WarehouseListDto: {
             data: components["schemas"]["WarehouseDto"][];
+        };
+        WorkOrderDto: {
+            accessories: string | null;
+            /**
+             * Format: date-time
+             * @description Cuándo se anonimizaron los datos del cliente.
+             */
+            anonymizedAt: string | null;
+            /**
+             * Format: date-time
+             * @description Cuándo se bloquearon los datos del cliente (ADR-0167): se muestran como anonimizados, y se consultan con `POST …/blocked-data`.
+             */
+            blockedAt: string | null;
+            /**
+             * Format: date-time
+             * @description Cuándo se entregó o se canceló.
+             */
+            closedAt: string | null;
+            customerEmail: string | null;
+            /**
+             * Format: uuid
+             * @description El cliente registrado ligado.
+             */
+            customerId: string | null;
+            /** @description Nombre del cliente; `null` si la orden de trabajo está bloqueada o anonimizada (ADR-0167). */
+            customerName: string | null;
+            /** @description 10 dígitos; `null` si la orden de trabajo está bloqueada o anonimizada. */
+            customerPhone: string | null;
+            diagnosis: string | null;
+            equipmentBrand: string | null;
+            equipmentCondition: string | null;
+            equipmentModel: string | null;
+            equipmentType: string;
+            /** @description Informativo; la orden de trabajo no cobra (ADR-0165). */
+            estimatedCost: components["schemas"]["MoneyDto"] | null;
+            /**
+             * @description Folio consecutivo (ADR-0166).
+             * @example OT-000123
+             */
+            folio: string;
+            /** Format: uuid */
+            id: string;
+            /** @description El total de las ventas ligadas que están pagadas. */
+            paidTotal: components["schemas"]["MoneyDto"];
+            /** Format: date-time */
+            receivedAt: string;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que recibió el equipo.
+             */
+            receivedBy: string;
+            /** @description La falla reportada; `null` si la orden de trabajo está bloqueada o anonimizada. */
+            reportedFault: string | null;
+            /** @description Las ventas de mostrador que la cobran, en el orden en que se ligaron, con su estado al momento (ADR-0167). */
+            sales: components["schemas"]["LinkedSaleDto"][];
+            serialNumber: string | null;
+            /** @enum {string} */
+            status: "RECEIVED" | "DIAGNOSED" | "IN_REPAIR" | "READY" | "DELIVERED" | "CANCELLED";
+            /** @description Del más antiguo al más reciente. */
+            statusHistory: components["schemas"]["WorkOrderStatusEntryDto"][];
+            /**
+             * Format: uuid
+             * @description El técnico asignado.
+             */
+            technicianId: string | null;
+            /** @description El total de las ventas ligadas que esperan su pago; las vencidas, canceladas o reembolsadas no cuentan. */
+            unpaidTotal: components["schemas"]["MoneyDto"];
+            /** @description Para el bloqueo optimista. */
+            version: number;
+            /**
+             * Format: uuid
+             * @description El almacén de la tienda que recibió el equipo.
+             */
+            warehouseId: string;
+            workPerformed: string | null;
+        };
+        WorkOrderListDto: {
+            data: components["schemas"]["WorkOrderSummaryDto"][];
+            meta: components["schemas"]["PageMetaDto"];
+        };
+        WorkOrderReasonDto: {
+            /**
+             * @description La referencia de la reclamación, el requerimiento o la solicitud, de 1 a 500 caracteres. Queda en la auditoría:
+             *     no escribas datos personales.
+             * @example Solicitud ARCO 2026-014
+             */
+            reason: string;
+        };
+        WorkOrderStatusEntryDto: {
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que hizo el cambio.
+             */
+            actorId: string;
+            /**
+             * @description `null` al recibir el equipo.
+             * @enum {string|null}
+             */
+            fromStatus: "RECEIVED" | "DIAGNOSED" | "IN_REPAIR" | "READY" | "DELIVERED" | "CANCELLED" | null;
+            /** @description La nota del cambio; `null` sin ella. */
+            note: string | null;
+            /**
+             * Format: date-time
+             * @description Cuándo ocurrió.
+             */
+            occurredAt: string;
+            /**
+             * @description El estado al que pasó.
+             * @enum {string}
+             */
+            toStatus: "RECEIVED" | "DIAGNOSED" | "IN_REPAIR" | "READY" | "DELIVERED" | "CANCELLED";
+        };
+        WorkOrderSummaryDto: {
+            /**
+             * Format: date-time
+             * @description Cuándo se entregó o se canceló.
+             */
+            closedAt: string | null;
+            /** @description Nombre del cliente; `null` si la orden de trabajo está bloqueada o anonimizada (ADR-0167). */
+            customerName: string | null;
+            /** @description 10 dígitos; `null` si la orden de trabajo está bloqueada o anonimizada. */
+            customerPhone: string | null;
+            equipmentBrand: string | null;
+            equipmentModel: string | null;
+            equipmentType: string;
+            /**
+             * @description Folio consecutivo (ADR-0166).
+             * @example OT-000123
+             */
+            folio: string;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            receivedAt: string;
+            serialNumber: string | null;
+            /** @enum {string} */
+            status: "RECEIVED" | "DIAGNOSED" | "IN_REPAIR" | "READY" | "DELIVERED" | "CANCELLED";
+            /**
+             * Format: uuid
+             * @description El técnico asignado.
+             */
+            technicianId: string | null;
+            /**
+             * Format: uuid
+             * @description El almacén de la tienda que recibió el equipo.
+             */
+            warehouseId: string;
         };
     };
     responses: never;
@@ -6707,6 +7758,98 @@ export interface operations {
             };
         };
     };
+    AdminProductImportsController_import_v1: {
+        parameters: {
+            query?: {
+                /** @description Valida el archivo y responde el resumen sin guardar nada. */
+                dryRun?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductImportSummaryDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `duplicate-value`: Valor duplicado */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `payload-too-large`: Contenido demasiado grande */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     AdminProductsController_list_v1: {
         parameters: {
             query?: {
@@ -6716,7 +7859,9 @@ export interface operations {
                 pageSize?: number;
                 /** @description Uno o más estados separados por comas: `DRAFT`, `PUBLISHED`, `ARCHIVED`. */
                 status?: string;
-                /** @description Parte del título o de un SKU, sin distinguir mayúsculas. */
+                /** @description `true`: solo los productos que se venden solo en la tienda física; `false`: solo los que se venden también en línea. */
+                storeOnly?: boolean;
+                /** @description Parte del título, de un SKU o de un GTIN, sin distinguir mayúsculas. */
                 q?: string;
                 /** @description Solo los productos de esta marca. */
                 brandId?: string;
@@ -8011,6 +9156,73 @@ export interface operations {
             };
             /** @description `invalid-state-transition`: Acción no permitida en el estado actual; `version-conflict`: Versión desactualizada; `duplicate-value`: Valor duplicado */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminVariantsController_lookUp_v1: {
+        parameters: {
+            query: {
+                /** @description El código leído o capturado: el SKU, sin distinguir mayúsculas, o el GTIN, con o sin ceros a la izquierda. */
+                code: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariantLookupListDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9821,6 +11033,98 @@ export interface operations {
             };
         };
     };
+    AdminReceiptImportsController_import_v1: {
+        parameters: {
+            query?: {
+                /** @description Valida el archivo y responde el resumen sin guardar nada. */
+                dryRun?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptImportSummaryDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `duplicate-value`: Valor duplicado */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `payload-too-large`: Contenido demasiado grande */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     AdminStockController_receive_v1: {
         parameters: {
             query?: never;
@@ -10531,7 +11835,7 @@ export interface operations {
             /**
              * @description `idempotency-request-in-progress`: Solicitud en proceso
              *
-             *     `variant-not-sellable`: Producto no disponible; `total-mismatch`: El total cambió; `insufficient-stock`: Stock insuficiente
+             *     `variant-not-sellable`: Producto no disponible; `total-mismatch`: El total cambió; `coupon-not-applicable`: Cupón que no aplica; `insufficient-stock`: Stock insuficiente
              */
             409: {
                 headers: {
@@ -10620,6 +11924,15 @@ export interface operations {
             };
             /** @description `not-found`: No encontrado */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `coupon-not-applicable`: Cupón que no aplica */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12180,6 +13493,418 @@ export interface operations {
             };
         };
     };
+    AdminPromotionsController_list_v1: {
+        parameters: {
+            query?: {
+                /** @description Página, de 1 a 1,000,000. */
+                page?: number;
+                /** @description Resultados por página, de 1 a 100. */
+                pageSize?: number;
+                /** @description Uno o más estados separados por comas, al momento de la consulta: `SCHEDULED`, `ACTIVE`, `ENDED`. */
+                status?: string;
+                /** @description Las que aplican en este canal. */
+                channel?: "ONLINE" | "STORE";
+                /** @description `ORDER`: las de toda la compra. `ITEMS`: las de ciertos productos, categorías o marcas. */
+                appliesTo?: "ORDER" | "ITEMS";
+                /** @description `AUTOMATIC`: las que se aplican solas. `COUPON`: los cupones, con su código. */
+                kind?: "AUTOMATIC" | "COUPON";
+                /** @description Parte del nombre, o el código exacto de un cupón, sin distinguir mayúsculas. */
+                q?: string;
+                /** @description `startsAt` o `name`, con `-` para orden descendente; por defecto `-startsAt`. */
+                sort?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromotionListDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminPromotionsController_create_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePromotionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromotionDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `duplicate-value`: Valor duplicado */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminPromotionsController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID de la promoción. */
+                promotionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromotionDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminPromotionsController_update_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID de la promoción. */
+                promotionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePromotionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromotionDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual; `duplicate-value`: Valor duplicado */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminPromotionsController_end_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID de la promoción. */
+                promotionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EndPromotionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromotionDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     AdminShippingMethodController_get_v1: {
         parameters: {
             query?: never;
@@ -12876,6 +14601,943 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminShipmentDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminStoreProfileController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreProfileDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminWorkOrdersController_list_v1: {
+        parameters: {
+            query?: {
+                /** @description Página, de 1 a 1,000,000. */
+                page?: number;
+                /** @description Resultados por página, de 1 a 100. */
+                pageSize?: number;
+                /** @description Uno o más estados separados por comas: `RECEIVED`, `DIAGNOSED`, `IN_REPAIR`, `READY`, `DELIVERED`, `CANCELLED`. */
+                status?: string;
+                /**
+                 * @description El folio exacto (`OT-000123`, `ot-123` o `123`), o parte del nombre o del teléfono del cliente, o del número de
+                 *     serie, sin distinguir mayúsculas.
+                 */
+                q?: string;
+                /** @description Las que recibió la tienda de este almacén. */
+                warehouseId?: string;
+                /** @description Las asignadas a este técnico. */
+                technicianId?: string;
+                /** @description Las ligadas a este cliente registrado. */
+                customerId?: string;
+                /** @description Fecha o fecha y hora ISO 8601; incluida. */
+                receivedFrom?: string;
+                /** @description Fecha o fecha y hora ISO 8601; incluida (una fecha sola incluye todo el día). */
+                receivedTo?: string;
+                /** @description `receivedAt` o `folio`, con `-` para orden descendente; por defecto `-receivedAt`. */
+                sort?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkOrderListDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminWorkOrdersController_receive_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Llave de idempotencia de 1 a 255 caracteres; se recomienda un UUID (API_SPEC.md, sección 4). */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiveWorkOrderDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkOrderDto"];
+                };
+            };
+            /** @description `idempotency-key-missing`: Falta la llave de idempotencia; `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `idempotency-request-in-progress`: Solicitud en proceso */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `idempotency-key-mismatch`: Llave de idempotencia reutilizada */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminWorkOrdersController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID interno de la orden de trabajo; el staff la busca por su folio. */
+                workOrderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkOrderDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminWorkOrdersController_update_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID interno de la orden de trabajo; el staff la busca por su folio. */
+                workOrderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWorkOrderDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkOrderDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminWorkOrdersController_anonymize_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID interno de la orden de trabajo; el staff la busca por su folio. */
+                workOrderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkOrderReasonDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkOrderDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `invalid-state-transition`: Acción no permitida en el estado actual */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminWorkOrdersController_readBlockedData_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID interno de la orden de trabajo; el staff la busca por su folio. */
+                workOrderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkOrderReasonDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlockedWorkOrderDataDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `invalid-state-transition`: Acción no permitida en el estado actual */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminWorkOrdersController_linkSale_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID interno de la orden de trabajo; el staff la busca por su folio. */
+                workOrderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkSaleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkOrderDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual; `sale-not-linkable`: Venta que no se puede ligar; `duplicate-value`: Valor duplicado */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminWorkOrdersController_unlinkSale_v1: {
+        parameters: {
+            query: {
+                /** @description Versión leída de la orden de trabajo (bloqueo optimista). */
+                version: number;
+            };
+            header?: never;
+            path: {
+                /** @description ID interno de la orden de trabajo; el staff la busca por su folio. */
+                workOrderId: string;
+                /** @description ID interno del pedido; quien compra usa el código público. */
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkOrderDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminWorkOrdersController_serviceNote_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID interno de la orden de trabajo; el staff la busca por su folio. */
+                workOrderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceNoteDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminWorkOrdersController_changeStatus_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID interno de la orden de trabajo; el staff la busca por su folio. */
+                workOrderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeWorkOrderStatusDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkOrderDto"];
                 };
             };
             /** @description `validation-error`: Solicitud inválida */
@@ -13990,7 +16652,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description `cart-not-active`: Carrito no activo; `empty-cart`: Carrito vacío */
+            /** @description `cart-not-active`: Carrito no activo; `empty-cart`: Carrito vacío; `coupon-not-applicable`: Cupón que no aplica */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -14960,7 +17622,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CustomerQuoteDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -14997,7 +17663,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description `empty-cart`: Carrito vacío */
+            /** @description `empty-cart`: Carrito vacío; `coupon-not-applicable`: Cupón que no aplica */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -15247,7 +17913,7 @@ export interface operations {
             /**
              * @description `idempotency-request-in-progress`: Solicitud en proceso
              *
-             *     `cart-not-active`: Carrito no activo; `empty-cart`: Carrito vacío; `variant-not-sellable`: Producto no disponible; `total-mismatch`: El total cambió; `insufficient-stock`: Stock insuficiente
+             *     `cart-not-active`: Carrito no activo; `empty-cart`: Carrito vacío; `variant-not-sellable`: Producto no disponible; `total-mismatch`: El total cambió; `coupon-not-applicable`: Cupón que no aplica; `insufficient-stock`: Stock insuficiente
              */
             409: {
                 headers: {
@@ -15684,7 +18350,7 @@ export interface operations {
             /**
              * @description `idempotency-request-in-progress`: Solicitud en proceso
              *
-             *     `cart-not-active`: Carrito no activo; `empty-cart`: Carrito vacío; `variant-not-sellable`: Producto no disponible; `total-mismatch`: El total cambió; `insufficient-stock`: Stock insuficiente
+             *     `cart-not-active`: Carrito no activo; `empty-cart`: Carrito vacío; `variant-not-sellable`: Producto no disponible; `total-mismatch`: El total cambió; `coupon-not-applicable`: Cupón que no aplica; `insufficient-stock`: Stock insuficiente
              */
             409: {
                 headers: {

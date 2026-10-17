@@ -44,7 +44,12 @@ const sale = computed(() => {
           { label: 'Almacén', value: warehouseLabel(o.warehouseId) },
         ]
       : []),
-    ...(o.shipment ? [{ label: 'Sale de', value: warehouseLabel(o.shipment.warehouseId) }] : []),
+    // `fulfilledFrom` trae el nombre del almacén de salida sin pedir `inventory.read` (ADR-0163).
+    ...(o.fulfilledFrom
+      ? [{ label: 'Salió de', value: `${o.fulfilledFrom.name} (${o.fulfilledFrom.code})` }]
+      : o.shipment
+        ? [{ label: 'Sale de', value: warehouseLabel(o.shipment.warehouseId) }]
+        : []),
   ]
 })
 

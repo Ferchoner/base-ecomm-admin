@@ -4,6 +4,7 @@ import { toQuery } from '~/shared/api/client'
 import { safeRedirect } from '~/shared/auth/redirect'
 import { formatDateTime } from '~/shared/utils/dates'
 import { splitFieldErrors } from '~/shared/utils/form-errors'
+import { gtin14, isValidGtin } from '~/shared/utils/gtin'
 import { formatMoney, pesosToCents } from '~/shared/utils/money'
 import { NAVIGATION, visibleNavigation } from '~/shared/navigation'
 
@@ -84,5 +85,20 @@ describe('visibleNavigation', () => {
   it('cada sección protegida declara un permiso del catálogo de la API', () => {
     const items = NAVIGATION.flatMap((g) => g.items).filter((i) => i.to !== '/')
     expect(items.every((i) => typeof i.permission === 'string')).toBe(true)
+  })
+})
+
+describe('GTIN', () => {
+  it('acepta EAN-13, UPC-A, EAN-8 y GTIN-14 con su dígito verificador', () => {
+    for (const code of ['7501055363063', '036000291452', '96385074', '00012345600012'])
+      expect(isValidGtin(code)).toBe(true)
+  })
+  it('rechaza un dígito verificador incorrecto o una longitud no admitida', () => {
+    expect(isValidGtin('7501055363064')).toBe(false)
+    expect(isValidGtin('12345678901')).toBe(false)
+    expect(isValidGtin('ABC12345')).toBe(false)
+  })
+  it('completa a 14 dígitos como la API', () => {
+    expect(gtin14('96385074')).toBe('00000096385074')
   })
 })

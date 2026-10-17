@@ -56,6 +56,7 @@ interface Variant {
   sku: string
   options: Record<string, string>
   status: 'ACTIVE' | 'DISCONTINUED'
+  gtin?: string | null
   weightGrams: number | null
   lengthCm: number | null
   widthCm: number | null
@@ -77,6 +78,7 @@ interface Product {
   brandId: string | null
   categoryIds: string[]
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
+  storeOnly: boolean
   variants: Variant[]
   images: Image[]
   publishedAt: string | null
@@ -130,6 +132,7 @@ export async function mockCatalogApi(page: Page, seed: CatalogSeed = {}) {
     brandId: null,
     categoryIds: [],
     status: 'DRAFT',
+    storeOnly: false,
     variants: [],
     images: [],
     publishedAt: null,
@@ -154,8 +157,13 @@ export async function mockCatalogApi(page: Page, seed: CatalogSeed = {}) {
     brand: p.brandId ? named(brands, p.brandId) : null,
     categories: p.categoryIds.map((id) => named(categories, id)).filter(Boolean),
     status: p.status,
+    storeOnly: p.storeOnly,
     storeVisibility: p.status === 'PUBLISHED' ? 'HIDDEN_NO_PRICE' : 'NOT_PUBLISHED',
-    variants: p.variants.map((v) => ({ ...v, editableIdentity: !p.firstPublishedAt })),
+    variants: p.variants.map((v) => ({
+      gtin: null,
+      ...v,
+      editableIdentity: !p.firstPublishedAt,
+    })),
     images: p.images,
     publishedAt: p.publishedAt,
     firstPublishedAt: p.firstPublishedAt,
@@ -310,6 +318,7 @@ export async function mockCatalogApi(page: Page, seed: CatalogSeed = {}) {
           brandId: (body?.brandId as string) ?? null,
           categoryIds: (body?.categoryIds as string[]) ?? [],
           status: 'DRAFT',
+          storeOnly: (body?.storeOnly as boolean) ?? false,
           variants: [],
           images: [],
           publishedAt: null,
@@ -415,6 +424,7 @@ export async function mockCatalogApi(page: Page, seed: CatalogSeed = {}) {
             sku,
             options: (body?.options as Record<string, string>) ?? {},
             status: 'ACTIVE',
+            gtin: (body?.gtin as string | null) ?? null,
             weightGrams: (body?.weightGrams as number | null) ?? null,
             lengthCm: (body?.lengthCm as number | null) ?? null,
             widthCm: (body?.widthCm as number | null) ?? null,

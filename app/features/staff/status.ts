@@ -38,6 +38,8 @@ export const PERMISSION_GROUP: Record<string, string> = {
   staff: 'Staff y roles',
   audit: 'Auditoría',
   events: 'Eventos',
+  'work-orders': 'Órdenes de trabajo',
+  promotions: 'Promociones',
 }
 
 export function permissionGroup(code: string): string {

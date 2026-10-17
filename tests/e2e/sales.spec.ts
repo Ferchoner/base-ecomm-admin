@@ -366,6 +366,9 @@ test('vender en tienda: cliente registrado con su dirección guardada', async ({
   await login(page)
   await page.goto('/pedidos/nuevo')
 
+  // La venta de mostrador es la opción inicial; este pedido se envía.
+  await expect(page.getByRole('radio', { name: /Venta de mostrador/ })).toBeChecked()
+  await page.getByRole('radio', { name: 'Envío a domicilio' }).click()
   await page.getByLabel('Buscar productos').fill('pan')
   await page.getByRole('button', { name: 'Agregar PAN-32' }).click()
   await page.getByPlaceholder('Nombre o email').fill('luc')

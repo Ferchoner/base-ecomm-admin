@@ -59,6 +59,7 @@ function measures(v: Variant) {
 
 const columns = computed<TableColumn<Variant>[]>(() => [
   { accessorKey: 'sku', header: 'SKU' },
+  { accessorKey: 'gtin', header: 'GTIN' },
   { id: 'options', header: 'Opciones' },
   { id: 'measures', header: 'Peso y medidas' },
   { accessorKey: 'status', header: 'Estado' },
@@ -89,6 +90,10 @@ const columns = computed<TableColumn<Variant>[]>(() => [
     >
       <template #sku-cell="{ row }">
         <code class="text-xs font-medium">{{ row.original.sku }}</code>
+      </template>
+      <template #gtin-cell="{ row }">
+        <code v-if="row.original.gtin" class="text-xs">{{ row.original.gtin }}</code>
+        <span v-else class="text-muted">—</span>
       </template>
       <template #options-cell="{ row }">{{ options(row.original) }}</template>
       <template #measures-cell="{ row }">{{ measures(row.original) }}</template>

@@ -41,7 +41,18 @@ const search = ref(filters.value.q ?? '')
 const debouncedSearch = useDebounced(search)
 watch(debouncedSearch, (q) => list.setFilter('q', q.trim() || undefined))
 
-const { data, isPending, error, refetch, isFetching } = useOrders(() => ({
+// Enter o el lector con el código del ticket (Code 128): si coincide exacto, abre el pedido.
+const normalizeCode = (v: string) => v.trim().toUpperCase().replace('-', '')
+const openExact = ref<string | null>(null)
+function onSearchEnter() {
+  const q = search.value.trim()
+  if (!q) return
+  list.setFilter('q', q)
+  openExact.value = normalizeCode(q)
+  void nextTick(openIfExact)
+}
+
+const { data, isPending, error, refetch, isFetching, isPlaceholderData } = useOrders(() => ({
   page: list.page.value,
   pageSize: list.pageSize.value,
   q: filters.value.q,
@@ -55,6 +66,13 @@ const { data, isPending, error, refetch, isFetching } = useOrders(() => ({
   placedBy: filters.value.placedBy,
   sort: filters.value.sort ?? '-placedAt',
 }))
+function openIfExact() {
+  if (!openExact.value || isFetching.value || isPlaceholderData.value || !data.value) return
+  const match = data.value.data.filter((o) => normalizeCode(o.publicCode) === openExact.value)
+  openExact.value = null
+  if (match.length === 1) navigateTo(`/pedidos/${match[0]!.id}`)
+}
+watch([data, isFetching], openIfExact)
 
 const STATUS_OPTIONS = statusOptions(ORDER_STATUS)
 const hasFilters = computed(() =>
@@ -96,6 +114,7 @@ function openRow(_: Event, row: TableRow<AdminOrderSummary>) {
         placeholder="Número, código o email"
         aria-label="Buscar pedidos"
         class="w-full sm:w-64"
+        @keydown.enter.prevent="onSearchEnter"
       />
       <USelect
         :model-value="filters.status"

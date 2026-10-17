@@ -4,8 +4,11 @@ import { ADDRESS_FIELDS, emptyAddress } from '~/shared/address/address-form'
 import { notifySuccess } from '~/shared/api/feedback'
 import type { ApiProblem } from '~/shared/api/problem'
 import type { Money } from '~/shared/api/types'
+import { isScanCode } from '~/shared/api/variant-lookup'
 import { useSessionStore } from '~/shared/auth/session.store'
 import { promotionLabel } from '~/shared/status/sales'
+import { useScannerCapture } from '~/shared/scanner/use-scanner-capture'
+import { useVariantScan } from '~/shared/scanner/use-variant-scan'
 import { useConfirm } from '~/shared/ui/use-confirm'
 import { useDebounced } from '~/shared/utils/debounce'
 import { problemFieldErrors } from '~/shared/utils/form-errors'
@@ -16,6 +19,7 @@ import {
   usePlaceStaffOrder,
   useSellableStock,
   useStaffQuote,
+  useStockInWarehouse,
   useWarehouseOptions,
 } from '../api'
 import { storeOrderSchema, toStaffOrderInput } from '../schemas'
@@ -33,6 +37,8 @@ const MAX_UNITS = 30
 const session = useSessionStore()
 const canSearchStock = computed(() => session.can('inventory.read'))
 const canSearchCustomers = computed(() => session.can('customers.read'))
+/** Escanear busca el código en el catálogo (`catalog.read`) y su existencia (`inventory.read`). */
+const canScan = computed(() => canSearchStock.value && session.can('catalog.read'))
 /** Versión del aviso de privacidad para invitados (GAPS G-19); vacía, no se aceptan invitados. */
 const privacyNoticeVersion = String(useRuntimeConfig().public.privacyNoticeVersion ?? '').trim()
 
@@ -97,6 +103,57 @@ function addLine(item: SellableStock) {
 function removeLine(variantId: string) {
   state.lines = state.lines.filter((l) => l.variantId !== variantId)
 }
+
+// ── Lector de códigos (PLAN_API_1.7 §3.1): Enter en el buscador o escanear en cualquier parte ──
+const stockInWarehouse = useStockInWarehouse()
+const scan = useVariantScan({
+  sellableOnly: true,
+  onFound: async (v) => {
+    if (!state.warehouseId) return { tone: 'warning', text: 'Elige primero el almacén.' }
+    const item = await stockInWarehouse(v.id, state.warehouseId).catch(() => undefined)
+    if (item === undefined)
+      return { tone: 'error', text: 'No se pudo consultar la existencia. Intenta de nuevo.' }
+    if (item === null || item.available <= 0)
+      return { tone: 'warning', text: `No hay existencias de ${v.sku} en este almacén.` }
+    const existing = state.lines.find((l) => l.variantId === v.id)
+    if (existing && (existing.quantity ?? 0) >= MAX_UNITS)
+      return { tone: 'warning', text: `${v.sku} ya tiene el máximo de ${MAX_UNITS} unidades.` }
+    if (!existing && state.lines.length >= MAX_LINES)
+      return { tone: 'warning', text: `La venta ya tiene ${MAX_LINES} productos.` }
+    addLine(item)
+    const quantity = state.lines.find((l) => l.variantId === v.id)?.quantity ?? 1
+    return {
+      tone: 'success',
+      text: `${v.sku} · ${v.product.title}: ${quantity} ${quantity === 1 ? 'unidad' : 'unidades'}.`,
+    }
+  },
+})
+watch(search, (v) => {
+  if (v) scan.clear()
+})
+const searchInput = useTemplateRef('searchInput')
+// El buscador queda listo para el primer escaneo en cuanto hay almacén (se habilita con él).
+watch(
+  () => !!state.warehouseId,
+  async (ready, was) => {
+    if (!ready || was) return
+    await nextTick()
+    searchInput.value?.inputRef?.focus()
+  },
+  { immediate: true },
+)
+async function onSearchEnter() {
+  if (!canScan.value || !isScanCode(search.value)) return
+  await scan.scan(search.value)
+  // Si no se agregó, el siguiente escaneo reemplaza el código en vez de sumarse a él.
+  searchInput.value?.inputRef?.select()
+}
+useScannerCapture((code) => {
+  if (!canScan.value) return
+  search.value = ''
+  void scan.scan(code)
+  searchInput.value?.inputRef?.focus()
+})
 
 // ── Cotización ──
 const quoteInput = computed<StaffQuoteInput | null>(() => {
@@ -293,12 +350,24 @@ async function onSubmit(event: FormSubmitEvent<StoreOrderForm>) {
         <div class="space-y-3">
           <template v-if="canSearchStock">
             <UInput
+              ref="searchInput"
               v-model="search"
-              icon="i-lucide-search"
-              placeholder="Buscar por SKU o producto en el almacén"
+              icon="i-lucide-scan-barcode"
+              :placeholder="
+                canScan
+                  ? 'Escanea o busca por SKU o producto'
+                  : 'Buscar por SKU o producto en el almacén'
+              "
               aria-label="Buscar productos"
               :disabled="!state.warehouseId"
+              :loading="scan.pending.value"
               class="w-full"
+              @keydown.enter.prevent="onSearchEnter"
+            />
+            <ScanResult
+              :feedback="scan.feedback.value"
+              :choices="scan.choices.value"
+              @choose="scan.choose"
             />
             <ul
               v-if="search.trim().length >= 2 && stock.data.value"

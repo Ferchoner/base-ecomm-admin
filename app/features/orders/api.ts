@@ -222,6 +222,27 @@ export function useSellableStock(
   })
 }
 
+/**
+ * Existencia de una variante en un almacén, para agregar lo escaneado (`inventory.read`); `null`
+ * si nunca tuvo movimientos ahí. Siempre se consulta de nuevo.
+ */
+export function useStockInWarehouse() {
+  const api = useApi()
+  const qc = useQueryClient()
+  return (variantId: string, warehouseId: string) =>
+    qc.fetchQuery({
+      queryKey: [QUERY_ROOT.inventory, 'stock', 'scan', variantId, warehouseId],
+      queryFn: async ({ signal }) =>
+        (
+          await api<Page<SellableStock>>('/v1/admin/inventory/stock-items', {
+            query: { variantId, warehouseId, pageSize: 1 },
+            signal,
+          })
+        ).data[0] ?? null,
+      staleTime: 0,
+    })
+}
+
 /** Clientes activos y verificados para colocar el pedido a su nombre (`customers.read`). */
 export function useBuyerSearch(q: MaybeRefOrGetter<string>) {
   const api = useApi()

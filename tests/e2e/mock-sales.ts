@@ -458,8 +458,46 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
 
   // ── Tienda física: almacén, existencias y clientes (solo lectura) ───────────────
   const STOCK = [
-    { variantId: uuid(), sku: 'CAM-M', productTitle: 'Camisa de lino', unit: 59900, available: 5 },
-    { variantId: uuid(), sku: 'PAN-32', productTitle: 'Pantalón chino', unit: 89900, available: 1 },
+    {
+      variantId: uuid(),
+      sku: 'CAM-M',
+      gtin: '7501055363063',
+      productTitle: 'Camisa de lino',
+      unit: 59900,
+      available: 5,
+      status: 'ACTIVE',
+      productStatus: 'PUBLISHED',
+    },
+    {
+      variantId: uuid(),
+      sku: 'PAN-32',
+      gtin: null as string | null,
+      productTitle: 'Pantalón chino',
+      unit: 89900,
+      available: 1,
+      status: 'ACTIVE',
+      productStatus: 'PUBLISHED',
+    },
+    {
+      variantId: uuid(),
+      sku: 'GOR-01',
+      gtin: null as string | null,
+      productTitle: 'Gorra de lona',
+      unit: 19900,
+      available: 4,
+      status: 'DISCONTINUED',
+      productStatus: 'PUBLISHED',
+    },
+    {
+      variantId: uuid(),
+      sku: 'CIN-01',
+      gtin: null as string | null,
+      productTitle: 'Cinturón de piel',
+      unit: 29900,
+      available: 0,
+      status: 'ACTIVE',
+      productStatus: 'PUBLISHED',
+    },
   ]
   let priceBump = 0
   let pendingPriceChange = !!seed.priceChangeOnPlace
@@ -489,7 +527,7 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
 
   if (seed.storeCatalog) {
     await page.route(
-      `${API}/v1/admin/{inventory/warehouses,inventory/stock-items,identity/customers}**`,
+      `${API}/v1/admin/{inventory/warehouses,inventory/stock-items,identity/customers,catalog/variants/lookup}**`,
       async (route) => {
         const request = route.request()
         const url = new URL(request.url())
@@ -524,11 +562,33 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
               },
             ],
           })
+        if (url.pathname.endsWith('/variants/lookup')) {
+          const code = url.searchParams.get('code') ?? ''
+          const data = STOCK.filter(
+            (v) => v.sku.toLowerCase() === code.toLowerCase() || v.gtin === code,
+          ).map((v) => ({
+            id: v.variantId,
+            sku: v.sku,
+            gtin: v.gtin,
+            options: {},
+            status: v.status,
+            matchedBy: v.gtin === code ? 'GTIN' : 'SKU',
+            product: {
+              id: `p-${v.sku}`,
+              title: v.productTitle,
+              slug: v.sku.toLowerCase(),
+              status: v.productStatus,
+            },
+          }))
+          return json(route, 200, { data })
+        }
         if (url.pathname.endsWith('/stock-items')) {
           const text = url.searchParams.get('q')?.toLowerCase() ?? ''
+          const variantId = url.searchParams.get('variantId')
           const items = STOCK.filter(
             (v) =>
-              v.sku.toLowerCase().includes(text) || v.productTitle.toLowerCase().includes(text),
+              (!variantId || v.variantId === variantId) &&
+              (v.sku.toLowerCase().includes(text) || v.productTitle.toLowerCase().includes(text)),
           ).map((v) => ({
             id: uuid(),
             variantId: v.variantId,

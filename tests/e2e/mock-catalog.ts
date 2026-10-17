@@ -212,6 +212,41 @@ export async function mockCatalogApi(page: Page, seed: CatalogSeed = {}) {
     calls.push({ method, path, body })
     const seg = path.split('/').filter(Boolean)
 
+    // ── Búsqueda por código (API_SPEC §11.10): SKU exacto o GTIN completado a 14 dígitos ──
+    if (seg[0] === 'variants' && seg[1] === 'lookup' && method === 'GET') {
+      const code = url.searchParams.get('code') ?? ''
+      if (!/^[A-Za-z0-9._-]{1,64}$/.test(code))
+        return problem(route, 400, 'validation-error', 'Datos inválidos', {
+          errors: [{ field: 'code', message: 'Formato inválido' }],
+        })
+      const asGtin = /^(\d{8}|\d{12,14})$/.test(code) ? code.padStart(14, '0') : null
+      const data = products.flatMap((p) =>
+        p.variants
+          .map((v) => {
+            const gtin = (v as { gtin?: string | null }).gtin ?? null
+            const matchedBy =
+              v.sku.toLowerCase() === code.toLowerCase()
+                ? 'SKU'
+                : asGtin && gtin?.padStart(14, '0') === asGtin
+                  ? 'GTIN'
+                  : null
+            return matchedBy
+              ? {
+                  id: v.id,
+                  sku: v.sku,
+                  gtin,
+                  options: v.options,
+                  status: v.status,
+                  matchedBy,
+                  product: { id: p.id, title: p.title, slug: p.slug, status: p.status },
+                }
+              : null
+          })
+          .filter(Boolean),
+      )
+      return json(route, 200, { data })
+    }
+
     // ── Carga masiva (ADR-0164) ──
     if (seg[0] === 'product-imports' && method === 'POST') {
       if (seed.productImportErrors)

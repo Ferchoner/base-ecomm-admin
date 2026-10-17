@@ -9,8 +9,11 @@ import TransferStockModal from '~/features/inventory/components/TransferStockMod
 import { STOCK_SORT_OPTIONS } from '~/features/inventory/status'
 import type { StockItem } from '~/features/inventory/types'
 import { useListParams } from '~/shared/api/use-list-params'
+import { variantOptionsLabel } from '~/shared/api/variant-lookup'
+import type { VariantLookup } from '~/shared/api/variant-lookup'
 import { useSessionStore } from '~/shared/auth/session.store'
 import { usePreferencesStore } from '~/shared/preferences/preferences.store'
+import { useVariantScan } from '~/shared/scanner/use-variant-scan'
 import { formatDateTime } from '~/shared/utils/dates'
 import { useDebounced } from '~/shared/utils/debounce'
 
@@ -126,17 +129,46 @@ const pickedStock = computed(() =>
     : (variantStock.data.value.find((s) => s.warehouseId === pickedWarehouse.value) ?? null),
 )
 watch(pickedProduct, () => (pickedVariant.value = undefined))
+
+// Con el lector o escribiendo el SKU o GTIN exacto se elige la variante sin buscar el producto.
+const scanCode = ref('')
+const scanned = ref<VariantLookup | null>(null)
+const scan = useVariantScan({
+  onFound: (v) => {
+    scanned.value = v
+    pickedVariant.value = v.id
+    scanCode.value = ''
+    return undefined
+  },
+})
+function clearScanned() {
+  scanned.value = null
+  pickedVariant.value = undefined
+  scan.clear()
+}
+watch(pickerOpen, (open) => {
+  if (open) return
+  scanned.value = null
+  scanCode.value = ''
+  scan.clear()
+})
+
 function continueWithVariant(mode: 'receipt' | 'adjustment') {
   const product = productQuery.data.value
-  const variant = product?.variants.find((v) => v.id === pickedVariant.value)
-  if (!product || !variant || !pickedWarehouse.value) return
+  const variant = scanned.value
+    ? { id: scanned.value.id, sku: scanned.value.sku, title: scanned.value.product.title }
+    : (() => {
+        const v = product?.variants.find((x) => x.id === pickedVariant.value)
+        return v && product ? { id: v.id, sku: v.sku, title: product.title } : undefined
+      })()
+  if (!variant || !pickedWarehouse.value) return
   pickerOpen.value = false
   Object.assign(entry, {
     open: true,
     mode,
     variantId: variant.id,
     sku: variant.sku,
-    productTitle: product.title,
+    productTitle: variant.title,
     warehouseId: pickedWarehouse.value,
     stock: pickedStock.value ?? null,
   })
@@ -313,18 +345,50 @@ function clearFilters() {
     <UModal v-model:open="pickerOpen" title="Registrar movimiento" description="Elige la variante.">
       <template #body>
         <div class="space-y-4">
-          <UFormField label="Producto">
-            <ProductPicker v-model="pickedProduct" />
-          </UFormField>
-          <UFormField label="Variante">
-            <USelect
-              v-model="pickedVariant"
-              :items="variantOptions"
-              :disabled="!pickedProduct || productQuery.isPending.value"
-              placeholder="Elige el SKU"
-              class="w-full"
+          <div v-if="scanned" class="flex items-center justify-between gap-2 text-sm">
+            <div class="min-w-0">
+              <code class="text-xs font-medium">{{ scanned.sku }}</code>
+              <div class="truncate text-muted">
+                {{ scanned.product.title
+                }}<template v-if="Object.keys(scanned.options).length">
+                  · {{ variantOptionsLabel(scanned) }}</template
+                >
+              </div>
+            </div>
+            <UButton color="neutral" variant="ghost" size="sm" @click="clearScanned"
+              >Cambiar</UButton
+            >
+          </div>
+          <template v-else>
+            <UFormField label="Código" help="Escanea o escribe el SKU o el GTIN y pulsa Enter.">
+              <UInput
+                v-model="scanCode"
+                icon="i-lucide-scan-barcode"
+                autocomplete="off"
+                autofocus
+                :loading="scan.pending.value"
+                class="w-full"
+                @keydown.enter.prevent="scan.scan(scanCode)"
+              />
+            </UFormField>
+            <ScanResult
+              :feedback="scan.feedback.value"
+              :choices="scan.choices.value"
+              @choose="scan.choose"
             />
-          </UFormField>
+            <UFormField label="Producto">
+              <ProductPicker v-model="pickedProduct" />
+            </UFormField>
+            <UFormField label="Variante">
+              <USelect
+                v-model="pickedVariant"
+                :items="variantOptions"
+                :disabled="!pickedProduct || productQuery.isPending.value"
+                placeholder="Elige el SKU"
+                class="w-full"
+              />
+            </UFormField>
+          </template>
           <UFormField label="Almacén">
             <USelect
               v-model="pickedWarehouse"

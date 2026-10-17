@@ -47,4 +47,18 @@ describe('preferencias por usuario (G-06)', () => {
     prefs.setLowStockThreshold(2.5)
     expect(prefs.lowStockThreshold).toBe(5)
   })
+
+  it('el sonido al escanear empieza encendido y se guarda con lo demás', async () => {
+    const session = useSessionStore()
+    const prefs = usePreferencesStore()
+    session.$patch({ account: account('u4') })
+    await nextTick()
+    expect(prefs.scanSound).toBe(true)
+    prefs.setLowStockThreshold(7)
+    prefs.setScanSound(false)
+    expect(JSON.parse(localStorage.getItem('backoffice.preferences.u4')!)).toEqual({
+      lowStockThreshold: 7,
+      scanSound: false,
+    })
+  })
 })

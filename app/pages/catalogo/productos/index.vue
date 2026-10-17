@@ -10,6 +10,8 @@ import {
 import { flattenTree } from '~/features/catalog/tree'
 import type { Product } from '~/features/catalog/types'
 import { useListParams } from '~/shared/api/use-list-params'
+import { isScanCode } from '~/shared/api/variant-lookup'
+import { useVariantScan } from '~/shared/scanner/use-variant-scan'
 import { useSessionStore } from '~/shared/auth/session.store'
 import { formatDateTime } from '~/shared/utils/dates'
 import { useDebounced } from '~/shared/utils/debounce'
@@ -25,7 +27,29 @@ const filters = list.filters
 
 const search = ref(filters.value.q ?? '')
 const debouncedSearch = useDebounced(search)
-watch(debouncedSearch, (q) => list.setFilter('q', q.trim() || undefined))
+/** Al abrir lo escaneado, la búsqueda pendiente ya no debe cambiar la URL (cancelaría la navegación). */
+let leaving = false
+watch(debouncedSearch, (q) => {
+  if (!leaving) void list.setFilter('q', q.trim() || undefined)
+})
+
+// Enter o el lector en el buscador: el código exacto abre el producto en su variante (§11.10).
+const scan = useVariantScan({
+  notFound: (code) => `Ninguna variante tiene el SKU o GTIN ${code}; abajo, lo que coincide.`,
+  onFound: (v) => {
+    leaving = true
+    navigateTo({
+      path: `/catalogo/productos/${v.product.id}`,
+      query: { tab: 'variantes', variant: v.id },
+    })
+    return undefined
+  },
+})
+watch(search, () => scan.clear())
+async function onSearchEnter() {
+  await list.setFilter('q', search.value.trim() || undefined)
+  if (isScanCode(search.value)) await scan.scan(search.value)
+}
 
 const { data, isPending, error, refetch, isFetching } = useProducts(() => ({
   page: list.page.value,
@@ -107,6 +131,8 @@ function openRow(_: Event, row: TableRow<Product>) {
         placeholder="Buscar por título, SKU o GTIN"
         aria-label="Buscar productos"
         class="w-full sm:w-64"
+        :loading="scan.pending.value"
+        @keydown.enter.prevent="onSearchEnter"
       />
       <USelect
         :model-value="filters.status"
@@ -176,6 +202,12 @@ function openRow(_: Event, row: TableRow<Product>) {
         >Nuevo producto</UButton
       >
     </div>
+
+    <ScanResult
+      :feedback="scan.feedback.value"
+      :choices="scan.choices.value"
+      @choose="scan.choose"
+    />
 
     <QueryState
       :loading="isPending"

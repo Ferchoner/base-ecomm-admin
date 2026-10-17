@@ -8,9 +8,11 @@ const KEY_PREFIX = 'backoffice.preferences.'
 
 interface Preferences {
   lowStockThreshold: number
+  /** Aviso sonoro al escanear un código (PLAN_API_1.7 §3.1). */
+  scanSound: boolean
 }
 
-const DEFAULTS: Preferences = { lowStockThreshold: DEFAULT_LOW_STOCK_THRESHOLD }
+const DEFAULTS: Preferences = { lowStockThreshold: DEFAULT_LOW_STOCK_THRESHOLD, scanSound: true }
 
 function read(key: string): Preferences {
   try {
@@ -20,6 +22,7 @@ function read(key: string): Preferences {
     return {
       lowStockThreshold:
         Number.isInteger(t) && (t as number) >= 0 ? (t as number) : DEFAULTS.lowStockThreshold,
+      scanSound: typeof parsed.scanSound === 'boolean' ? parsed.scanSound : DEFAULTS.scanSound,
     }
   } catch {
     return { ...DEFAULTS }
@@ -38,10 +41,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
   watch(key, (k) => (prefs.value = k ? read(k) : { ...DEFAULTS }), { immediate: true })
 
   const lowStockThreshold = computed(() => prefs.value.lowStockThreshold)
+  const scanSound = computed(() => prefs.value.scanSound)
 
-  function setLowStockThreshold(value: number) {
-    if (!Number.isInteger(value) || value < 0) return
-    prefs.value = { ...prefs.value, lowStockThreshold: value }
+  function save(changes: Partial<Preferences>) {
+    prefs.value = { ...prefs.value, ...changes }
     if (!key.value) return
     try {
       globalThis.localStorage?.setItem(key.value, JSON.stringify(prefs.value))
@@ -50,5 +53,14 @@ export const usePreferencesStore = defineStore('preferences', () => {
     }
   }
 
-  return { lowStockThreshold, setLowStockThreshold }
+  function setLowStockThreshold(value: number) {
+    if (!Number.isInteger(value) || value < 0) return
+    save({ lowStockThreshold: value })
+  }
+
+  function setScanSound(value: boolean) {
+    save({ scanSound: value })
+  }
+
+  return { lowStockThreshold, setLowStockThreshold, scanSound, setScanSound }
 })

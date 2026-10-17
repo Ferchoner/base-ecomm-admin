@@ -18,6 +18,11 @@ function save() {
   prefs.setLowStockThreshold(threshold.value!)
   notifySuccess(toast, 'Preferencia guardada')
 }
+
+function onScanSound(value: boolean) {
+  prefs.setScanSound(value)
+  notifySuccess(toast, 'Preferencia guardada')
+}
 </script>
 
 <template>
@@ -36,5 +41,12 @@ function save() {
       </UFormField>
       <UButton type="submit" :disabled="!valid">Guardar</UButton>
     </form>
+    <USwitch
+      :model-value="prefs.scanSound"
+      label="Sonido al escanear"
+      description="Un tono corto cuando el lector encuentra el código y otro grave cuando no."
+      class="mt-4"
+      @update:model-value="onScanSound"
+    />
   </UCard>
 </template>

@@ -193,8 +193,11 @@ async function onSubmit(event: FormSubmitEvent<ReceiptForm | AdjustmentForm>) {
           </UFormField>
         </template>
 
-        <p v-if="onHandAfter !== null" class="text-sm text-muted" aria-live="polite">
-          Quedarán {{ onHandAfter }} unidades físicas.
+        <!-- Siempre ocupa su línea: si apareciera al salir de Cantidad, movería el botón del clic. -->
+        <p class="min-h-5 text-sm text-muted" aria-live="polite">
+          <template v-if="onHandAfter !== null"
+            >Quedarán {{ onHandAfter }} unidades físicas.</template
+          >
         </p>
       </UForm>
     </template>

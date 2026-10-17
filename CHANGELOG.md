@@ -31,6 +31,8 @@ Sin versión publicada todavía: el MVP corre solo en local (G-07). La primera v
 
 - **Impresión:** ticket del pedido en térmica de 58 mm (por defecto), 80 mm o carta, con el código del pedido en Code 128; etiquetas sin precio con código EAN, UPC, ITF-14 o Code 128 en 50 × 25 mm, compactas de 25 × 15 mm con Data Matrix o QR, y hoja carta de 30; papel inicial de cada documento en Mi cuenta.
 
+- **Órdenes de trabajo (API 1.6):** recibir equipos con folio, buscar por folio, teléfono, nombre o serie (el lector con el folio abre la orden), corregir datos y diagnóstico, cambiar el estado hacia adelante o cancelar con nota; técnico de la lista de staff con `staff.manage` o "Asignármela" sin él; cobrarla con ventas de mostrador (nueva desde la orden o ligada por su código) con cobrado y por cobrar; nota de servicio para imprimir en carta, 58 u 80 mm con línea de firma; datos bloqueados con motivo y anonimizar.
+
 - **Varios almacenes (API 1.1):** pantalla Almacenes para crear, editar la prioridad y desactivar; existencias, entradas y ajustes por almacén; transferencia entre almacenes; almacén de regreso en el reintegro; filtro y columna de almacén en Envíos.
 
 - **Pago en tienda (API 1.2 y 1.3, G-02):** pantalla para habilitar o deshabilitar el pago manual (solo superadministrador); "Registrar pago" avisa si está deshabilitado y pide cómo se cobró; el método se ve en el pedido y en el pago; el editor de roles no ofrece permisos exclusivos del superadministrador.

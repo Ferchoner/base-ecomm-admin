@@ -6,34 +6,37 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 
 ## Cobertura por capacidad
 
-| Capacidad                                                                            | Estado    | Endpoints                                                                | Nota                                                        |
-| ------------------------------------------------------------------------------------ | --------- | ------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| Login / logout / refresh de staff                                                    | AVAILABLE | `/v1/auth/login`, `/refresh`, `/logout`                                  |                                                             |
-| Perfil y permisos del usuario                                                        | AVAILABLE | `GET /v1/me`                                                             |                                                             |
-| Cambio de contraseña (incluido obligatorio)                                          | AVAILABLE | `POST /v1/me/password`                                                   |                                                             |
-| Recuperar contraseña de staff                                                        | PARTIAL   | `/v1/auth/password-reset/request`, `/confirm`                            | Ver G-01 (decidido)                                         |
-| Productos, variantes, imágenes                                                       | AVAILABLE | `/v1/admin/catalog/products/**`                                          |                                                             |
-| Categorías (árbol) y marcas                                                          | AVAILABLE | `/v1/admin/catalog/categories`, `/brands`                                | Sin GET individual; el detalle sale del árbol/listado       |
-| Precios por variante, programados, importación CSV                                   | AVAILABLE | `/v1/admin/pricing/**`                                                   | Solo lista `GENERAL`; sin alta/edición de listas (ADR-0039) |
-| Precio visible en listado de productos                                               | GAP       | —                                                                        | Ver G-04                                                    |
-| Stock, movimientos, entradas, ajustes, almacén                                       | AVAILABLE | `/v1/admin/inventory/**`                                                 | Varios almacenes con prioridad (ADR-0160); ver G-20         |
-| Pedidos: listado, detalle, cancelar, reintentar surtido, reintegro, datos bloqueados | AVAILABLE | `/v1/admin/orders/**`                                                    |                                                             |
-| Pago manual (captura)                                                                | AVAILABLE | `POST /v1/admin/orders/{id}/manual-capture`, `/payment-settings`         | G-02 resuelto                                               |
-| Pagos: listado, detalle, reembolso manual                                            | AVAILABLE | `/v1/admin/payments/**`                                                  |                                                             |
-| Reintentar reembolso con proveedor                                                   | GAP       | `…/refunds/retry` documentado como pendiente (T-192), ausente en OpenAPI | No se construye UI                                          |
-| Envíos: listado, detalle, guía, despachar, entregar, fallo, devolución               | AVAILABLE | `/v1/admin/shipping/shipments/**`                                        |                                                             |
-| Método de envío                                                                      | AVAILABLE | `GET/PUT /v1/admin/shipping/method`                                      |                                                             |
-| Clientes: listado, detalle, suspender, reactivar, anonimizar                         | AVAILABLE | `/v1/admin/identity/customers/**`                                        |                                                             |
-| Anonimizar invitado                                                                  | AVAILABLE | `POST /v1/admin/identity/guest-anonymizations`                           |                                                             |
-| Staff y roles                                                                        | AVAILABLE | `/v1/admin/identity/staff/**`, `/roles/**`, `/permissions`               |                                                             |
-| Auditoría                                                                            | AVAILABLE | `GET /v1/admin/audit` (cursor, 3 meses)                                  |                                                             |
-| Entregas de eventos fallidas                                                         | AVAILABLE | `/v1/admin/event-deliveries/**`                                          |                                                             |
-| Dashboard / KPIs                                                                     | PARTIAL   | — (solo conteos derivados de listados)                                   | Ver G-03; conteos en el inicio (F6)                         |
-| Reportes de ventas / exportaciones                                                   | GAP       | —                                                                        | Ver G-05                                                    |
-| Promociones / cupones / descuentos                                                   | GAP       | — (`discountTotal` existe pero sin gestión)                              | Fuera de alcance                                            |
-| Notificaciones / plantillas de correo                                                | GAP       | —                                                                        | Fuera de alcance                                            |
-| Edición de pedidos, pedidos creados por staff, notas internas                        | GAP       | —                                                                        | Fuera de alcance                                            |
-| Reseñas, contenido CMS, banners                                                      | GAP       | —                                                                        | Fuera de alcance                                            |
+| Capacidad                                                                            | Estado    | Endpoints                                                                  | Nota                                                        |
+| ------------------------------------------------------------------------------------ | --------- | -------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Login / logout / refresh de staff                                                    | AVAILABLE | `/v1/auth/login`, `/refresh`, `/logout`                                    |                                                             |
+| Perfil y permisos del usuario                                                        | AVAILABLE | `GET /v1/me`                                                               |                                                             |
+| Cambio de contraseña (incluido obligatorio)                                          | AVAILABLE | `POST /v1/me/password`                                                     |                                                             |
+| Recuperar contraseña de staff                                                        | PARTIAL   | `/v1/auth/password-reset/request`, `/confirm`                              | Ver G-01 (decidido)                                         |
+| Productos, variantes, imágenes                                                       | AVAILABLE | `/v1/admin/catalog/products/**`                                            |                                                             |
+| Categorías (árbol) y marcas                                                          | AVAILABLE | `/v1/admin/catalog/categories`, `/brands`                                  | Sin GET individual; el detalle sale del árbol/listado       |
+| Precios por variante, programados, importación CSV                                   | AVAILABLE | `/v1/admin/pricing/**`                                                     | Solo lista `GENERAL`; sin alta/edición de listas (ADR-0039) |
+| Precio visible en listado de productos                                               | GAP       | —                                                                          | Ver G-04                                                    |
+| Stock, movimientos, entradas, ajustes, almacén                                       | AVAILABLE | `/v1/admin/inventory/**`                                                   | Varios almacenes con prioridad (ADR-0160); ver G-20         |
+| Pedidos: listado, detalle, cancelar, reintentar surtido, reintegro, datos bloqueados | AVAILABLE | `/v1/admin/orders/**`                                                      |                                                             |
+| Pago manual (captura)                                                                | AVAILABLE | `POST /v1/admin/orders/{id}/manual-capture`, `/payment-settings`           | G-02 resuelto                                               |
+| Pagos: listado, detalle, reembolso manual                                            | AVAILABLE | `/v1/admin/payments/**`                                                    |                                                             |
+| Reintentar reembolso con proveedor                                                   | GAP       | `…/refunds/retry` documentado como pendiente (T-192), ausente en OpenAPI   | No se construye UI                                          |
+| Envíos: listado, detalle, guía, despachar, entregar, fallo, devolución               | AVAILABLE | `/v1/admin/shipping/shipments/**`                                          |                                                             |
+| Método de envío                                                                      | AVAILABLE | `GET/PUT /v1/admin/shipping/method`                                        |                                                             |
+| Clientes: listado, detalle, suspender, reactivar, anonimizar                         | AVAILABLE | `/v1/admin/identity/customers/**`                                          |                                                             |
+| Anonimizar invitado                                                                  | AVAILABLE | `POST /v1/admin/identity/guest-anonymizations`                             |                                                             |
+| Staff y roles                                                                        | AVAILABLE | `/v1/admin/identity/staff/**`, `/roles/**`, `/permissions`                 |                                                             |
+| Auditoría                                                                            | AVAILABLE | `GET /v1/admin/audit` (cursor, 3 meses)                                    |                                                             |
+| Entregas de eventos fallidas                                                         | AVAILABLE | `/v1/admin/event-deliveries/**`                                            |                                                             |
+| Dashboard / KPIs                                                                     | PARTIAL   | — (solo conteos derivados de listados)                                     | Ver G-03; conteos en el inicio (F6)                         |
+| Reportes de ventas / exportaciones                                                   | GAP       | —                                                                          | Ver G-05                                                    |
+| Promociones / cupones / descuentos                                                   | AVAILABLE | `/v1/admin/promotions/**`                                                  | API 1.7 (ADR-0168)                                          |
+| Órdenes de trabajo y nota de servicio                                                | AVAILABLE | `/v1/admin/work-orders/**`                                                 | API 1.6 (ADR-0165 a 0167); técnicos en G-23                 |
+| Búsqueda por código (lector) y datos del ticket                                      | AVAILABLE | `/v1/admin/catalog/variants/lookup`, `/v1/admin/store-profile`             | G-24 a G-26                                                 |
+| Cargas masivas de productos y entradas                                               | AVAILABLE | `/v1/admin/catalog/product-imports`, `/v1/admin/inventory/receipt-imports` | Solo altas (G-22)                                           |
+| Notificaciones / plantillas de correo                                                | GAP       | —                                                                          | Fuera de alcance                                            |
+| Edición de pedidos, notas internas                                                   | GAP       | —                                                                          | Fuera de alcance; el staff coloca pedidos desde la API 1.2  |
+| Reseñas, contenido CMS, banners                                                      | GAP       | —                                                                          | Fuera de alcance                                            |
 
 ## Detalle de GAPs abiertos
 
@@ -198,6 +201,11 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 ### G-26 · Hardware del lector — ASSUMPTION
 
 - **Supuesto:** lector en modo teclado (HID) con sufijo Enter; lector 2D (imager) donde se usen etiquetas compactas con Data Matrix o QR, porque un lector láser lineal no las lee.
+
+### G-27 · Aviso de privacidad al recibir un equipo — ASSUMPTION
+
+- **Evidencia:** recibir un equipo guarda nombre, teléfono y email del cliente (API_SPEC §25.2) y no pide `privacyNoticeShown` ni versión del aviso, a diferencia de la venta a un invitado (§15.7, G-19).
+- **Supuesto:** el frontend no pide confirmar el aviso de privacidad al recibir un equipo; si el negocio lo requiere, debe definirlo con su asesor y el backend agregar el campo.
 
 ## Comportamientos que el frontend debe respetar (no son gaps)
 

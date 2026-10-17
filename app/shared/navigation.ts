@@ -73,6 +73,12 @@ export const NAVIGATION: NavGroup[] = [
         permission: 'orders.place',
       },
       {
+        label: 'Órdenes de trabajo',
+        icon: 'i-lucide-wrench',
+        to: '/ordenes-trabajo',
+        permission: 'work-orders.read',
+      },
+      {
         label: 'Pagos',
         icon: 'i-lucide-credit-card',
         to: '/pagos',

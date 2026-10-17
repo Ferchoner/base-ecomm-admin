@@ -2,6 +2,8 @@
 
 Fecha: 2026-10-17. Estado: **APROBADO** por el usuario el 2026-10-17, con sus ajustes (venta de mostrador por defecto, ticket de 58 mm, vista carta, códigos compactos para productos pequeños y técnicos: lista para quien puede ver al staff, "Asignármela" para quien no) y las recomendaciones de §5 (seis PR, etiquetas y `bwip-js`, con la ampliación del stack aceptada). DECISIONS D-081 a D-085.
 
+Implementación: PR #18 a #23, apilados y en revisión; se fusionan en ese orden (PROJECT_STATE.md).
+
 Contrato actual del backoffice: `base-shop@ff10406` (2026-10-06, 1.3 sin publicar).
 Contrato nuevo: `base-shop@7af0f1d` (tag `v1.7.0`, 2026-10-17), que incluye 1.4.0, 1.5.0, 1.6.0 y 1.7.0. OpenAPI: 133 → 152 operaciones, 172 → 202 esquemas. **Sin operaciones eliminadas ni campos quitados**: todos los cambios son compatibles (versiones menores, ADR-0159).
 

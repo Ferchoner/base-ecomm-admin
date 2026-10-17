@@ -22,17 +22,21 @@ Además de estos, un superadministrador puede crear roles propios con cualquier 
 
 ## Problemas que resuelve
 
-| Necesidad del staff                                                                                | Dónde                        |
-| -------------------------------------------------------------------------------------------------- | ---------------------------- |
-| Saber qué hay pendiente hoy (cobros, surtido, reembolsos, despachos, stock bajo, eventos fallidos) | Inicio (conteos por permiso) |
-| Mantener el catálogo: productos, variantes, imágenes, categorías y marcas                          | Catálogo                     |
-| Fijar y programar precios, también en masa por CSV                                                 | Precios                      |
-| Registrar entradas y ajustes de stock y ver sus movimientos                                        | Inventario                   |
-| Atender pedidos: cobro en tienda, cancelación, reintegro de stock, surtido                         | Pedidos, Pagos               |
-| Despachar y dar seguimiento a envíos                                                               | Envíos, Método de envío      |
-| Atender clientes y solicitudes ARCO (suspender, anonimizar)                                        | Clientes                     |
-| Dar acceso al equipo con roles y permisos                                                          | Staff, Roles                 |
-| Saber quién hizo qué y recuperar integraciones fallidas                                            | Auditoría, Eventos           |
+| Necesidad del staff                                                                                | Dónde                           |
+| -------------------------------------------------------------------------------------------------- | ------------------------------- |
+| Saber qué hay pendiente hoy (cobros, surtido, reembolsos, despachos, stock bajo, eventos fallidos) | Inicio (conteos por permiso)    |
+| Mantener el catálogo: productos, variantes, imágenes, categorías y marcas                          | Catálogo                        |
+| Fijar y programar precios, también en masa por CSV                                                 | Precios                         |
+| Registrar entradas y ajustes de stock y ver sus movimientos                                        | Inventario                      |
+| Atender pedidos: cobro en tienda, cancelación, reintegro de stock, surtido                         | Pedidos, Pagos                  |
+| Despachar y dar seguimiento a envíos                                                               | Envíos, Método de envío         |
+| Atender clientes y solicitudes ARCO (suspender, anonimizar)                                        | Clientes                        |
+| Dar acceso al equipo con roles y permisos                                                          | Staff, Roles                    |
+| Saber quién hizo qué y recuperar integraciones fallidas                                            | Auditoría, Eventos              |
+| Vender en el mostrador con lector de códigos, cupones y ticket impreso                             | Vender en tienda, Pedidos       |
+| Recibir equipos para servicio, dar seguimiento, cobrarlos con ventas e imprimir la nota para firma | Órdenes de trabajo              |
+| Crear promociones y cupones                                                                        | Promociones                     |
+| Cargar productos y entradas en masa por CSV e imprimir etiquetas con código de barras              | Catálogo, Inventario, Etiquetas |
 
 ## Principios del producto
 
@@ -45,10 +49,11 @@ Además de estos, un superadministrador puede crear roles propios con cualquier 
 
 ## Fuera del producto (sin API)
 
-Reportes de ventas e ingresos, exportaciones, promociones y cupones, plantillas de correo, edición de pedidos o pedidos creados por staff, CMS, reseñas y reintento de reembolso con el proveedor. Detalle en GAPS.md (G-03, G-05 y tabla de cobertura).
+Reportes de ventas e ingresos, exportaciones, plantillas de correo, edición de pedidos, CMS, reseñas y reintento de reembolso con el proveedor. Detalle en GAPS.md (G-03, G-05 y tabla de cobertura).
 
 ## Restricciones del MVP
 
 - Solo ambientes locales, sin dominios ni hosting real (G-07, D-035).
 - Varios almacenes con prioridad (desde la API 1.1, ADR-0160) y una sola lista de precios (`GENERAL`), como el backend.
-- El pago manual depende de `MANUAL_PAYMENTS_ENABLED` del backend; no hay forma de consultarlo ni cambiarlo desde el backoffice hasta que existan los endpoints acordados (G-02, D-033).
+- El pago manual se habilita en Pago en tienda (API 1.3, G-02 resuelto).
+- Se imprime desde el navegador con su diálogo (tickets, notas de servicio y etiquetas); sin impresión directa, corte de papel ni cajón (G-25). El lector de códigos se usa en modo teclado (G-26).

@@ -37,3 +37,19 @@ Leyenda de cobertura: ✓ probado · — no aplica · ○ pendiente (ver QA_REPO
 | Contraste y nombres accesibles           | ✓         | axe sin violaciones A/AA                                                                       |
 | Lector de pantalla real                  | ○         | Pendiente de revisión manual                                                                   |
 | Tema oscuro                              | ✓         | axe en las 19 pantallas con `colorScheme: 'dark'` (escritorio)                                 |
+
+## API 1.4–1.7 (2026-10-17)
+
+| Caso                                                                                                                                      | Prueba                                                         |
+| ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Cargar productos y entradas con revisión previa y errores por línea                                                                       | `tests/e2e/catalog.spec.ts`, `pricing-inventory.spec.ts`       |
+| Promociones: cupón con límite, edición de una vigente, terminar, solo lectura                                                             | `tests/e2e/promotions.spec.ts`, `tests/unit/promotions`        |
+| Cupón en la venta en tienda (no aplica, aplicado)                                                                                         | `tests/e2e/sales.spec.ts`                                      |
+| Lector: productos, venta en tienda, pedidos, entradas; detector de ráfaga                                                                 | `tests/e2e/scanner.spec.ts`, `tests/unit/shared/utils.spec.ts` |
+| Ticket y etiquetas: papel por defecto y preferido, códigos, impresión                                                                     | `tests/e2e/print.spec.ts`, `tests/unit/shared/utils.spec.ts`   |
+| Órdenes de trabajo: recibir con "Asignármela" e imprimir la nota                                                                          | `tests/e2e/work-orders.spec.ts`                                |
+| Órdenes de trabajo: técnico de la lista con `staff.manage`, diagnóstico (solo lo cambiado y `version`), saltar estados, cancelar con nota | `tests/e2e/work-orders.spec.ts`                                |
+| Órdenes de trabajo: nueva venta desde la orden y volver a ligarla, ligar por código, venta vencida no se liga, desligar con `?version=`   | `tests/e2e/work-orders.spec.ts`                                |
+| Órdenes de trabajo: datos bloqueados con motivo, sin acciones sin `work-orders.manage`                                                    | `tests/e2e/work-orders.spec.ts`                                |
+| Esquemas y estados de órdenes de trabajo                                                                                                  | `tests/unit/work-orders`                                       |
+| Accesibilidad de las pantallas y diálogos nuevos                                                                                          | `tests/e2e/a11y.spec.ts`                                       |

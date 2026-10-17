@@ -1,7 +1,7 @@
 # PROJECT_STATE
 
-**Última actualización:** 2026-10-06
-**Fase actual:** DELIVER · F0 a F6, QA/PWA y documentación fusionados (PR #1 a #11); prueba contra la API real hecha, con sus correcciones en revisión.
+**Última actualización:** 2026-10-17
+**Fase actual:** DELIVER · F0 a F6, QA/PWA, documentación y API 1.1–1.3 fusionados (PR #1 a #16); API 1.4–1.7, lector de códigos, impresión y órdenes de trabajo en revisión (PR #18 a #23, apilados).
 **Release:** versión candidata `0.1.0`, sin publicar. **No está lista para producción** (RELEASE_READINESS.md).
 
 ## Proceso
@@ -139,3 +139,18 @@ G-01, G-06, G-07, G-09 resueltos; G-02 y G-10 quedan como cambios del backend (D
 5. Para producción: decidir hosting, dominios y pipeline (G-07) y aplicar HTTPS y CSP (FTR-03).
 
 Pendientes clasificados en RELEASE_READINESS.md.
+
+## API 1.4–1.7, lector e impresión — en revisión (PR #18 a #23, 2026-10-17)
+
+Plan aprobado en PLAN_API_1.7.md (D-082). Seis PR apilados que se fusionan en orden:
+
+| PR  | Contenido                                                                                                                |
+| --- | ------------------------------------------------------------------------------------------------------------------------ |
+| #18 | Contrato `7af0f1d` (v1.7.0): tipos, GTIN, descuentos por línea, servicios solo en tienda, venta de mostrador por defecto |
+| #19 | Cargas masivas de productos y entradas (D-086)                                                                           |
+| #20 | Promociones y cupones, y el cupón en la venta en tienda (D-087)                                                          |
+| #21 | Lector de códigos en modo teclado (D-088)                                                                                |
+| #22 | Impresión de ticket y etiquetas con bwip-js (D-084, D-089)                                                               |
+| #23 | Órdenes de trabajo, ventas ligadas y nota de servicio (D-085, D-090 a D-093)                                             |
+
+Gaps nuevos: G-22 a G-27. El técnico se elige de la lista de staff solo con `staff.manage`; sin él, "Asignármela" (D-085, G-23).

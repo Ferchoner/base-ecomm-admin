@@ -31,6 +31,14 @@ import type { BuyerCustomer, SellableStock, StaffQuoteInput } from '../types'
  * Pedido en la tienda física a nombre de un cliente presente (UC-ORD-12 y 13, ADR-0161): se cotiza
  * en el almacén elegido, del único que sale el stock, y se coloca con `Idempotency-Key`.
  */
+const props = defineProps<{
+  /**
+   * A dónde volver al colocarlo, en vez del detalle del pedido: recibe `?ligar=<id>&venta=<código>`
+   * para que esa pantalla lo ligue (una orden de trabajo, API_SPEC §25.7).
+   */
+  returnTo?: string
+}>()
+
 const MAX_LINES = 100
 const MAX_UNITS = 30
 
@@ -290,7 +298,11 @@ async function onSubmit(event: FormSubmitEvent<StoreOrderForm>) {
       idempotencyKey,
     })
     notifySuccess(toast, 'Pedido colocado', `${order.publicCode} queda por cobrar.`)
-    await navigateTo(`/pedidos/${order.id}`)
+    await navigateTo(
+      props.returnTo
+        ? { path: props.returnTo, query: { ligar: order.id, venta: order.publicCode } }
+        : `/pedidos/${order.id}`,
+    )
   } catch (e) {
     const p = e as ApiProblem
     if (['total-mismatch', 'insufficient-stock', 'variant-not-sellable'].includes(p.type))

@@ -8,6 +8,7 @@ import { mockOperationsApi } from './mock-operations'
 import { mockPricingInventoryApi } from './mock-pricing-inventory'
 import { mockPromotionsApi } from './mock-promotions'
 import { mockSalesApi } from './mock-sales'
+import { mockWorkOrdersApi } from './mock-work-orders'
 
 /**
  * Revisión automática de accesibilidad (WCAG 2.1 A y AA con axe) de cada pantalla con datos.
@@ -34,6 +35,9 @@ const ALL = [
   'events.manage',
   'promotions.read',
   'promotions.manage',
+  'work-orders.read',
+  'work-orders.manage',
+  'work-orders.read-blocked',
 ]
 
 async function seedAll(page: Page) {
@@ -73,6 +77,10 @@ async function seedAll(page: Page) {
     staff: [{ email: 'luis@example.com', firstNames: 'Luis', roles: ['Catálogo'] }],
   })
   await mockPromotionsApi(page, [{ name: 'Buen Fin 10%', code: 'BUENFIN', usageLimit: 100 }])
+  await mockWorkOrdersApi(page, {
+    staff: false,
+    workOrders: [{ folio: 123, status: 'DIAGNOSED', diagnosis: 'Disco dañado' }],
+  })
 }
 
 async function expectNoViolations(page: Page) {
@@ -133,6 +141,13 @@ const PAGES: Array<{
     open: { link: 'Buen Fin 10%', url: /\/promociones\/.+/ },
   },
   { path: '/promociones/nueva', heading: 'Nueva promoción' },
+  { path: '/ordenes-trabajo', heading: 'Órdenes de trabajo' },
+  {
+    path: '/ordenes-trabajo',
+    heading: 'Orden de trabajo',
+    open: { link: 'OT-000123', url: /\/ordenes-trabajo\/.+/ },
+  },
+  { path: '/ordenes-trabajo/nueva', heading: 'Recibir equipo' },
   { path: '/pagos', heading: 'Pagos' },
   { path: '/envios', heading: 'Envíos' },
   { path: '/clientes', heading: 'Clientes' },
@@ -176,6 +191,16 @@ test('accesibilidad: ticket de un pedido', async ({ page }) => {
   await expectNoViolations(page)
 })
 
+test('accesibilidad: nota de servicio', async ({ page }) => {
+  await seedAll(page)
+  await login(page)
+  await page.goto('/ordenes-trabajo')
+  await page.getByRole('link', { name: 'OT-000123' }).click()
+  await page.getByRole('link', { name: 'Imprimir nota de servicio' }).click()
+  await expect(page.getByRole('img', { name: 'Código OT-000123' })).toBeVisible()
+  await expectNoViolations(page)
+})
+
 const DIALOGS: Array<{ name: string; path: string; open: (page: Page) => Promise<void> }> = [
   {
     name: 'alta de staff',
@@ -192,6 +217,14 @@ const DIALOGS: Array<{ name: string; path: string; open: (page: Page) => Promise
     path: '/auditoria',
     open: (page) =>
       page.getByRole('list', { name: 'Registros' }).getByRole('button').first().click(),
+  },
+  {
+    name: 'cambio de estado de una orden de trabajo',
+    path: '/ordenes-trabajo',
+    open: async (page) => {
+      await page.getByRole('link', { name: 'OT-000123' }).click()
+      await page.getByRole('button', { name: 'Cambiar estado' }).click()
+    },
   },
 ]
 

@@ -29,6 +29,8 @@ Sin versión publicada todavía: el MVP corre solo en local (G-07). La primera v
 
 - **Lector de códigos de barras:** en productos el SKU o GTIN exacto abre la variante; en la venta en tienda se escanea sin dar clic, suma unidades y explica lo que no se vende o no tiene existencias; el código del ticket abre el pedido; las entradas de mercancía eligen la variante escaneando; tono opcional en Mi cuenta.
 
+- **Impresión:** ticket del pedido en térmica de 58 mm (por defecto), 80 mm o carta, con el código del pedido en Code 128; etiquetas sin precio con código EAN, UPC, ITF-14 o Code 128 en 50 × 25 mm, compactas de 25 × 15 mm con Data Matrix o QR, y hoja carta de 30; papel inicial de cada documento en Mi cuenta.
+
 - **Varios almacenes (API 1.1):** pantalla Almacenes para crear, editar la prioridad y desactivar; existencias, entradas y ajustes por almacén; transferencia entre almacenes; almacén de regreso en el reintegro; filtro y columna de almacén en Envíos.
 
 - **Pago en tienda (API 1.2 y 1.3, G-02):** pantalla para habilitar o deshabilitar el pago manual (solo superadministrador); "Registrar pago" avisa si está deshabilitado y pide cómo se cobró; el método se ve en el pedido y en el pago; el editor de roles no ofrece permisos exclusivos del superadministrador.

@@ -38,6 +38,12 @@ export const NAVIGATION: NavGroup[] = [
         permission: 'catalog.read',
       },
       {
+        label: 'Etiquetas',
+        icon: 'i-lucide-barcode',
+        to: '/catalogo/etiquetas',
+        permission: 'catalog.read',
+      },
+      {
         label: 'Precios',
         icon: 'i-lucide-circle-dollar-sign',
         to: '/precios',

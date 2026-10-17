@@ -95,7 +95,16 @@ const dates = computed(() => {
               <span class="text-xs text-muted">N.º {{ order.orderNumber }}</span>
             </div>
           </div>
-          <OrderActions :order="order" />
+          <div class="flex flex-wrap items-start gap-2">
+            <UButton
+              :to="`/imprimir/ticket/${order.id}`"
+              icon="i-lucide-printer"
+              color="neutral"
+              variant="outline"
+              >Imprimir ticket</UButton
+            >
+            <OrderActions :order="order" />
+          </div>
         </header>
 
         <UAlert

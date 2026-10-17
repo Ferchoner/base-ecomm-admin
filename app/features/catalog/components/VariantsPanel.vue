@@ -68,7 +68,7 @@ const columns = computed<TableColumn<Variant>[]>(() => [
   { id: 'options', header: 'Opciones' },
   { id: 'measures', header: 'Peso y medidas' },
   { accessorKey: 'status', header: 'Estado' },
-  ...(editable.value ? [{ id: 'actions', header: '' }] : []),
+  { id: 'actions', header: '' },
 ])
 </script>
 
@@ -116,23 +116,32 @@ const columns = computed<TableColumn<Variant>[]>(() => [
       <template #actions-cell="{ row }">
         <div class="flex justify-end gap-1">
           <UButton
-            icon="i-lucide-pencil"
+            :to="`/catalogo/etiquetas?product=${product.id}&variant=${row.original.id}`"
+            icon="i-lucide-barcode"
             color="neutral"
             variant="ghost"
-            :aria-label="`Editar ${row.original.sku}`"
-            @click="openForm(row.original)"
+            :aria-label="`Etiquetas de ${row.original.sku}`"
           />
-          <UButton
-            :icon="
-              row.original.status === 'DISCONTINUED'
-                ? 'i-lucide-rotate-ccw'
-                : 'i-lucide-circle-pause'
-            "
-            color="neutral"
-            variant="ghost"
-            :aria-label="`${row.original.status === 'DISCONTINUED' ? 'Reactivar' : 'Descontinuar'} ${row.original.sku}`"
-            @click="toggle(row.original)"
-          />
+          <template v-if="editable">
+            <UButton
+              icon="i-lucide-pencil"
+              color="neutral"
+              variant="ghost"
+              :aria-label="`Editar ${row.original.sku}`"
+              @click="openForm(row.original)"
+            />
+            <UButton
+              :icon="
+                row.original.status === 'DISCONTINUED'
+                  ? 'i-lucide-rotate-ccw'
+                  : 'i-lucide-circle-pause'
+              "
+              color="neutral"
+              variant="ghost"
+              :aria-label="`${row.original.status === 'DISCONTINUED' ? 'Reactivar' : 'Descontinuar'} ${row.original.sku}`"
+              @click="toggle(row.original)"
+            />
+          </template>
         </div>
       </template>
     </UTable>

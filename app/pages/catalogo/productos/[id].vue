@@ -56,7 +56,17 @@ const archived = computed(() => product.value?.status === 'ARCHIVED')
               >
             </div>
           </div>
-          <ProductStatusActions v-if="canWrite" :product="product" />
+          <div class="flex flex-wrap items-start gap-2">
+            <UButton
+              v-if="product.variants.length"
+              :to="`/catalogo/etiquetas?product=${product.id}`"
+              icon="i-lucide-barcode"
+              color="neutral"
+              variant="outline"
+              >Imprimir etiquetas</UButton
+            >
+            <ProductStatusActions v-if="canWrite" :product="product" />
+          </div>
         </header>
 
         <UAlert

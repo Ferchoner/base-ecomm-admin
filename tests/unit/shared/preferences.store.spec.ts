@@ -56,9 +56,27 @@ describe('preferencias por usuario (G-06)', () => {
     expect(prefs.scanSound).toBe(true)
     prefs.setLowStockThreshold(7)
     prefs.setScanSound(false)
-    expect(JSON.parse(localStorage.getItem('backoffice.preferences.u4')!)).toEqual({
+    expect(JSON.parse(localStorage.getItem('backoffice.preferences.u4')!)).toMatchObject({
       lowStockThreshold: 7,
       scanSound: false,
     })
+  })
+
+  it('el papel de cada documento empieza en lo acordado y rechaza valores desconocidos', async () => {
+    localStorage.setItem(
+      'backoffice.preferences.u5',
+      '{"ticketFormat":"a4","labelFormat":"letter30"}',
+    )
+    const session = useSessionStore()
+    const prefs = usePreferencesStore()
+    session.$patch({ account: account('u5') })
+    await nextTick()
+    expect(prefs.ticketFormat).toBe('thermal58')
+    expect(prefs.serviceNoteFormat).toBe('letter')
+    expect(prefs.labelFormat).toBe('letter30')
+    expect(prefs.compactSymbology).toBe('datamatrix')
+    prefs.setPrint({ ticketFormat: 'thermal80', compactSymbology: 'pdf417' as never })
+    expect(prefs.ticketFormat).toBe('thermal80')
+    expect(prefs.compactSymbology).toBe('datamatrix')
   })
 })

@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { ApiProblem } from '~/shared/api/problem'
 import { isScanCode, isSellable, notSellableReason } from '~/shared/api/variant-lookup'
 import { createScanDetector } from '~/shared/scanner/scan-detector'
+import { compactText, linearBarcode, tooLongFor50mm } from '~/shared/print/symbology'
+import { parseSvg } from '~/shared/print/svg'
+import { LABELS_PER_LETTER, chunk, expandLabels } from '~/features/catalog/labels'
 import { toQuery } from '~/shared/api/client'
 import { safeRedirect } from '~/shared/auth/redirect'
 import { formatDateTime } from '~/shared/utils/dates'
@@ -157,5 +160,56 @@ describe('lector de códigos (PLAN_API_1.7 §3.1)', () => {
     expect(notSellableReason({ ...v, status: 'DISCONTINUED' })).toBe(
       'La variante CAM-M está descontinuada: no se vende.',
     )
+  })
+})
+
+describe('impresión (PLAN_API_1.7 §3.2)', () => {
+  const v = (gtin: string | null, sku = 'CAM-M') => ({ sku, gtin })
+
+  it('elige la simbología del GTIN y, sin él, Code 128 del SKU', () => {
+    expect(linearBarcode(v('7501055363063'))).toMatchObject({
+      bcid: 'ean13',
+      text: '7501055363063',
+    })
+    expect(linearBarcode(v('036000291452'))).toMatchObject({ bcid: 'upca' })
+    expect(linearBarcode(v('96385074'))).toMatchObject({ bcid: 'ean8' })
+    expect(linearBarcode(v('07501055363063'))).toEqual({
+      bcid: 'ean13',
+      text: '7501055363063',
+      name: 'EAN-13',
+    })
+    expect(linearBarcode(v('17501055363060'))).toMatchObject({ bcid: 'itf14' })
+    expect(linearBarcode(v(null))).toEqual({ bcid: 'code128', text: 'CAM-M', name: 'Code 128' })
+    expect(compactText(v('7501055363063'))).toBe('7501055363063')
+    expect(compactText(v(null))).toBe('CAM-M')
+    expect(tooLongFor50mm(v(null, 'X'.repeat(21)))).toBe(true)
+    expect(tooLongFor50mm(v('7501055363063', 'X'.repeat(21)))).toBe(false)
+  })
+
+  it('el SVG solo conserva etiquetas y atributos de dibujo', () => {
+    const parsed = parseSvg(
+      '<svg viewBox="0 0 10 5" xmlns="http://www.w3.org/2000/svg"><path d="M0 0L1 1" stroke="#000" onclick="x()"/><script>x()</script><foreignObject/></svg>',
+    )
+    expect(parsed).toEqual({
+      viewBox: '0 0 10 5',
+      nodes: [{ tag: 'path', attrs: { d: 'M0 0L1 1', stroke: '#000' } }],
+    })
+    expect(parseSvg('<div/>')).toBeNull()
+  })
+
+  it('las copias se expanden en orden, con tope, y la hoja carta lleva 30', () => {
+    const item = (sku: string, copies: number) => ({
+      variantId: sku,
+      sku,
+      gtin: null,
+      title: 'Camisa',
+      options: {},
+      copies,
+    })
+    expect(expandLabels([item('A', 2), item('B', 1)]).map((i) => i.sku)).toEqual(['A', 'A', 'B'])
+    expect(expandLabels([item('A', 100), item('B', 100)]).length).toBe(200)
+    expect(chunk(Array.from({ length: 31 }), LABELS_PER_LETTER).map((p) => p.length)).toEqual([
+      30, 1,
+    ])
   })
 })

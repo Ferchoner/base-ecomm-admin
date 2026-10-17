@@ -117,6 +117,7 @@ const PAGES: Array<{
   { path: '/inventario/almacenes', heading: 'Almacenes' },
   { path: '/inventario/cargar-entradas', heading: 'Inventario' },
   { path: '/catalogo/productos/importar', heading: 'Cargar productos' },
+  { path: '/catalogo/etiquetas', heading: 'Etiquetas' },
   { path: '/configuracion/pagos', heading: 'Pago en tienda' },
   { path: '/pedidos', heading: 'Pedidos' },
   {
@@ -164,6 +165,16 @@ for (const scheme of ['light', 'dark'] as const) {
     }
   })
 }
+
+test('accesibilidad: ticket de un pedido', async ({ page }) => {
+  await seedAll(page)
+  await login(page)
+  await page.goto('/pedidos')
+  await page.getByRole('link', { name: 'K7M4-Q9XA' }).first().click()
+  await page.getByRole('link', { name: 'Imprimir ticket' }).click()
+  await expect(page.getByRole('img', { name: 'Código K7M4-Q9XA' })).toBeVisible()
+  await expectNoViolations(page)
+})
 
 const DIALOGS: Array<{ name: string; path: string; open: (page: Page) => Promise<void> }> = [
   {

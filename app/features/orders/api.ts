@@ -20,6 +20,7 @@ import type {
   StaffOrderInput,
   StaffQuote,
   StaffQuoteInput,
+  StoreProfile,
 } from './types'
 import type { Page } from '~/shared/api/types'
 
@@ -241,6 +242,19 @@ export function useStockInWarehouse() {
         ).data[0] ?? null,
       staleTime: 0,
     })
+}
+
+/**
+ * Datos de la tienda para el ticket (`GET /v1/admin/store-profile`, `orders.read`, API_SPEC §15.8).
+ * Salen de la configuración de la API y solo cambian al reiniciarla.
+ */
+export function useStoreProfile() {
+  const api = useApi()
+  return useQuery<StoreProfile, ApiProblem>({
+    queryKey: [QUERY_ROOT.orders, 'store-profile'],
+    queryFn: ({ signal }) => api<StoreProfile>('/v1/admin/store-profile', { signal }),
+    staleTime: 60 * 60 * 1000,
+  })
 }
 
 /** Clientes activos y verificados para colocar el pedido a su nombre (`customers.read`). */

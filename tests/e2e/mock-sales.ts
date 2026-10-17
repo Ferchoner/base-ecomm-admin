@@ -702,6 +702,19 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
     return order
   }
 
+  // Datos de la tienda para el ticket (API_SPEC §15.8).
+  await page.route(`${API}/v1/admin/store-profile`, (route) =>
+    route.request().method() === 'OPTIONS'
+      ? route.fallback()
+      : json(route, 200, {
+          name: 'Tienda Ejemplo',
+          address: 'Av. Madero Poniente 123, Centro, 58000 Morelia, Mich.',
+          taxId: 'EJE260101AB1',
+          phone: '443 123 4567',
+          ticketFooter: 'Este ticket no es un comprobante fiscal.',
+        }),
+  )
+
   await page.route(`${API}/v1/admin/{orders,payments,shipping}**`, async (route) => {
     const request = route.request()
     const url = new URL(request.url())

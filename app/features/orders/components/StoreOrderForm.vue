@@ -19,6 +19,7 @@ import {
   useWarehouseOptions,
 } from '../api'
 import { storeOrderSchema, toStaffOrderInput } from '../schemas'
+import { couponProblemMessage } from '../status'
 import type { StoreOrderForm } from '../schemas'
 import type { BuyerCustomer, SellableStock, StaffQuoteInput } from '../types'
 
@@ -47,6 +48,7 @@ const state = reactive<StoreOrderForm>({
   addressMode: 'saved',
   addressId: undefined,
   address: emptyAddress(),
+  couponCode: '',
 })
 const form = useTemplateRef('form')
 const problem = ref<ApiProblem | null>(null)
@@ -102,7 +104,12 @@ const quoteInput = computed<StaffQuoteInput | null>(() => {
     .filter((l) => Number.isInteger(l.quantity) && l.quantity! >= 1 && l.quantity! <= MAX_UNITS)
     .map((l) => ({ variantId: l.variantId, quantity: l.quantity! }))
   if (!state.warehouseId || lines.length === 0) return null
-  return { lines, warehouseId: state.warehouseId, fulfillment: state.fulfillment }
+  return {
+    lines,
+    warehouseId: state.warehouseId,
+    fulfillment: state.fulfillment,
+    ...(state.couponCode && { couponCode: state.couponCode }),
+  }
 })
 const debouncedQuoteInput = useDebounced(quoteInput, 400)
 const quote = useStaffQuote(debouncedQuoteInput)
@@ -115,6 +122,21 @@ const quoteCurrent = computed(
     JSON.stringify(quoteInput.value) === JSON.stringify(debouncedQuoteInput.value) &&
     quoteInput.value?.lines.length === state.lines.length,
 )
+// ── Cupón (API_SPEC §26.8): se aplica con un botón, no al escribir, y se manda en la cotización ──
+const couponDraft = ref('')
+function applyCoupon() {
+  state.couponCode = couponDraft.value.trim().toUpperCase()
+}
+function removeCoupon() {
+  state.couponCode = ''
+  couponDraft.value = ''
+}
+const quoteHints = computed(() =>
+  quote.error.value?.type === 'coupon-not-applicable'
+    ? [couponProblemMessage(quote.error.value.extensions.reason)]
+    : [],
+)
+
 const quoteLine = (variantId: string) =>
   quote.data.value?.lines.find((l) => l.variantId === variantId)
 
@@ -221,6 +243,8 @@ async function onSubmit(event: FormSubmitEvent<StoreOrderForm>) {
       problemMessages.value = [
         `El total cambió${current ? ` a ${money(current)}` : ''}. Revisa la cotización y vuelve a colocar el pedido.`,
       ]
+    } else if (p.type === 'coupon-not-applicable') {
+      problemMessages.value = [couponProblemMessage(p.extensions.reason)]
     } else if (p.type === 'email-not-verified') {
       problemMessages.value = ['El cliente debe confirmar su email antes de comprar.']
     }
@@ -491,7 +515,43 @@ async function onSubmit(event: FormSubmitEvent<StoreOrderForm>) {
         <template #header><h3 class="font-semibold">Total</h3></template>
         <div class="space-y-3 text-sm">
           <ProblemAlert v-if="problem" :problem="problem" :messages="problemMessages" />
-          <ProblemAlert v-else-if="quote.error.value" :problem="quote.error.value" />
+          <ProblemAlert
+            v-else-if="quote.error.value"
+            :problem="quote.error.value"
+            :messages="quoteHints"
+          />
+          <div class="flex items-end gap-2">
+            <UFormField label="Cupón" name="couponCode" class="flex-1">
+              <UInput
+                v-if="!state.couponCode"
+                v-model="couponDraft"
+                placeholder="Código"
+                autocomplete="off"
+                class="w-full uppercase"
+                @keydown.enter.prevent="applyCoupon"
+              />
+              <div v-else class="flex items-center gap-2">
+                <UBadge color="success" variant="subtle" size="lg">{{ state.couponCode }}</UBadge>
+                <UButton
+                  color="neutral"
+                  variant="link"
+                  size="sm"
+                  class="px-0"
+                  aria-label="Quitar cupón"
+                  @click="removeCoupon"
+                  >Quitar</UButton
+                >
+              </div>
+            </UFormField>
+            <UButton
+              v-if="!state.couponCode"
+              color="neutral"
+              variant="outline"
+              :disabled="!couponDraft.trim()"
+              @click="applyCoupon"
+              >Aplicar</UButton
+            >
+          </div>
           <p v-if="!quoteInput" class="text-muted">Agrega productos para cotizar.</p>
           <template v-else-if="quote.data.value">
             <DetailList

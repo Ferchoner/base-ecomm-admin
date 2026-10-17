@@ -79,6 +79,12 @@ export const NAVIGATION: NavGroup[] = [
         permission: 'shipping.manage',
       },
       {
+        label: 'Promociones',
+        icon: 'i-lucide-badge-percent',
+        to: '/promociones',
+        permission: 'promotions.read',
+      },
+      {
         label: 'Clientes',
         icon: 'i-lucide-users',
         to: '/clientes',

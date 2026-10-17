@@ -25,6 +25,8 @@ Sin versión publicada todavía: el MVP corre solo en local (G-07). La primera v
 
 - **Cargas masivas (API 1.5):** cargar productos nuevos con sus variantes y entradas de mercancía desde CSV, con revisión previa, errores por línea y columna y plantillas para descargar; la carga de precios suma su plantilla.
 
+- **Promociones y cupones (API 1.7):** listado con filtros, alta, edición según su estado y terminar; destinos por producto, categoría o marca; en la venta en tienda se aplica un cupón y se explica por qué no aplica.
+
 - **Varios almacenes (API 1.1):** pantalla Almacenes para crear, editar la prioridad y desactivar; existencias, entradas y ajustes por almacén; transferencia entre almacenes; almacén de regreso en el reintegro; filtro y columna de almacén en Envíos.
 
 - **Pago en tienda (API 1.2 y 1.3, G-02):** pantalla para habilitar o deshabilitar el pago manual (solo superadministrador); "Registrar pago" avisa si está deshabilitado y pide cómo se cobró; el método se ve en el pedido y en el pago; el editor de roles no ofrece permisos exclusivos del superadministrador.

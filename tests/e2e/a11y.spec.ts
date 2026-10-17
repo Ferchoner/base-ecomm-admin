@@ -6,6 +6,7 @@ import { mockCatalogApi } from './mock-catalog'
 import { mockIdentityApi } from './mock-identity'
 import { mockOperationsApi } from './mock-operations'
 import { mockPricingInventoryApi } from './mock-pricing-inventory'
+import { mockPromotionsApi } from './mock-promotions'
 import { mockSalesApi } from './mock-sales'
 
 /**
@@ -31,6 +32,8 @@ const ALL = [
   'staff.manage',
   'audit.read',
   'events.manage',
+  'promotions.read',
+  'promotions.manage',
 ]
 
 async function seedAll(page: Page) {
@@ -69,6 +72,7 @@ async function seedAll(page: Page) {
     roles: [{ name: 'Catálogo', permissions: ['catalog.read'] }],
     staff: [{ email: 'luis@example.com', firstNames: 'Luis', roles: ['Catálogo'] }],
   })
+  await mockPromotionsApi(page, [{ name: 'Buen Fin 10%', code: 'BUENFIN', usageLimit: 100 }])
 }
 
 async function expectNoViolations(page: Page) {
@@ -121,6 +125,13 @@ const PAGES: Array<{
     open: { link: 'K7M4-Q9XA', url: /\/pedidos\/.+/ },
   },
   { path: '/pedidos/nuevo', heading: 'Vender en tienda' },
+  { path: '/promociones', heading: 'Promociones' },
+  {
+    path: '/promociones',
+    heading: 'Promoción',
+    open: { link: 'Buen Fin 10%', url: /\/promociones\/.+/ },
+  },
+  { path: '/promociones/nueva', heading: 'Nueva promoción' },
   { path: '/pagos', heading: 'Pagos' },
   { path: '/envios', heading: 'Envíos' },
   { path: '/clientes', heading: 'Clientes' },

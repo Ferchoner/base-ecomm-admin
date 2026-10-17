@@ -179,11 +179,11 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 - **Workaround:** agregar variantes o GTIN a un producto existente se hace uno por uno.
 - **Pregunta pendiente:** ¿el backend agrega una carga de variantes o de edición?
 
-### G-23 · Lista de técnicos no disponible en la API — ASSUMPTION (decidido, D-085)
+### G-23 · Lista de técnicos no disponible en la API — GAP (decidido, D-085)
 
 - **Evidencia:** `WorkOrder.technicianId` es el ID de una cuenta de staff (API_SPEC §25.1); listar al staff exige `staff.manage`, que el Vendedor no tiene.
-- **Decisión del usuario:** asumir un servicio. El backoffice supone `GET /v1/admin/work-orders/technicians` (`work-orders.read`) → `{ data: [{ id, name }] }`. Mientras responda 404, ofrece "Asignármela" y muestra el técnico como "Tú" o su ID.
-- **Pregunta pendiente:** pedir al backend el servicio; ajustar la función al contrato real cuando se publique. `receivedBy` y `actorId` siguen sin nombre (G-13, G-21).
+- **Decisión del usuario (2026-10-17, ajustada):** con `staff.manage`, el selector lista al staff activo (`GET /v1/admin/identity/staff?status=ACTIVE&q=`) y muestra el nombre del técnico; sin él, solo "Asignármela" y el técnico se ve como "Tú" o su ID. No se supone ningún servicio.
+- **Pregunta pendiente:** pedir al backend una lista de técnicos con permisos de órdenes de trabajo, para que el Vendedor también pueda elegir. `receivedBy` y `actorId` siguen sin nombre (G-13, G-21).
 
 ### G-24 · La búsqueda por código no trae existencias ni precio — GAP menor
 

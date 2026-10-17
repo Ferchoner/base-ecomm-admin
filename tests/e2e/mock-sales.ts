@@ -553,13 +553,18 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
     )
   }
 
+  /** El único cupón que aplica en la simulación: 10% de cada línea (API_SPEC §26.8). */
+  const COUPON = 'BUENFIN'
   function quote(input: {
     lines: Array<{ variantId: string; quantity: number }>
     fulfillment?: string
+    couponCode?: string
   }) {
+    const withCoupon = input.couponCode === COUPON
     const lines = input.lines.map((l) => {
       const v = STOCK.find((x) => x.variantId === l.variantId)!
       const lineTotal = (v.unit + priceBump) * l.quantity
+      const discount = withCoupon ? Math.round(lineTotal / 10) : 0
       return {
         variantId: v.variantId,
         sku: v.sku,
@@ -570,22 +575,23 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
         taxRateBp: 1600,
         taxAmount: money(Math.round((lineTotal * 16) / 116)),
         lineTotal: money(lineTotal),
-        discountAmount: money(0),
+        discountAmount: money(discount),
         sellable: true,
         canFulfill: l.quantity <= v.available,
       }
     })
     const subtotal = lines.reduce((n, l) => n + l.lineTotal.amount, 0)
+    const discount = lines.reduce((n, l) => n + l.discountAmount.amount, 0)
     const shipping = input.fulfillment === 'IN_STORE' ? 0 : 9900
     return {
       lines,
       subtotal: money(subtotal),
-      discountTotal: money(0),
-      promotion: null,
+      discountTotal: money(discount),
+      promotion: withCoupon ? { id: 'promo-1', name: 'Buen Fin 10%', code: COUPON } : null,
       shippingCost: money(shipping),
       shippingTaxAmount: money(Math.round((shipping * 16) / 116)),
-      taxTotal: money(Math.round(((subtotal + shipping) * 16) / 116)),
-      grandTotal: money(subtotal + shipping),
+      taxTotal: money(Math.round(((subtotal - discount + shipping) * 16) / 116)),
+      grandTotal: money(subtotal - discount + shipping),
       freeShippingThreshold: null,
       estimatedDelivery:
         input.fulfillment === 'IN_STORE' ? null : { minBusinessDays: 3, maxBusinessDays: 7 },
@@ -657,6 +663,15 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
 
     // ── Pedidos ────────────────────────────────────────────────────────────────
     if (parts[0] === 'orders') {
+      if (
+        (parts[1] === 'quote' || !parts[1]) &&
+        method === 'POST' &&
+        body?.couponCode &&
+        body.couponCode !== COUPON
+      )
+        return problem(route, 409, 'coupon-not-applicable', 'El cupón no aplica', {
+          reason: 'unavailable',
+        })
       if (parts[1] === 'quote' && method === 'POST')
         return json(route, 200, quote(body as Parameters<typeof quote>[0]))
       if (!parts[1] && method === 'POST') {

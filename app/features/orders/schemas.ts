@@ -103,6 +103,8 @@ export const storeOrderSchema = z
     addressMode: z.enum(['saved', 'new']),
     addressId: z.string().optional(),
     address: addressFieldsSchema,
+    /** Cupón aplicado (API_SPEC §26.8); vacío, solo la promoción automática. */
+    couponCode: z.string(),
   })
   .superRefine((v, ctx) => {
     const issue = (path: Array<string | number>, message: string) =>
@@ -152,5 +154,6 @@ export function toStaffOrderInput(
     ...buyer,
     ...address,
     expectedTotal,
+    ...(v.couponCode && { couponCode: v.couponCode }),
   }
 }

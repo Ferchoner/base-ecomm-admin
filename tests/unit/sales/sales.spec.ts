@@ -120,6 +120,7 @@ describe('pedido en la tienda física (ADR-0161)', () => {
     addressMode: 'saved' as const,
     addressId: undefined,
     address: emptyAddress(),
+    couponCode: '',
   }
   const paths = (v: unknown) => {
     const r = storeOrderSchema.safeParse(v)
@@ -133,6 +134,13 @@ describe('pedido en la tienda física (ADR-0161)', () => {
       warehouseId: 'w1',
       fulfillment: 'IN_STORE',
       expectedTotal: 119800,
+    })
+  })
+
+  it('el cupón aplicado viaja en el pedido (API_SPEC §26.8)', () => {
+    expect(toStaffOrderInput({ ...base, couponCode: 'BUENFIN' }, 107820, '')).toMatchObject({
+      couponCode: 'BUENFIN',
+      expectedTotal: 107820,
     })
   })
 

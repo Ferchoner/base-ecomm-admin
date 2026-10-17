@@ -71,12 +71,16 @@ test('clientes: anonimizar exige confirmar y explica los pedidos activos', async
   await expect(dialog.getByText('Confirma que entiendes que no se puede deshacer.')).toBeVisible()
   await dialog.getByLabel('Entiendo que no se puede deshacer.').check()
   await dialog.getByRole('button', { name: 'Anonimizar' }).click()
-  await expect(dialog.getByRole('alert')).toContainText('Tiene pedidos sin concluir.')
+  await expect(dialog.getByRole('alert')).toContainText(
+    'Tiene pedidos sin concluir u órdenes de trabajo',
+  )
 
   api.customers[0]!.activeOrders = false
   await dialog.getByRole('button', { name: 'Anonimizar' }).click()
   await expect(dialog).toBeHidden()
-  await expect(page.getByText('También se anonimizaron 3 pedidos.', { exact: true })).toBeVisible()
+  await expect(
+    page.getByText('También se anonimizaron 3 pedidos y 1 orden de trabajo.', { exact: true }),
+  ).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Sin nombre' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Reactivar' })).toHaveCount(0)
 })

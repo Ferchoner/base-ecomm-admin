@@ -165,3 +165,30 @@ test('los filtros del listado quedan en la URL', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Camisa' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Pantalón' })).toHaveCount(0)
 })
+
+test('productos: carga masiva con revisión previa y errores por línea y columna', async ({
+  page,
+}) => {
+  await mockAuthApi(page, staff(WRITER))
+  const api = await mockCatalogApi(page, {
+    productImportErrors: [
+      { field: 'rows[3].option:talla', code: 'options', message: 'Combinación repetida.' },
+    ],
+  })
+  await login(page)
+  await page.goto('/catalogo/productos')
+  await page.getByRole('link', { name: 'Cargar CSV' }).click()
+  await expect(page).toHaveURL(/\/catalogo\/productos\/importar$/)
+
+  await page.getByLabel('Archivo CSV de productos').setInputFiles({
+    name: 'productos.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from('slug,title,sku\ngorra,Gorra,GORRA-1\n'),
+  })
+  await page.getByRole('button', { name: 'Revisar archivo' }).click()
+  const errors = page.getByRole('table', { name: 'Errores del archivo' })
+  await expect(errors).toContainText('Línea 3 (option:talla)')
+  await expect(errors).toContainText('Combinación repetida.')
+  await expect(page.getByRole('button', { name: 'Importar', exact: true })).toBeDisabled()
+  expect(api.calls.some((c) => c.method === 'POST' && c.path === '/product-imports')).toBe(true)
+})

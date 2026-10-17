@@ -11,12 +11,13 @@ import type { Product, Variant } from '../types'
 const props = defineProps<{ product: Product; variant?: Variant | null }>()
 const open = defineModel<boolean>('open', { required: true })
 
-const FIELDS = ['sku', 'options', 'weightGrams', 'lengthCm', 'widthCm', 'heightCm'] as const
+const FIELDS = ['sku', 'options', 'gtin', 'weightGrams', 'lengthCm', 'widthCm', 'heightCm'] as const
 const MAX_OPTIONS = 3
 
 const state = reactive<VariantForm>({
   sku: '',
   options: [],
+  gtin: '',
   weightGrams: '',
   lengthCm: '',
   widthCm: '',
@@ -47,6 +48,7 @@ watch(open, (isOpen) => {
   state.options = v
     ? Object.entries(v.options).map(([name, value]) => ({ name, value }))
     : (siblingOptionNames.value ?? []).map((name) => ({ name, value: '' }))
+  state.gtin = v?.gtin ?? ''
   state.weightGrams = v?.weightGrams?.toString() ?? ''
   state.lengthCm = v?.lengthCm?.toString() ?? ''
   state.widthCm = v?.widthCm?.toString() ?? ''
@@ -85,12 +87,20 @@ async function onSubmit(event: FormSubmitEvent<VariantFormOutput>) {
     ? {
         ...(!identityLocked.value && d.sku.toUpperCase() !== v.sku && { sku: d.sku }),
         ...(!identityLocked.value && !sameOptions(options, v.options) && { options }),
+        // El GTIN se corrige también después de publicar; `null` lo quita (API_SPEC §11.7).
+        ...(d.gtin !== (v.gtin ?? null) && { gtin: d.gtin }),
         ...Object.fromEntries(
           Object.entries(measures).filter(([k, value]) => value !== v[k as keyof typeof measures]),
         ),
         version: props.product.version,
       }
-    : { sku: d.sku, options, ...measures, version: props.product.version }
+    : {
+        sku: d.sku,
+        options,
+        ...(d.gtin && { gtin: d.gtin }),
+        ...measures,
+        version: props.product.version,
+      }
   try {
     await save.mutateAsync({ variantId: v?.id, input })
     notifySuccess(toast, v ? 'Variante actualizada' : 'Variante agregada')
@@ -132,7 +142,7 @@ async function onSubmit(event: FormSubmitEvent<VariantFormOutput>) {
           variant="subtle"
           icon="i-lucide-lock"
           :title="variant ? 'SKU y opciones fijos' : 'Opciones fijas'"
-          description="El producto ya se publicó una vez: solo se pueden cambiar el peso y las medidas."
+          description="El producto ya se publicó una vez: solo se pueden cambiar el GTIN, el peso y las medidas."
         />
 
         <UFormField
@@ -147,6 +157,14 @@ async function onSubmit(event: FormSubmitEvent<VariantFormOutput>) {
             :disabled="!!variant && identityLocked"
             autofocus
           />
+        </UFormField>
+
+        <UFormField
+          label="GTIN (código de barras del fabricante)"
+          name="gtin"
+          help="EAN o UPC de 8, 12, 13 o 14 dígitos. Opcional; se puede corregir después de publicar."
+        >
+          <UInput v-model="state.gtin" inputmode="numeric" class="w-full" />
         </UFormField>
 
         <fieldset class="space-y-2">

@@ -7,7 +7,12 @@ import { VARIANT_STATUS } from '../status'
 import type { Product, Variant } from '../types'
 import VariantFormModal from './VariantFormModal.vue'
 
-const props = defineProps<{ product: Product; canWrite: boolean }>()
+const props = defineProps<{
+  product: Product
+  canWrite: boolean
+  /** Variante a resaltar, la que se encontró con el lector (`?variant=`). */
+  highlight?: string
+}>()
 
 const editable = computed(() => props.canWrite && props.product.status !== 'ARCHIVED')
 const formOpen = ref(false)
@@ -59,10 +64,11 @@ function measures(v: Variant) {
 
 const columns = computed<TableColumn<Variant>[]>(() => [
   { accessorKey: 'sku', header: 'SKU' },
+  { accessorKey: 'gtin', header: 'GTIN' },
   { id: 'options', header: 'Opciones' },
   { id: 'measures', header: 'Peso y medidas' },
   { accessorKey: 'status', header: 'Estado' },
-  ...(editable.value ? [{ id: 'actions', header: '' }] : []),
+  { id: 'actions', header: '' },
 ])
 </script>
 
@@ -89,6 +95,18 @@ const columns = computed<TableColumn<Variant>[]>(() => [
     >
       <template #sku-cell="{ row }">
         <code class="text-xs font-medium">{{ row.original.sku }}</code>
+        <UBadge
+          v-if="row.original.id === highlight"
+          color="primary"
+          variant="subtle"
+          icon="i-lucide-scan-barcode"
+          class="ms-2"
+          >Código leído</UBadge
+        >
+      </template>
+      <template #gtin-cell="{ row }">
+        <code v-if="row.original.gtin" class="text-xs">{{ row.original.gtin }}</code>
+        <span v-else class="text-muted">—</span>
       </template>
       <template #options-cell="{ row }">{{ options(row.original) }}</template>
       <template #measures-cell="{ row }">{{ measures(row.original) }}</template>
@@ -98,23 +116,32 @@ const columns = computed<TableColumn<Variant>[]>(() => [
       <template #actions-cell="{ row }">
         <div class="flex justify-end gap-1">
           <UButton
-            icon="i-lucide-pencil"
+            :to="`/catalogo/etiquetas?product=${product.id}&variant=${row.original.id}`"
+            icon="i-lucide-barcode"
             color="neutral"
             variant="ghost"
-            :aria-label="`Editar ${row.original.sku}`"
-            @click="openForm(row.original)"
+            :aria-label="`Etiquetas de ${row.original.sku}`"
           />
-          <UButton
-            :icon="
-              row.original.status === 'DISCONTINUED'
-                ? 'i-lucide-rotate-ccw'
-                : 'i-lucide-circle-pause'
-            "
-            color="neutral"
-            variant="ghost"
-            :aria-label="`${row.original.status === 'DISCONTINUED' ? 'Reactivar' : 'Descontinuar'} ${row.original.sku}`"
-            @click="toggle(row.original)"
-          />
+          <template v-if="editable">
+            <UButton
+              icon="i-lucide-pencil"
+              color="neutral"
+              variant="ghost"
+              :aria-label="`Editar ${row.original.sku}`"
+              @click="openForm(row.original)"
+            />
+            <UButton
+              :icon="
+                row.original.status === 'DISCONTINUED'
+                  ? 'i-lucide-rotate-ccw'
+                  : 'i-lucide-circle-pause'
+              "
+              color="neutral"
+              variant="ghost"
+              :aria-label="`${row.original.status === 'DISCONTINUED' ? 'Reactivar' : 'Descontinuar'} ${row.original.sku}`"
+              @click="toggle(row.original)"
+            />
+          </template>
         </div>
       </template>
     </UTable>

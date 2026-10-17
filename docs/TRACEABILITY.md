@@ -138,3 +138,19 @@ Se listan solo las operaciones que usa el backoffice (96 de 133). Las rutas de t
 | Onboarding                                        | DEVELOPER_ONBOARDING.md                                                                                                                                                                                                                                       | DONE                                        |
 | Despliegue, checklist de release y changelog      | DEPLOYMENT.md, RELEASE_CHECKLIST.md, `CHANGELOG.md`                                                                                                                                                                                                           | DONE (despliegue real NO DOCUMENTADO: G-07) |
 | Handover técnico                                  | HANDOVER.md                                                                                                                                                                                                                                                   | DONE                                        |
+
+## API 1.4–1.7 (contrato `7af0f1d`, 2026-10-17)
+
+| API_SPEC         | Caso de uso                        | Pantalla                                          | Código                                                    | PR  |
+| ---------------- | ---------------------------------- | ------------------------------------------------- | --------------------------------------------------------- | --- |
+| §11.10           | Buscar una variante por código     | Productos, Vender en tienda, Pedidos, Existencias | `shared/api/variant-lookup.ts`, `shared/scanner`          | D   |
+| §11.11, §12, §13 | Cargas masivas                     | Cargar productos, Cargar entradas, Precios        | `CsvImportCard`, `catalog/api`, `inventory/api`           | B   |
+| §15.8            | Datos del ticket (`store-profile`) | Ticket                                            | `orders/components/OrderTicket.vue`                       | E   |
+| §26              | Promociones y cupones              | Promociones, Vender en tienda                     | `features/promotions`                                     | C   |
+| §25.2            | UC-WRK-01 Recibir un equipo        | Recibir equipo                                    | `work-orders/components/WorkOrderForm.vue`                | F   |
+| §25.3, §25.4     | UC-WRK-02 Listar y consultar       | Órdenes de trabajo, Orden de trabajo              | `pages/ordenes-trabajo`, `work-orders/api.ts`             | F   |
+| §25.5            | UC-WRK-03 Corregir y diagnosticar  | Orden de trabajo                                  | `WorkOrderForm.vue`, `schemas.ts` (`toUpdateInput`)       | F   |
+| §25.6            | UC-WRK-04 Cambiar estado           | Orden de trabajo                                  | `StatusChangeModal.vue`, `status.ts` (`nextStatuses`)     | F   |
+| §25.7, §25.8     | UC-WRK-05 Ligar y desligar ventas  | Orden de trabajo, Vender en tienda                | `WorkOrderSales.vue`, `StoreOrderForm` (`returnTo`)       | F   |
+| §25.9            | UC-WRK-06 Nota de servicio         | Nota de servicio                                  | `ServiceNoteDocument.vue`, `pages/imprimir/nota-servicio` | F   |
+| §25.11, §25.12   | Datos bloqueados y anonimizar      | Orden de trabajo                                  | `WorkOrderBlockedDataModal.vue`, `ReasonDialog`           | F   |

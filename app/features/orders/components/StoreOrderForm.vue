@@ -4,7 +4,11 @@ import { ADDRESS_FIELDS, emptyAddress } from '~/shared/address/address-form'
 import { notifySuccess } from '~/shared/api/feedback'
 import type { ApiProblem } from '~/shared/api/problem'
 import type { Money } from '~/shared/api/types'
+import { isScanCode } from '~/shared/api/variant-lookup'
 import { useSessionStore } from '~/shared/auth/session.store'
+import { promotionLabel } from '~/shared/status/sales'
+import { useScannerCapture } from '~/shared/scanner/use-scanner-capture'
+import { useVariantScan } from '~/shared/scanner/use-variant-scan'
 import { useConfirm } from '~/shared/ui/use-confirm'
 import { useDebounced } from '~/shared/utils/debounce'
 import { problemFieldErrors } from '~/shared/utils/form-errors'
@@ -15,9 +19,11 @@ import {
   usePlaceStaffOrder,
   useSellableStock,
   useStaffQuote,
+  useStockInWarehouse,
   useWarehouseOptions,
 } from '../api'
 import { storeOrderSchema, toStaffOrderInput } from '../schemas'
+import { couponProblemMessage } from '../status'
 import type { StoreOrderForm } from '../schemas'
 import type { BuyerCustomer, SellableStock, StaffQuoteInput } from '../types'
 
@@ -25,18 +31,29 @@ import type { BuyerCustomer, SellableStock, StaffQuoteInput } from '../types'
  * Pedido en la tienda física a nombre de un cliente presente (UC-ORD-12 y 13, ADR-0161): se cotiza
  * en el almacén elegido, del único que sale el stock, y se coloca con `Idempotency-Key`.
  */
+const props = defineProps<{
+  /**
+   * A dónde volver al colocarlo, en vez del detalle del pedido: recibe `?ligar=<id>&venta=<código>`
+   * para que esa pantalla lo ligue (una orden de trabajo, API_SPEC §25.7).
+   */
+  returnTo?: string
+}>()
+
 const MAX_LINES = 100
 const MAX_UNITS = 30
 
 const session = useSessionStore()
 const canSearchStock = computed(() => session.can('inventory.read'))
 const canSearchCustomers = computed(() => session.can('customers.read'))
+/** Escanear busca el código en el catálogo (`catalog.read`) y su existencia (`inventory.read`). */
+const canScan = computed(() => canSearchStock.value && session.can('catalog.read'))
 /** Versión del aviso de privacidad para invitados (GAPS G-19); vacía, no se aceptan invitados. */
 const privacyNoticeVersion = String(useRuntimeConfig().public.privacyNoticeVersion ?? '').trim()
 
 const state = reactive<StoreOrderForm>({
   warehouseId: '',
-  fulfillment: 'SHIPPING',
+  // La venta de mostrador es la más común: es la opción inicial (PLAN_API_1.7 RQ-3, D-083).
+  fulfillment: 'IN_STORE',
   lines: [],
   buyer: canSearchCustomers.value ? 'customer' : 'guest',
   customerId: undefined,
@@ -45,6 +62,7 @@ const state = reactive<StoreOrderForm>({
   addressMode: 'saved',
   addressId: undefined,
   address: emptyAddress(),
+  couponCode: '',
 })
 const form = useTemplateRef('form')
 const problem = ref<ApiProblem | null>(null)
@@ -66,8 +84,8 @@ watch(
   { immediate: true },
 )
 const FULFILLMENT_OPTIONS = [
-  { value: 'SHIPPING', label: 'Envío a domicilio' },
   { value: 'IN_STORE', label: 'Venta de mostrador (se entrega en la tienda)' },
+  { value: 'SHIPPING', label: 'Envío a domicilio' },
 ]
 
 // ── Productos ──
@@ -94,13 +112,69 @@ function removeLine(variantId: string) {
   state.lines = state.lines.filter((l) => l.variantId !== variantId)
 }
 
+// ── Lector de códigos (PLAN_API_1.7 §3.1): Enter en el buscador o escanear en cualquier parte ──
+const stockInWarehouse = useStockInWarehouse()
+const scan = useVariantScan({
+  sellableOnly: true,
+  onFound: async (v) => {
+    if (!state.warehouseId) return { tone: 'warning', text: 'Elige primero el almacén.' }
+    const item = await stockInWarehouse(v.id, state.warehouseId).catch(() => undefined)
+    if (item === undefined)
+      return { tone: 'error', text: 'No se pudo consultar la existencia. Intenta de nuevo.' }
+    if (item === null || item.available <= 0)
+      return { tone: 'warning', text: `No hay existencias de ${v.sku} en este almacén.` }
+    const existing = state.lines.find((l) => l.variantId === v.id)
+    if (existing && (existing.quantity ?? 0) >= MAX_UNITS)
+      return { tone: 'warning', text: `${v.sku} ya tiene el máximo de ${MAX_UNITS} unidades.` }
+    if (!existing && state.lines.length >= MAX_LINES)
+      return { tone: 'warning', text: `La venta ya tiene ${MAX_LINES} productos.` }
+    addLine(item)
+    const quantity = state.lines.find((l) => l.variantId === v.id)?.quantity ?? 1
+    return {
+      tone: 'success',
+      text: `${v.sku} · ${v.product.title}: ${quantity} ${quantity === 1 ? 'unidad' : 'unidades'}.`,
+    }
+  },
+})
+watch(search, (v) => {
+  if (v) scan.clear()
+})
+const searchInput = useTemplateRef('searchInput')
+// El buscador queda listo para el primer escaneo en cuanto hay almacén (se habilita con él).
+watch(
+  () => !!state.warehouseId,
+  async (ready, was) => {
+    if (!ready || was) return
+    await nextTick()
+    searchInput.value?.inputRef?.focus()
+  },
+  { immediate: true },
+)
+async function onSearchEnter() {
+  if (!canScan.value || !isScanCode(search.value)) return
+  await scan.scan(search.value)
+  // Si no se agregó, el siguiente escaneo reemplaza el código en vez de sumarse a él.
+  searchInput.value?.inputRef?.select()
+}
+useScannerCapture((code) => {
+  if (!canScan.value) return
+  search.value = ''
+  void scan.scan(code)
+  searchInput.value?.inputRef?.focus()
+})
+
 // ── Cotización ──
 const quoteInput = computed<StaffQuoteInput | null>(() => {
   const lines = state.lines
     .filter((l) => Number.isInteger(l.quantity) && l.quantity! >= 1 && l.quantity! <= MAX_UNITS)
     .map((l) => ({ variantId: l.variantId, quantity: l.quantity! }))
   if (!state.warehouseId || lines.length === 0) return null
-  return { lines, warehouseId: state.warehouseId, fulfillment: state.fulfillment }
+  return {
+    lines,
+    warehouseId: state.warehouseId,
+    fulfillment: state.fulfillment,
+    ...(state.couponCode && { couponCode: state.couponCode }),
+  }
 })
 const debouncedQuoteInput = useDebounced(quoteInput, 400)
 const quote = useStaffQuote(debouncedQuoteInput)
@@ -113,6 +187,21 @@ const quoteCurrent = computed(
     JSON.stringify(quoteInput.value) === JSON.stringify(debouncedQuoteInput.value) &&
     quoteInput.value?.lines.length === state.lines.length,
 )
+// ── Cupón (API_SPEC §26.8): se aplica con un botón, no al escribir, y se manda en la cotización ──
+const couponDraft = ref('')
+function applyCoupon() {
+  state.couponCode = couponDraft.value.trim().toUpperCase()
+}
+function removeCoupon() {
+  state.couponCode = ''
+  couponDraft.value = ''
+}
+const quoteHints = computed(() =>
+  quote.error.value?.type === 'coupon-not-applicable'
+    ? [couponProblemMessage(quote.error.value.extensions.reason)]
+    : [],
+)
+
 const quoteLine = (variantId: string) =>
   quote.data.value?.lines.find((l) => l.variantId === variantId)
 
@@ -209,7 +298,11 @@ async function onSubmit(event: FormSubmitEvent<StoreOrderForm>) {
       idempotencyKey,
     })
     notifySuccess(toast, 'Pedido colocado', `${order.publicCode} queda por cobrar.`)
-    await navigateTo(`/pedidos/${order.id}`)
+    await navigateTo(
+      props.returnTo
+        ? { path: props.returnTo, query: { ligar: order.id, venta: order.publicCode } }
+        : `/pedidos/${order.id}`,
+    )
   } catch (e) {
     const p = e as ApiProblem
     if (['total-mismatch', 'insufficient-stock', 'variant-not-sellable'].includes(p.type))
@@ -219,6 +312,8 @@ async function onSubmit(event: FormSubmitEvent<StoreOrderForm>) {
       problemMessages.value = [
         `El total cambió${current ? ` a ${money(current)}` : ''}. Revisa la cotización y vuelve a colocar el pedido.`,
       ]
+    } else if (p.type === 'coupon-not-applicable') {
+      problemMessages.value = [couponProblemMessage(p.extensions.reason)]
     } else if (p.type === 'email-not-verified') {
       problemMessages.value = ['El cliente debe confirmar su email antes de comprar.']
     }
@@ -267,12 +362,24 @@ async function onSubmit(event: FormSubmitEvent<StoreOrderForm>) {
         <div class="space-y-3">
           <template v-if="canSearchStock">
             <UInput
+              ref="searchInput"
               v-model="search"
-              icon="i-lucide-search"
-              placeholder="Buscar por SKU o producto en el almacén"
+              icon="i-lucide-scan-barcode"
+              :placeholder="
+                canScan
+                  ? 'Escanea o busca por SKU o producto'
+                  : 'Buscar por SKU o producto en el almacén'
+              "
               aria-label="Buscar productos"
               :disabled="!state.warehouseId"
+              :loading="scan.pending.value"
               class="w-full"
+              @keydown.enter.prevent="onSearchEnter"
+            />
+            <ScanResult
+              :feedback="scan.feedback.value"
+              :choices="scan.choices.value"
+              @choose="scan.choose"
             />
             <ul
               v-if="search.trim().length >= 2 && stock.data.value"
@@ -350,9 +457,14 @@ async function onSubmit(event: FormSubmitEvent<StoreOrderForm>) {
                     class="w-28"
                   />
                 </UFormField>
-                <span class="w-24 text-right font-medium">{{
-                  money(quoteLine(line.variantId)?.lineTotal)
-                }}</span>
+                <span class="w-24 text-right">
+                  <span class="font-medium">{{ money(quoteLine(line.variantId)?.lineTotal) }}</span>
+                  <span
+                    v-if="quoteLine(line.variantId)?.discountAmount.amount"
+                    class="block text-xs text-success"
+                    >−{{ money(quoteLine(line.variantId)!.discountAmount) }}</span
+                  >
+                </span>
                 <UButton
                   icon="i-lucide-trash-2"
                   color="neutral"
@@ -484,14 +596,57 @@ async function onSubmit(event: FormSubmitEvent<StoreOrderForm>) {
         <template #header><h3 class="font-semibold">Total</h3></template>
         <div class="space-y-3 text-sm">
           <ProblemAlert v-if="problem" :problem="problem" :messages="problemMessages" />
-          <ProblemAlert v-else-if="quote.error.value" :problem="quote.error.value" />
+          <ProblemAlert
+            v-else-if="quote.error.value"
+            :problem="quote.error.value"
+            :messages="quoteHints"
+          />
+          <div class="flex items-end gap-2">
+            <UFormField label="Cupón" name="couponCode" class="flex-1">
+              <UInput
+                v-if="!state.couponCode"
+                v-model="couponDraft"
+                placeholder="Código"
+                autocomplete="off"
+                class="w-full uppercase"
+                @keydown.enter.prevent="applyCoupon"
+              />
+              <div v-else class="flex items-center gap-2">
+                <UBadge color="success" variant="subtle" size="lg">{{ state.couponCode }}</UBadge>
+                <UButton
+                  color="neutral"
+                  variant="link"
+                  size="sm"
+                  class="px-0"
+                  aria-label="Quitar cupón"
+                  @click="removeCoupon"
+                  >Quitar</UButton
+                >
+              </div>
+            </UFormField>
+            <UButton
+              v-if="!state.couponCode"
+              color="neutral"
+              variant="outline"
+              :disabled="!couponDraft.trim()"
+              @click="applyCoupon"
+              >Aplicar</UButton
+            >
+          </div>
           <p v-if="!quoteInput" class="text-muted">Agrega productos para cotizar.</p>
           <template v-else-if="quote.data.value">
             <DetailList
               :items="[
                 { label: 'Subtotal', value: money(quote.data.value.subtotal) },
                 ...(quote.data.value.discountTotal.amount
-                  ? [{ label: 'Descuento', value: `−${money(quote.data.value.discountTotal)}` }]
+                  ? [
+                      {
+                        label: quote.data.value.promotion
+                          ? `Descuento (${promotionLabel(quote.data.value.promotion)})`
+                          : 'Descuento',
+                        value: `−${money(quote.data.value.discountTotal)}`,
+                      },
+                    ]
                   : []),
                 {
                   label: 'Envío',

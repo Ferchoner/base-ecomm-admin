@@ -84,6 +84,7 @@ const offerRefund = computed(
                 <span v-if="a.providerReference">Comprobante: {{ a.providerReference }}</span>
                 <span v-if="a.method">{{ PAYMENT_METHOD[a.method] ?? a.method }}</span>
                 <span v-if="a.failureCode" class="text-error">{{ a.failureCode }}</span>
+                <span v-if="a.note" class="basis-full text-muted">Nota: {{ a.note }}</span>
                 <span v-if="a.registeredBy" class="text-xs text-muted"
                   >Registrado por el staff</span
                 >
@@ -108,6 +109,7 @@ const offerRefund = computed(
                 >Completado {{ formatDateTime(r.completedAt) }}</span
               >
               <span v-if="r.providerRefundId">Comprobante: {{ r.providerRefundId }}</span>
+              <span v-if="r.note" class="basis-full text-muted">Nota: {{ r.note }}</span>
             </li>
           </ul>
           <p

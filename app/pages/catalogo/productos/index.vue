@@ -10,6 +10,8 @@ import {
 import { flattenTree } from '~/features/catalog/tree'
 import type { Product } from '~/features/catalog/types'
 import { useListParams } from '~/shared/api/use-list-params'
+import { isScanCode } from '~/shared/api/variant-lookup'
+import { useVariantScan } from '~/shared/scanner/use-variant-scan'
 import { useSessionStore } from '~/shared/auth/session.store'
 import { formatDateTime } from '~/shared/utils/dates'
 import { useDebounced } from '~/shared/utils/debounce'
@@ -18,12 +20,36 @@ definePageMeta({ title: 'Productos', permission: 'catalog.read' })
 
 const session = useSessionStore()
 const canWrite = computed(() => session.can('catalog.write'))
-const list = useListParams({ filters: ['q', 'status', 'brandId', 'categoryId', 'sort'] })
+const list = useListParams({
+  filters: ['q', 'status', 'brandId', 'categoryId', 'storeOnly', 'sort'],
+})
 const filters = list.filters
 
 const search = ref(filters.value.q ?? '')
 const debouncedSearch = useDebounced(search)
-watch(debouncedSearch, (q) => list.setFilter('q', q.trim() || undefined))
+/** Al abrir lo escaneado, la búsqueda pendiente ya no debe cambiar la URL (cancelaría la navegación). */
+let leaving = false
+watch(debouncedSearch, (q) => {
+  if (!leaving) void list.setFilter('q', q.trim() || undefined)
+})
+
+// Enter o el lector en el buscador: el código exacto abre el producto en su variante (§11.10).
+const scan = useVariantScan({
+  notFound: (code) => `Ninguna variante tiene el SKU o GTIN ${code}; abajo, lo que coincide.`,
+  onFound: (v) => {
+    leaving = true
+    navigateTo({
+      path: `/catalogo/productos/${v.product.id}`,
+      query: { tab: 'variantes', variant: v.id },
+    })
+    return undefined
+  },
+})
+watch(search, () => scan.clear())
+async function onSearchEnter() {
+  await list.setFilter('q', search.value.trim() || undefined)
+  if (isScanCode(search.value)) await scan.scan(search.value)
+}
 
 const { data, isPending, error, refetch, isFetching } = useProducts(() => ({
   page: list.page.value,
@@ -32,6 +58,7 @@ const { data, isPending, error, refetch, isFetching } = useProducts(() => ({
   status: filters.value.status,
   brandId: filters.value.brandId,
   categoryId: filters.value.categoryId,
+  storeOnly: filters.value.storeOnly,
   sort: filters.value.sort ?? '-updatedAt',
 }))
 
@@ -61,13 +88,20 @@ const hasFilters = computed(
       filters.value.q ||
       filters.value.status ||
       filters.value.brandId ||
-      filters.value.categoryId
+      filters.value.categoryId ||
+      filters.value.storeOnly
     ),
 )
 function clearFilters() {
   search.value = ''
   list.resetFilters()
 }
+
+/** Filtro `storeOnly` del listado (API_SPEC §11.6, ADR-0165). */
+const STORE_ONLY_OPTIONS = [
+  { value: 'true', label: 'Solo en tienda física' },
+  { value: 'false', label: 'También en línea' },
+]
 
 const columns: TableColumn<Product>[] = [
   { id: 'image', header: '' },
@@ -94,9 +128,11 @@ function openRow(_: Event, row: TableRow<Product>) {
       <UInput
         v-model="search"
         icon="i-lucide-search"
-        placeholder="Buscar por título o SKU"
+        placeholder="Buscar por título, SKU o GTIN"
         aria-label="Buscar productos"
         class="w-full sm:w-64"
+        :loading="scan.pending.value"
+        @keydown.enter.prevent="onSearchEnter"
       />
       <USelect
         :model-value="filters.status"
@@ -129,6 +165,14 @@ function openRow(_: Event, row: TableRow<Product>) {
         @update:model-value="(v: string) => list.setFilter('categoryId', v)"
       />
       <USelect
+        :model-value="filters.storeOnly"
+        :items="STORE_ONLY_OPTIONS"
+        placeholder="Todos los canales"
+        aria-label="Filtrar por canal de venta"
+        class="w-full sm:w-48"
+        @update:model-value="(v) => list.setFilter('storeOnly', v as string)"
+      />
+      <USelect
         :model-value="filters.sort ?? '-updatedAt'"
         :items="PRODUCT_SORT_OPTIONS"
         aria-label="Ordenar"
@@ -146,10 +190,24 @@ function openRow(_: Event, row: TableRow<Product>) {
         >Limpiar</UButton
       >
       <div class="flex-1" />
+      <UButton
+        v-if="canWrite"
+        icon="i-lucide-file-up"
+        color="neutral"
+        variant="outline"
+        to="/catalogo/productos/importar"
+        >Cargar CSV</UButton
+      >
       <UButton v-if="canWrite" icon="i-lucide-plus" to="/catalogo/productos/nuevo"
         >Nuevo producto</UButton
       >
     </div>
+
+    <ScanResult
+      :feedback="scan.feedback.value"
+      :choices="scan.choices.value"
+      @choose="scan.choose"
+    />
 
     <QueryState
       :loading="isPending"

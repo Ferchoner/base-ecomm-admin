@@ -1,18 +1,27 @@
 # API_SOURCE_OF_TRUTH
 
-Fuente de verdad del backend para el backoffice. Fecha de lectura: 2026-10-05; actualizada el 2026-10-06 a `ff10406`.
+Fuente de verdad del backend para el backoffice. Fecha de lectura: 2026-10-05; actualizada el 2026-10-06 a `ff10406` y el 2026-10-17 a `7af0f1d` (v1.7.0).
 
 ## Fuentes localizadas
 
 | Prioridad | Fuente                                | Ubicación                                                                                        | Versión fijada                |
 | --------- | ------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------- |
-| 1         | Documentación oficial de la API       | `docs/API_SPEC.md` del repo `Ferchoner/base-shop` (estado: aprobado, ADR-0071)                   | commit `ff10406` (2026-10-06) |
-| 2         | OpenAPI 3.0 generado desde NestJS     | `docs/openapi/v1.json` del mismo repo (133 operaciones, 172 esquemas)                            | commit `ff10406`              |
-| —         | Contexto complementario (no contrato) | `docs/BUSINESS_RULES.md`, `REQUIREMENTS.md`, `SECURITY.md`, `DECISIONS.md` (ADRs) del mismo repo | commit `ff10406`              |
+| 1         | Documentación oficial de la API       | `docs/API_SPEC.md` del repo `Ferchoner/base-shop` (estado: aprobado, ADR-0071)                   | commit `7af0f1d` (2026-10-17) |
+| 2         | OpenAPI 3.0 generado desde NestJS     | `docs/openapi/v1.json` del mismo repo (152 operaciones, 202 esquemas)                            | commit `7af0f1d`              |
+| —         | Contexto complementario (no contrato) | `docs/BUSINESS_RULES.md`, `REQUIREMENTS.md`, `SECURITY.md`, `DECISIONS.md` (ADRs) del mismo repo | commit `7af0f1d`              |
 
 La carpeta de contexto "docs" del proyecto solo contiene los prompts de gobierno (00–08); no contiene documentación de API. La documentación se encontró en el repositorio del backend.
 
 Relación entre fuentes: `API_SPEC.md` declara que el OpenAPI versionado debe coincidir con la especificación y que una prueba de contrato lo verifica en cada CI (ADR-0155). No se detectaron contradicciones (DOCUMENTATION CONFLICT) entre ambas en lo revisado. La única diferencia es esperada: `POST /v1/admin/payments/{paymentId}/refunds/retry` figura en la especificación como **pendiente (T-192)** y no existe en el OpenAPI → se trata como NO DISPONIBLE.
+
+## Cambios desde `ff10406` (2026-10-17)
+
+`7af0f1d` es el tag `v1.7.0` de base-shop. Sin operaciones eliminadas ni campos quitados. Detalle y plan en PLAN_API_1.7.md.
+
+- **1.4.0, ticket y GTIN (ADR-0163):** `gtin` en variantes; `GET /v1/admin/catalog/variants/lookup` (SKU o GTIN exactos, para el lector); `q` de productos busca GTIN; `GET /v1/admin/store-profile`; `AdminOrder.fulfilledFrom`; notas del pago y del reembolso manual.
+- **1.5.0, cargas masivas (ADR-0164):** `POST /v1/admin/catalog/product-imports` y `POST /v1/admin/inventory/receipt-imports` (CSV, `dryRun`, todo o nada).
+- **1.6.0, servicios y órdenes de trabajo (ADR-0165 a 0167):** `storeOnly` y `STORE_ONLY`; módulo `/v1/admin/work-orders` con nota de servicio, ventas ligadas y conservación de datos; permisos `work-orders.*`; error `sale-not-linkable`.
+- **1.7.0, promociones (ADR-0168):** módulo `/v1/admin/promotions`; `promotion` y `discountAmount` en cotizaciones y órdenes; `couponCode`; permisos `promotions.*`; error `coupon-not-applicable`.
 
 ## Cambios desde `a46829b` (2026-10-06)
 

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { GTIN_FORMAT, isValidGtin } from '~/shared/utils/gtin'
 
 // Límites de CreateBrandDto/CreateCategoryDto/CreateProductDto/CreateVariantDto (openapi/v1.json)
 // y API_SPEC §11.6–11.9. La validación definitiva es de la API.
@@ -38,6 +39,7 @@ export const productSchema = z.object({
   description: z.string().max(10_000, 'Máximo 10 000 caracteres.'),
   brandId: z.string().nullable(),
   categoryIds: z.array(z.string()).max(10, 'Hasta 10 categorías.'),
+  storeOnly: z.boolean(),
 })
 export type ProductForm = z.input<typeof productSchema>
 
@@ -72,6 +74,15 @@ export const variantSchema = z
         }),
       )
       .max(3, 'Hasta 3 opciones.'),
+    gtin: z
+      .string()
+      .trim()
+      .refine((v) => v === '' || GTIN_FORMAT.test(v), 'Solo 8, 12, 13 o 14 dígitos.')
+      .refine(
+        (v) => v === '' || !GTIN_FORMAT.test(v) || isValidGtin(v),
+        'El dígito verificador no coincide.',
+      )
+      .transform((v) => (v ? v : null)),
     weightGrams: optionalNumber(
       z
         .number({ error: 'Escribe un número entero.' })
@@ -92,6 +103,7 @@ type Measure = string
 export interface VariantForm {
   sku: string
   options: Array<{ name: string; value: string }>
+  gtin: string
   weightGrams: Measure
   lengthCm: Measure
   widthCm: Measure

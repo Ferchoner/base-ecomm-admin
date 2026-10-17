@@ -23,7 +23,12 @@ async function logout() {
 <template>
   <div class="space-y-6">
     <AccountProfile v-if="session.account" :account="session.account" />
-    <PreferencesCard v-if="session.can('inventory.read')" />
+    <PreferencesCard />
+    <PrintPreferencesCard
+      v-if="
+        session.can('orders.read') || session.can('catalog.read') || session.can('work-orders.read')
+      "
+    />
     <div class="flex flex-wrap gap-2">
       <UButton to="/cambiar-contrasena" icon="i-lucide-key-round">Cambiar contraseña</UButton>
       <UButton color="neutral" variant="outline" icon="i-lucide-log-out" @click="logout"

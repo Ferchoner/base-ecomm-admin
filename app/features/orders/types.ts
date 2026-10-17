@@ -11,6 +11,8 @@ export type RestockInput = Schemas['RestockOrderDto']
 export type RestockReason = RestockInput['reasonCode']
 export type RestockResult = Schemas['RestockDto']
 export type BlockedOrderData = Schemas['BlockedOrderDataDto']
+/** Datos de la tienda para el ticket (API_SPEC §15.8). */
+export type StoreProfile = Schemas['StoreProfileDto']
 export type WarehouseOption = Schemas['WarehouseDto']
 export type ManualPaymentSettings = Schemas['PaymentSettingsDto']
 

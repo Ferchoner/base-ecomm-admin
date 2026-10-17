@@ -27,6 +27,8 @@ export type ProblemType =
   | 'source-cart-unavailable'
   | 'last-superadmin'
   | 'active-orders-exist'
+  | 'sale-not-linkable'
+  | 'coupon-not-applicable'
   | 'idempotency-request-in-progress'
   | 'idempotency-key-mismatch'
   | 'payload-too-large'

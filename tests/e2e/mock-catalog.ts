@@ -56,6 +56,7 @@ interface Variant {
   sku: string
   options: Record<string, string>
   status: 'ACTIVE' | 'DISCONTINUED'
+  gtin?: string | null
   weightGrams: number | null
   lengthCm: number | null
   widthCm: number | null
@@ -77,6 +78,7 @@ interface Product {
   brandId: string | null
   categoryIds: string[]
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
+  storeOnly: boolean
   variants: Variant[]
   images: Image[]
   publishedAt: string | null
@@ -99,6 +101,8 @@ export interface CatalogSeed {
   brands?: Array<Partial<Brand> & { name: string }>
   categories?: Array<Partial<Category> & { name: string }>
   products?: Array<Partial<Product> & { title: string }>
+  /** Errores de la carga masiva de productos (API_SPEC §11.11); sin ellos, responde un resumen. */
+  productImportErrors?: Array<{ field: string; code: string; message: string }>
 }
 
 export async function mockCatalogApi(page: Page, seed: CatalogSeed = {}) {
@@ -130,6 +134,7 @@ export async function mockCatalogApi(page: Page, seed: CatalogSeed = {}) {
     brandId: null,
     categoryIds: [],
     status: 'DRAFT',
+    storeOnly: false,
     variants: [],
     images: [],
     publishedAt: null,
@@ -154,8 +159,13 @@ export async function mockCatalogApi(page: Page, seed: CatalogSeed = {}) {
     brand: p.brandId ? named(brands, p.brandId) : null,
     categories: p.categoryIds.map((id) => named(categories, id)).filter(Boolean),
     status: p.status,
+    storeOnly: p.storeOnly,
     storeVisibility: p.status === 'PUBLISHED' ? 'HIDDEN_NO_PRICE' : 'NOT_PUBLISHED',
-    variants: p.variants.map((v) => ({ ...v, editableIdentity: !p.firstPublishedAt })),
+    variants: p.variants.map((v) => ({
+      gtin: null,
+      ...v,
+      editableIdentity: !p.firstPublishedAt,
+    })),
     images: p.images,
     publishedAt: p.publishedAt,
     firstPublishedAt: p.firstPublishedAt,
@@ -201,6 +211,55 @@ export async function mockCatalogApi(page: Page, seed: CatalogSeed = {}) {
     const body = (isJson ? request.postDataJSON() : null) as Record<string, unknown> | null
     calls.push({ method, path, body })
     const seg = path.split('/').filter(Boolean)
+
+    // ── Búsqueda por código (API_SPEC §11.10): SKU exacto o GTIN completado a 14 dígitos ──
+    if (seg[0] === 'variants' && seg[1] === 'lookup' && method === 'GET') {
+      const code = url.searchParams.get('code') ?? ''
+      if (!/^[A-Za-z0-9._-]{1,64}$/.test(code))
+        return problem(route, 400, 'validation-error', 'Datos inválidos', {
+          errors: [{ field: 'code', message: 'Formato inválido' }],
+        })
+      const asGtin = /^(\d{8}|\d{12,14})$/.test(code) ? code.padStart(14, '0') : null
+      const data = products.flatMap((p) =>
+        p.variants
+          .map((v) => {
+            const gtin = (v as { gtin?: string | null }).gtin ?? null
+            const matchedBy =
+              v.sku.toLowerCase() === code.toLowerCase()
+                ? 'SKU'
+                : asGtin && gtin?.padStart(14, '0') === asGtin
+                  ? 'GTIN'
+                  : null
+            return matchedBy
+              ? {
+                  id: v.id,
+                  sku: v.sku,
+                  gtin,
+                  options: v.options,
+                  status: v.status,
+                  matchedBy,
+                  product: { id: p.id, title: p.title, slug: p.slug, status: p.status },
+                }
+              : null
+          })
+          .filter(Boolean),
+      )
+      return json(route, 200, { data })
+    }
+
+    // ── Carga masiva (ADR-0164) ──
+    if (seg[0] === 'product-imports' && method === 'POST') {
+      if (seed.productImportErrors)
+        return problem(route, 400, 'validation-error', 'Datos inválidos', {
+          errors: seed.productImportErrors,
+        })
+      return json(route, 200, {
+        rows: 3,
+        products: 2,
+        variants: 3,
+        dryRun: url.searchParams.get('dryRun') === 'true',
+      })
+    }
 
     // ── Marcas ──
     if (seg[0] === 'brands') {
@@ -310,6 +369,7 @@ export async function mockCatalogApi(page: Page, seed: CatalogSeed = {}) {
           brandId: (body?.brandId as string) ?? null,
           categoryIds: (body?.categoryIds as string[]) ?? [],
           status: 'DRAFT',
+          storeOnly: (body?.storeOnly as boolean) ?? false,
           variants: [],
           images: [],
           publishedAt: null,
@@ -415,6 +475,7 @@ export async function mockCatalogApi(page: Page, seed: CatalogSeed = {}) {
             sku,
             options: (body?.options as Record<string, string>) ?? {},
             status: 'ACTIVE',
+            gtin: (body?.gtin as string | null) ?? null,
             weightGrams: (body?.weightGrams as number | null) ?? null,
             lengthCm: (body?.lengthCm as number | null) ?? null,
             widthCm: (body?.widthCm as number | null) ?? null,

@@ -66,7 +66,7 @@ describe('esquemas de catálogo', () => {
   })
 
   it('producto con hasta 10 categorías', () => {
-    const base = { title: 'Camisa', description: '', brandId: null }
+    const base = { title: 'Camisa', description: '', brandId: null, storeOnly: false }
     const ids = Array.from({ length: 11 }, (_, i) => `c${i}`)
     expect(productSchema.safeParse({ ...base, categoryIds: ids }).success).toBe(false)
     expect(productSchema.safeParse({ ...base, categoryIds: ids.slice(0, 10) }).success).toBe(true)
@@ -76,12 +76,19 @@ describe('esquemas de catálogo', () => {
     const base = {
       sku: 'CAM-01',
       options: [],
+      gtin: '',
       weightGrams: '',
       lengthCm: '',
       widthCm: '',
       heightCm: '',
     }
-    expect(variantSchema.parse(base)).toMatchObject({ weightGrams: null, lengthCm: null })
+    expect(variantSchema.parse(base)).toMatchObject({
+      gtin: null,
+      weightGrams: null,
+      lengthCm: null,
+    })
+    expect(variantSchema.safeParse({ ...base, gtin: '7501055363063' }).success).toBe(true)
+    expect(variantSchema.safeParse({ ...base, gtin: '7501055363064' }).success).toBe(false)
     expect(variantSchema.parse({ ...base, weightGrams: '350', lengthCm: '30.5' })).toMatchObject({
       weightGrams: 350,
       lengthCm: 30.5,

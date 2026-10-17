@@ -360,12 +360,44 @@ test('vender en tienda: venta de mostrador con cambio de precio, sin duplicar el
   expect(places.every((c) => !!c.headers['idempotency-key'])).toBe(true)
 })
 
+test('vender en tienda: cupón que no aplica y cupón aplicado', async ({ page }) => {
+  await mockAuthApi(page, staff(SELLER))
+  const api = await mockSalesApi(page, { orders: [], storeCatalog: true })
+  await login(page)
+  await page.goto('/pedidos/nuevo')
+  await page.getByLabel('Buscar productos').fill('cam')
+  await page.getByRole('button', { name: 'Agregar CAM-M' }).click()
+  await page.getByRole('radio', { name: 'Sin datos del comprador' }).click()
+  await expect(page.getByText('$599.00').last()).toBeVisible()
+
+  await page.getByLabel('Cupón').fill('nope')
+  await page.getByRole('button', { name: 'Aplicar' }).click()
+  await expect(
+    page.getByText('No hay un cupón vigente con ese código para la tienda física.'),
+  ).toBeVisible()
+
+  await page.getByRole('button', { name: 'Quitar cupón' }).click()
+  await page.getByLabel('Cupón').fill('buenfin')
+  await page.getByLabel('Cupón').press('Enter')
+  await expect(page.getByText('Descuento (Buen Fin 10%, cupón BUENFIN)')).toBeVisible()
+  await expect(page.getByText('$539.10').last()).toBeVisible()
+
+  await page.getByRole('button', { name: 'Colocar pedido' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Colocar pedido' }).click()
+  await expect(page.getByRole('heading', { name: 'Pedido T5N8-W2RP' })).toBeVisible()
+  const place = api.calls.find((c) => c.method === 'POST' && c.path === '/v1/admin/orders')!
+  expect(place.body).toMatchObject({ couponCode: 'BUENFIN', expectedTotal: 53910 })
+})
+
 test('vender en tienda: cliente registrado con su dirección guardada', async ({ page }) => {
   await mockAuthApi(page, staff(SELLER))
   const api = await mockSalesApi(page, { orders: [], storeCatalog: true })
   await login(page)
   await page.goto('/pedidos/nuevo')
 
+  // La venta de mostrador es la opción inicial; este pedido se envía.
+  await expect(page.getByRole('radio', { name: /Venta de mostrador/ })).toBeChecked()
+  await page.getByRole('radio', { name: 'Envío a domicilio' }).click()
   await page.getByLabel('Buscar productos').fill('pan')
   await page.getByRole('button', { name: 'Agregar PAN-32' }).click()
   await page.getByPlaceholder('Nombre o email').fill('luc')

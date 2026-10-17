@@ -75,6 +75,8 @@ export interface PricingInventorySeed {
   movements?: Record<string, number>
   /** Respuesta de la importación de precios: `ok` o errores por fila. */
   importErrors?: Array<{ field: string; code: string; message: string }>
+  /** Fecha de una carga anterior del mismo archivo de entradas: responde 409 (BR-INV-15). */
+  receiptFileImportedAt?: string
 }
 
 export async function mockPricingInventoryApi(page: Page, seed: PricingInventorySeed = {}) {
@@ -247,6 +249,18 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
 
     // ── Inventario ──
     if (seg[0] === 'inventory') {
+      if (seg[1] === 'receipt-imports' && method === 'POST') {
+        if (seed.receiptFileImportedAt)
+          return problem(route, 409, 'duplicate-value', 'El valor ya existe', {
+            field: 'file',
+            importedAt: seed.receiptFileImportedAt,
+          })
+        return json(route, 200, {
+          rows: 2,
+          units: 45,
+          dryRun: url.searchParams.get('dryRun') === 'true',
+        })
+      }
       if (seg[1] === 'warehouses') {
         if (method === 'GET') return json(route, 200, { data: sortedWarehouses() })
         const address = body?.address as Record<string, unknown> | null | undefined

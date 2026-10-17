@@ -20,6 +20,7 @@ import type {
   StaffOrderInput,
   StaffQuote,
   StaffQuoteInput,
+  StoreProfile,
 } from './types'
 import type { Page } from '~/shared/api/types'
 
@@ -219,6 +220,40 @@ export function useSellableStock(
       }),
     enabled: computed(() => !!toValue(params)),
     placeholderData: keepPreviousData,
+  })
+}
+
+/**
+ * Existencia de una variante en un almacén, para agregar lo escaneado (`inventory.read`); `null`
+ * si nunca tuvo movimientos ahí. Siempre se consulta de nuevo.
+ */
+export function useStockInWarehouse() {
+  const api = useApi()
+  const qc = useQueryClient()
+  return (variantId: string, warehouseId: string) =>
+    qc.fetchQuery({
+      queryKey: [QUERY_ROOT.inventory, 'stock', 'scan', variantId, warehouseId],
+      queryFn: async ({ signal }) =>
+        (
+          await api<Page<SellableStock>>('/v1/admin/inventory/stock-items', {
+            query: { variantId, warehouseId, pageSize: 1 },
+            signal,
+          })
+        ).data[0] ?? null,
+      staleTime: 0,
+    })
+}
+
+/**
+ * Datos de la tienda para el ticket (`GET /v1/admin/store-profile`, `orders.read`, API_SPEC §15.8).
+ * Salen de la configuración de la API y solo cambian al reiniciarla.
+ */
+export function useStoreProfile() {
+  const api = useApi()
+  return useQuery<StoreProfile, ApiProblem>({
+    queryKey: [QUERY_ROOT.orders, 'store-profile'],
+    queryFn: ({ signal }) => api<StoreProfile>('/v1/admin/store-profile', { signal }),
+    staleTime: 60 * 60 * 1000,
   })
 }
 

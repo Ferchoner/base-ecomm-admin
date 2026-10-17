@@ -38,6 +38,12 @@ export const NAVIGATION: NavGroup[] = [
         permission: 'catalog.read',
       },
       {
+        label: 'Etiquetas',
+        icon: 'i-lucide-barcode',
+        to: '/catalogo/etiquetas',
+        permission: 'catalog.read',
+      },
+      {
         label: 'Precios',
         icon: 'i-lucide-circle-dollar-sign',
         to: '/precios',
@@ -67,6 +73,12 @@ export const NAVIGATION: NavGroup[] = [
         permission: 'orders.place',
       },
       {
+        label: 'Órdenes de trabajo',
+        icon: 'i-lucide-wrench',
+        to: '/ordenes-trabajo',
+        permission: 'work-orders.read',
+      },
+      {
         label: 'Pagos',
         icon: 'i-lucide-credit-card',
         to: '/pagos',
@@ -77,6 +89,12 @@ export const NAVIGATION: NavGroup[] = [
         icon: 'i-lucide-truck',
         to: '/envios',
         permission: 'shipping.manage',
+      },
+      {
+        label: 'Promociones',
+        icon: 'i-lucide-badge-percent',
+        to: '/promociones',
+        permission: 'promotions.read',
       },
       {
         label: 'Clientes',

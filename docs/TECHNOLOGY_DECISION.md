@@ -14,6 +14,7 @@
 | HTTP                  | ofetch envuelto en un cliente propio                | 1.5.1          | D-P08        | Bearer, renovación ante 401, Problem Details, `Idempotency-Key`, timeout                            |
 | Tipos del contrato    | `openapi-typescript`                                | 7.13.0         | D-P09        | Tipos generados de `openapi/v1.json`; sin escribir DTO a mano                                       |
 | Validación            | Zod                                                 | 4.6.5          | D-P10        | Esquemas de formularios con los límites de API_SPEC, integrados con `UForm`                         |
+| Códigos de barras     | `bwip-js` (cargado solo al imprimir)                | 4.11.4         | D-084        | Una librería para Code 128, EAN, UPC, ITF-14, Data Matrix y QR en SVG                               |
 | PWA                   | `@vite-pwa/nuxt` (Workbox)                          | 1.1.1          | D-P13, D-056 | Manifest y service worker online-first sin escribir Workbox a mano                                  |
 | Pruebas unitarias     | Vitest + `@nuxt/test-utils` + happy-dom             | 5.0.3          | D-P11        | Mismo pipeline de Vite que la app                                                                   |
 | Simulación de API     | MSW (solo pruebas unitarias)                        | 2.15.0         | D-P11        | Prueba el cliente HTTP contra respuestas reales de red                                              |

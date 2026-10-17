@@ -58,3 +58,17 @@ export const RESTOCK_REASON_LABEL: Record<RestockReason, string> = {
   ORDER_CANCELLED: 'Orden cancelada',
   SHIPMENT_RETURNED: 'Envío devuelto',
 }
+
+/** Por qué no aplica un cupón: `reason` de 409 `coupon-not-applicable` (API_SPEC §26.8). */
+export const COUPON_REASON: Record<string, string> = {
+  unavailable: 'No hay un cupón vigente con ese código para la tienda física.',
+  minimumNotMet: 'La compra no alcanza el mínimo del cupón.',
+  noEligibleLines: 'El cupón no aplica a ninguno de estos productos.',
+  exhausted: 'El cupón ya no tiene usos disponibles.',
+  alreadyUsed: 'Este comprador ya usó el cupón.',
+  buyerRequired: 'Este cupón es de una vez por cliente: registra los datos del comprador.',
+}
+
+export function couponProblemMessage(reason: unknown): string {
+  return COUPON_REASON[String(reason)] ?? 'El cupón no aplica a esta compra.'
+}

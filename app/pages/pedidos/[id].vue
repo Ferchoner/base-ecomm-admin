@@ -44,7 +44,12 @@ const sale = computed(() => {
           { label: 'Almacén', value: warehouseLabel(o.warehouseId) },
         ]
       : []),
-    ...(o.shipment ? [{ label: 'Sale de', value: warehouseLabel(o.shipment.warehouseId) }] : []),
+    // `fulfilledFrom` trae el nombre del almacén de salida sin pedir `inventory.read` (ADR-0163).
+    ...(o.fulfilledFrom
+      ? [{ label: 'Salió de', value: `${o.fulfilledFrom.name} (${o.fulfilledFrom.code})` }]
+      : o.shipment
+        ? [{ label: 'Sale de', value: warehouseLabel(o.shipment.warehouseId) }]
+        : []),
   ]
 })
 
@@ -90,7 +95,16 @@ const dates = computed(() => {
               <span class="text-xs text-muted">N.º {{ order.orderNumber }}</span>
             </div>
           </div>
-          <OrderActions :order="order" />
+          <div class="flex flex-wrap items-start gap-2">
+            <UButton
+              :to="`/imprimir/ticket/${order.id}`"
+              icon="i-lucide-printer"
+              color="neutral"
+              variant="outline"
+              >Imprimir ticket</UButton
+            >
+            <OrderActions :order="order" />
+          </div>
         </header>
 
         <UAlert

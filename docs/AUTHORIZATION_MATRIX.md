@@ -89,3 +89,27 @@ Sin el permiso de ruta: la sección no aparece en el menú ni en el Inicio, y en
 ## Evidencia
 
 `tests/e2e/*.spec.ts` prueba en cada módulo que las acciones desaparecen sin permiso (por ejemplo, Catálogo con solo `catalog.read`, Método de envío sin `shipping.configure`, conteos del Inicio sin permiso). `tests/unit/shared/utils.spec.ts` prueba el filtrado del menú.
+
+## API 1.4–1.7 (2026-10-17)
+
+| Pantalla           | Acción                                                     | Permiso que la muestra                | Notas                                                                              |
+| ------------------ | ---------------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------- |
+| Cargar productos   | Revisar e importar                                         | `catalog.write`                       | `inventory.write` no hace falta: las existencias van en Cargar entradas            |
+| Cargar entradas    | Revisar e importar                                         | `inventory.write`                     | —                                                                                  |
+| Promociones        | Ver                                                        | `promotions.read`                     | —                                                                                  |
+| Promociones        | Crear, editar, terminar                                    | `promotions.manage`                   | Con `version`                                                                      |
+| Vender en tienda   | Aplicar cupón                                              | `orders.place`                        | —                                                                                  |
+| Vender en tienda   | Escanear                                                   | `inventory.read` + `catalog.read`     | Sin ellos, solo la búsqueda                                                        |
+| Etiquetas          | Ver e imprimir                                             | `catalog.read`                        | —                                                                                  |
+| Ticket             | Imprimir                                                   | `orders.read`                         | —                                                                                  |
+| Órdenes de trabajo | Ver, buscar, imprimir la nota                              | `work-orders.read`                    | —                                                                                  |
+| Órdenes de trabajo | Recibir, corregir, cambiar estado, ligar y desligar ventas | `work-orders.manage`                  | Recibir con `Idempotency-Key`; el resto con `version`. Una orden cerrada no cambia |
+| Órdenes de trabajo | Elegir técnico de la lista                                 | `work-orders.manage` + `staff.manage` | Sin `staff.manage`, solo "Asignármela" (D-085, G-23)                               |
+| Órdenes de trabajo | Nombre del técnico, de quien recibió y del historial       | `staff.manage`                        | Sin él, "Tú" o el ID corto                                                         |
+| Órdenes de trabajo | Nueva venta para la orden                                  | `work-orders.manage` + `orders.place` | —                                                                                  |
+| Órdenes de trabajo | Ligar una venta por su código                              | `work-orders.manage` + `orders.read`  | —                                                                                  |
+| Órdenes de trabajo | Buscar cliente registrado                                  | `customers.read`                      | Opcional                                                                           |
+| Órdenes de trabajo | Ver datos bloqueados                                       | `work-orders.read-blocked`            | Con motivo, auditado                                                               |
+| Órdenes de trabajo | Anonimizar                                                 | `customers.manage`                    | Solo cerrada y sin cliente registrado (§25.12)                                     |
+
+- **Rol Vendedor** desde ADR-0165: suma `work-orders.read` y `work-orders.manage`. **Administrador:** además `work-orders.read-blocked`.

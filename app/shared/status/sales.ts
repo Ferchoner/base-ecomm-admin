@@ -82,3 +82,9 @@ export function statusOptions<K extends string>(styles: Record<K, StatusStyle>) 
     label: styles[value].label,
   }))
 }
+
+/** Promoción que recibió una cotización u orden (API_SPEC §26.7, §26.8): nombre y, si es cupón, su código. */
+export type AppliedPromotion = Schemas['AppliedPromotionDto']
+export function promotionLabel(p: AppliedPromotion): string {
+  return p.code ? `${p.name}, cupón ${p.code}` : p.name
+}

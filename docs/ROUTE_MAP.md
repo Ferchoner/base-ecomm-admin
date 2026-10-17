@@ -53,6 +53,23 @@ El permiso de ruta es solo experiencia de usuario; la API vuelve a autorizar cad
 | `/auditoria`                | `audit.read`      | `action`, `actorType`, `actorId`, `result`, `resourceType`, `resourceId`, `from`, `to`                                                | Auditoría                                             |
 | `/operacion/eventos`        | `events.manage`   | `page`, `pageSize`, `status`, `eventType`, `handler`, `sort`                                                                          | Eventos                                               |
 
+### Rutas de la API 1.4–1.7 (2026-10-17)
+
+| Ruta                           | Permiso de ruta      | Parámetros en la URL                                                                            | Pantalla                          |
+| ------------------------------ | -------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------- |
+| `/catalogo/productos/importar` | `catalog.write`      | —                                                                                               | Cargar productos                  |
+| `/catalogo/etiquetas`          | `catalog.read`       | `product`, `variant` (agregan a la cola)                                                        | Etiquetas                         |
+| `/inventario/cargar-entradas`  | `inventory.write`    | —                                                                                               | Cargar entradas                   |
+| `/promociones`                 | `promotions.read`    | `page`, `pageSize`, `q`, `kind`, `status`, `channel`, `appliesTo`, `sort`                       | Promociones                       |
+| `/promociones/nueva`           | `promotions.manage`  | —                                                                                               | Nueva promoción                   |
+| `/promociones/[id]`            | `promotions.read`    | —                                                                                               | Promoción                         |
+| `/ordenes-trabajo`             | `work-orders.read`   | `page`, `pageSize`, `q`, `status`, `technicianId`, `receivedFrom`, `receivedTo`, `sort`         | Órdenes de trabajo                |
+| `/ordenes-trabajo/nueva`       | `work-orders.manage` | —                                                                                               | Recibir equipo                    |
+| `/ordenes-trabajo/[id]`        | `work-orders.read`   | `recibida=1` (aviso para imprimir la nota), `ligar`, `venta` (venta recién colocada para ligar) | Orden de trabajo                  |
+| `/pedidos/nuevo`               | `orders.place`       | `ordenTrabajo`, `folio` (venta para una orden de trabajo; al colocarla vuelve a ella)           | Vender en tienda                  |
+| `/imprimir/ticket/[id]`        | `orders.read`        | —                                                                                               | Ticket (layout `print`)           |
+| `/imprimir/nota-servicio/[id]` | `work-orders.read`   | —                                                                                               | Nota de servicio (layout `print`) |
+
 `page=1` y el tamaño por defecto (20) no se escriben en la URL.
 
 ## Diferencias con la propuesta de arquitectura

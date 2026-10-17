@@ -1,6 +1,6 @@
 # Changelog
 
-Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado semántico. Contrato de la API: `Ferchoner/base-shop` commit `ff10406`.
+Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado semántico. Contrato de la API: `Ferchoner/base-shop` commit `7af0f1d` (v1.7.0).
 
 ## [Unreleased]
 
@@ -20,6 +20,18 @@ Sin versión publicada todavía: el MVP corre solo en local (G-07). La primera v
 - **Documentación y release:** documentación del frontend sincronizada con el código, onboarding, despliegue, checklist de release, revisión técnica final, preparación del release y handover.
 
 - **Contrato base-shop `ff10406` (API 1.1, 1.2 y 1.3):** pedidos con canal, tipo de entrega, quién los colocó y almacén; filtros por canal y "Mis ventas en tienda".
+
+- **Contrato base-shop `7af0f1d` (API 1.4 a 1.7):** descuento por línea y promoción en pedidos y en la venta en tienda; almacén de salida y notas del cobro y del reembolso; productos solo en tienda (servicios) con su filtro; GTIN en variantes; la venta en tienda abre como venta de mostrador.
+
+- **Cargas masivas (API 1.5):** cargar productos nuevos con sus variantes y entradas de mercancía desde CSV, con revisión previa, errores por línea y columna y plantillas para descargar; la carga de precios suma su plantilla.
+
+- **Promociones y cupones (API 1.7):** listado con filtros, alta, edición según su estado y terminar; destinos por producto, categoría o marca; en la venta en tienda se aplica un cupón y se explica por qué no aplica.
+
+- **Lector de códigos de barras:** en productos el SKU o GTIN exacto abre la variante; en la venta en tienda se escanea sin dar clic, suma unidades y explica lo que no se vende o no tiene existencias; el código del ticket abre el pedido; las entradas de mercancía eligen la variante escaneando; tono opcional en Mi cuenta.
+
+- **Impresión:** ticket del pedido en térmica de 58 mm (por defecto), 80 mm o carta, con el código del pedido en Code 128; etiquetas sin precio con código EAN, UPC, ITF-14 o Code 128 en 50 × 25 mm, compactas de 25 × 15 mm con Data Matrix o QR, y hoja carta de 30; papel inicial de cada documento en Mi cuenta.
+
+- **Órdenes de trabajo (API 1.6):** recibir equipos con folio, buscar por folio, teléfono, nombre o serie (el lector con el folio abre la orden), corregir datos y diagnóstico, cambiar el estado hacia adelante o cancelar con nota; técnico de la lista de staff con `staff.manage` o "Asignármela" sin él; cobrarla con ventas de mostrador (nueva desde la orden o ligada por su código) con cobrado y por cobrar; nota de servicio para imprimir en carta, 58 u 80 mm con línea de firma; datos bloqueados con motivo y anonimizar.
 
 - **Varios almacenes (API 1.1):** pantalla Almacenes para crear, editar la prioridad y desactivar; existencias, entradas y ajustes por almacén; transferencia entre almacenes; almacén de regreso en el reintegro; filtro y columna de almacén en Envíos.
 

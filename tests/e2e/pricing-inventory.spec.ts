@@ -369,3 +369,40 @@ test('inventario: una transferencia a medias se explica y deja repetir solo la e
   // La salida se envió una sola vez; la entrada, dos (la original y la que pidió el usuario).
   expect(adjustments.map((c) => (c.body as { quantity: number }).quantity)).toEqual([-3, 3, 3])
 })
+
+test('inventario: carga masiva de entradas con revisión previa', async ({ page }) => {
+  await mockAuthApi(page, staff(['inventory.read', 'inventory.write']))
+  const api = await mockPricingInventoryApi(page)
+  await login(page)
+  await page.goto('/inventario/stock')
+  await page.getByRole('link', { name: 'Cargar entradas' }).click()
+
+  await page.getByLabel('Archivo CSV de entradas').setInputFiles({
+    name: 'existencias.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from('sku,warehouse,quantity\nCAM-M,PRINCIPAL,25\n'),
+  })
+  await page.getByRole('button', { name: 'Revisar archivo' }).click()
+  await expect(page.getByText('2 entradas con 45 unidades. Aún no se guardó nada.')).toBeVisible()
+  expect(api.calls.at(-1)?.query).toBe('?dryRun=true')
+  await page.getByRole('button', { name: 'Importar', exact: true }).click()
+  await expect(page.getByText('Importación terminada')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Descargar plantilla' })).toHaveAttribute(
+    'href',
+    '/plantillas/existencias.csv',
+  )
+})
+
+test('inventario: el mismo archivo de entradas no se carga dos veces', async ({ page }) => {
+  await mockAuthApi(page, staff(['inventory.read', 'inventory.write']))
+  await mockPricingInventoryApi(page, { receiptFileImportedAt: '2026-10-15T16:00:00.000Z' })
+  await login(page)
+  await page.goto('/inventario/cargar-entradas')
+  await page.getByLabel('Archivo CSV de entradas').setInputFiles({
+    name: 'existencias.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from('sku,warehouse,quantity\nCAM-M,PRINCIPAL,25\n'),
+  })
+  await page.getByRole('button', { name: 'Revisar archivo' }).click()
+  await expect(page.getByText(/Este archivo ya se cargó el/)).toBeVisible()
+})

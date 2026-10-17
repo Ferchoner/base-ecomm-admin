@@ -16,7 +16,7 @@ const props = defineProps<{ product?: Product; disabled?: boolean }>()
 const emit = defineEmits<{ saved: [product: Product] }>()
 
 const NO_BRAND = '__none__'
-const FIELDS = ['title', 'slug', 'description', 'brandId', 'categoryIds'] as const
+const FIELDS = ['title', 'slug', 'description', 'brandId', 'categoryIds', 'storeOnly'] as const
 
 function initialState(p?: Product): ProductForm {
   return {
@@ -25,6 +25,7 @@ function initialState(p?: Product): ProductForm {
     description: p?.description ?? '',
     brandId: p?.brand?.id ?? null,
     categoryIds: p?.categories.map((c) => c.id) ?? [],
+    storeOnly: p?.storeOnly ?? false,
   }
 }
 
@@ -108,6 +109,7 @@ function changes(data: z.output<typeof productSchema>, p: Product) {
     ...(description !== (p.description ?? null) && { description }),
     ...(data.brandId !== (p.brand?.id ?? null) && { brandId: data.brandId }),
     ...(!sameCategories && { categoryIds: data.categoryIds }),
+    ...(data.storeOnly !== p.storeOnly && { storeOnly: data.storeOnly }),
   }
 }
 
@@ -134,6 +136,7 @@ async function onSubmit(event: FormSubmitEvent<z.output<typeof productSchema>>) 
         ...(data.description.trim() && { description: data.description }),
         ...(data.brandId && { brandId: data.brandId }),
         categoryIds: data.categoryIds,
+        storeOnly: data.storeOnly,
       })
       notifySuccess(
         toast,
@@ -230,6 +233,17 @@ async function onSubmit(event: FormSubmitEvent<z.output<typeof productSchema>>) 
         />
       </UFormField>
     </div>
+
+    <UFormField
+      name="storeOnly"
+      :help="
+        state.storeOnly
+          ? 'No se vende en línea. Registra su existencia con una entrada; un servicio, con un número alto.'
+          : 'Se vende en línea y en la tienda física.'
+      "
+    >
+      <USwitch v-model="state.storeOnly" label="Solo en la tienda física (servicio)" />
+    </UFormField>
 
     <div class="flex gap-2">
       <UButton v-if="!disabled" type="submit" :loading="saving">

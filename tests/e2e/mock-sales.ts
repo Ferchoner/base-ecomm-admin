@@ -338,6 +338,7 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
       shippingCost: money(0),
       shippingTaxAmount: money(0),
       discountTotal: money(0),
+      promotion: null,
       grandTotal: money(sum),
       fulfillment: o.fulfillment,
       channel: o.channel,
@@ -393,8 +394,10 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
               taxRateBp: 1600,
               taxAmount: money(Math.round((l.unit * l.quantity * 16) / 116)),
               lineTotal: money(l.unit * l.quantity),
+              discountAmount: money(0),
             })),
             statusHistory: o.history,
+            fulfilledFrom: null,
           }
         : {}),
     }
@@ -455,8 +458,46 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
 
   // ── Tienda física: almacén, existencias y clientes (solo lectura) ───────────────
   const STOCK = [
-    { variantId: uuid(), sku: 'CAM-M', productTitle: 'Camisa de lino', unit: 59900, available: 5 },
-    { variantId: uuid(), sku: 'PAN-32', productTitle: 'Pantalón chino', unit: 89900, available: 1 },
+    {
+      variantId: uuid(),
+      sku: 'CAM-M',
+      gtin: '7501055363063',
+      productTitle: 'Camisa de lino',
+      unit: 59900,
+      available: 5,
+      status: 'ACTIVE',
+      productStatus: 'PUBLISHED',
+    },
+    {
+      variantId: uuid(),
+      sku: 'PAN-32',
+      gtin: null as string | null,
+      productTitle: 'Pantalón chino',
+      unit: 89900,
+      available: 1,
+      status: 'ACTIVE',
+      productStatus: 'PUBLISHED',
+    },
+    {
+      variantId: uuid(),
+      sku: 'GOR-01',
+      gtin: null as string | null,
+      productTitle: 'Gorra de lona',
+      unit: 19900,
+      available: 4,
+      status: 'DISCONTINUED',
+      productStatus: 'PUBLISHED',
+    },
+    {
+      variantId: uuid(),
+      sku: 'CIN-01',
+      gtin: null as string | null,
+      productTitle: 'Cinturón de piel',
+      unit: 29900,
+      available: 0,
+      status: 'ACTIVE',
+      productStatus: 'PUBLISHED',
+    },
   ]
   let priceBump = 0
   let pendingPriceChange = !!seed.priceChangeOnPlace
@@ -486,7 +527,7 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
 
   if (seed.storeCatalog) {
     await page.route(
-      `${API}/v1/admin/{inventory/warehouses,inventory/stock-items,identity/customers}**`,
+      `${API}/v1/admin/{inventory/warehouses,inventory/stock-items,identity/customers,catalog/variants/lookup}**`,
       async (route) => {
         const request = route.request()
         const url = new URL(request.url())
@@ -521,11 +562,33 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
               },
             ],
           })
+        if (url.pathname.endsWith('/variants/lookup')) {
+          const code = url.searchParams.get('code') ?? ''
+          const data = STOCK.filter(
+            (v) => v.sku.toLowerCase() === code.toLowerCase() || v.gtin === code,
+          ).map((v) => ({
+            id: v.variantId,
+            sku: v.sku,
+            gtin: v.gtin,
+            options: {},
+            status: v.status,
+            matchedBy: v.gtin === code ? 'GTIN' : 'SKU',
+            product: {
+              id: `p-${v.sku}`,
+              title: v.productTitle,
+              slug: v.sku.toLowerCase(),
+              status: v.productStatus,
+            },
+          }))
+          return json(route, 200, { data })
+        }
         if (url.pathname.endsWith('/stock-items')) {
           const text = url.searchParams.get('q')?.toLowerCase() ?? ''
+          const variantId = url.searchParams.get('variantId')
           const items = STOCK.filter(
             (v) =>
-              v.sku.toLowerCase().includes(text) || v.productTitle.toLowerCase().includes(text),
+              (!variantId || v.variantId === variantId) &&
+              (v.sku.toLowerCase().includes(text) || v.productTitle.toLowerCase().includes(text)),
           ).map((v) => ({
             id: uuid(),
             variantId: v.variantId,
@@ -550,13 +613,18 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
     )
   }
 
+  /** El único cupón que aplica en la simulación: 10% de cada línea (API_SPEC §26.8). */
+  const COUPON = 'BUENFIN'
   function quote(input: {
     lines: Array<{ variantId: string; quantity: number }>
     fulfillment?: string
+    couponCode?: string
   }) {
+    const withCoupon = input.couponCode === COUPON
     const lines = input.lines.map((l) => {
       const v = STOCK.find((x) => x.variantId === l.variantId)!
       const lineTotal = (v.unit + priceBump) * l.quantity
+      const discount = withCoupon ? Math.round(lineTotal / 10) : 0
       return {
         variantId: v.variantId,
         sku: v.sku,
@@ -567,20 +635,23 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
         taxRateBp: 1600,
         taxAmount: money(Math.round((lineTotal * 16) / 116)),
         lineTotal: money(lineTotal),
+        discountAmount: money(discount),
         sellable: true,
         canFulfill: l.quantity <= v.available,
       }
     })
     const subtotal = lines.reduce((n, l) => n + l.lineTotal.amount, 0)
+    const discount = lines.reduce((n, l) => n + l.discountAmount.amount, 0)
     const shipping = input.fulfillment === 'IN_STORE' ? 0 : 9900
     return {
       lines,
       subtotal: money(subtotal),
-      discountTotal: money(0),
+      discountTotal: money(discount),
+      promotion: withCoupon ? { id: 'promo-1', name: 'Buen Fin 10%', code: COUPON } : null,
       shippingCost: money(shipping),
       shippingTaxAmount: money(Math.round((shipping * 16) / 116)),
-      taxTotal: money(Math.round(((subtotal + shipping) * 16) / 116)),
-      grandTotal: money(subtotal + shipping),
+      taxTotal: money(Math.round(((subtotal - discount + shipping) * 16) / 116)),
+      grandTotal: money(subtotal - discount + shipping),
       freeShippingThreshold: null,
       estimatedDelivery:
         input.fulfillment === 'IN_STORE' ? null : { minBusinessDays: 3, maxBusinessDays: 7 },
@@ -631,6 +702,19 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
     return order
   }
 
+  // Datos de la tienda para el ticket (API_SPEC §15.8).
+  await page.route(`${API}/v1/admin/store-profile`, (route) =>
+    route.request().method() === 'OPTIONS'
+      ? route.fallback()
+      : json(route, 200, {
+          name: 'Tienda Ejemplo',
+          address: 'Av. Madero Poniente 123, Centro, 58000 Morelia, Mich.',
+          taxId: 'EJE260101AB1',
+          phone: '443 123 4567',
+          ticketFooter: 'Este ticket no es un comprobante fiscal.',
+        }),
+  )
+
   await page.route(`${API}/v1/admin/{orders,payments,shipping}**`, async (route) => {
     const request = route.request()
     const url = new URL(request.url())
@@ -652,6 +736,15 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
 
     // ── Pedidos ────────────────────────────────────────────────────────────────
     if (parts[0] === 'orders') {
+      if (
+        (parts[1] === 'quote' || !parts[1]) &&
+        method === 'POST' &&
+        body?.couponCode &&
+        body.couponCode !== COUPON
+      )
+        return problem(route, 409, 'coupon-not-applicable', 'El cupón no aplica', {
+          reason: 'unavailable',
+        })
       if (parts[1] === 'quote' && method === 'POST')
         return json(route, 200, quote(body as Parameters<typeof quote>[0]))
       if (!parts[1] && method === 'POST') {

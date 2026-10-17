@@ -45,3 +45,6 @@ export interface ProductListParams {
   storeOnly?: string
   sort?: string
 }
+
+/** Carga masiva de productos (API_SPEC §11.11, ADR-0164). */
+export type ProductImportSummary = Schemas['ProductImportSummaryDto']

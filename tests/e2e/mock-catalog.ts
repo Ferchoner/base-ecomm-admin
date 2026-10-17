@@ -101,6 +101,8 @@ export interface CatalogSeed {
   brands?: Array<Partial<Brand> & { name: string }>
   categories?: Array<Partial<Category> & { name: string }>
   products?: Array<Partial<Product> & { title: string }>
+  /** Errores de la carga masiva de productos (API_SPEC §11.11); sin ellos, responde un resumen. */
+  productImportErrors?: Array<{ field: string; code: string; message: string }>
 }
 
 export async function mockCatalogApi(page: Page, seed: CatalogSeed = {}) {
@@ -209,6 +211,20 @@ export async function mockCatalogApi(page: Page, seed: CatalogSeed = {}) {
     const body = (isJson ? request.postDataJSON() : null) as Record<string, unknown> | null
     calls.push({ method, path, body })
     const seg = path.split('/').filter(Boolean)
+
+    // ── Carga masiva (ADR-0164) ──
+    if (seg[0] === 'product-imports' && method === 'POST') {
+      if (seed.productImportErrors)
+        return problem(route, 400, 'validation-error', 'Datos inválidos', {
+          errors: seed.productImportErrors,
+        })
+      return json(route, 200, {
+        rows: 3,
+        products: 2,
+        variants: 3,
+        dryRun: url.searchParams.get('dryRun') === 'true',
+      })
+    }
 
     // ── Marcas ──
     if (seg[0] === 'brands') {

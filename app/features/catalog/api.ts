@@ -15,6 +15,7 @@ import type {
   ProductCreateInput,
   ProductImage,
   ProductListParams,
+  ProductImportSummary,
   ProductPage,
   ProductUpdateInput,
   VariantCreateInput,
@@ -277,4 +278,27 @@ export function useDeleteImage(productId: MaybeRefOrGetter<string>) {
   return useImageMutation(productId, (id, imageId: string) =>
     api<undefined>(`${BASE}/products/${id}/images/${imageId}`, { method: 'DELETE' }),
   )
+}
+
+/**
+ * Carga masiva de productos nuevos con sus variantes (API_SPEC §11.11). Con `dryRun` solo revisa;
+ * todo o nada. Los productos quedan en borrador.
+ */
+export function useImportProducts() {
+  const api = useApi()
+  const qc = useQueryClient()
+  return useMutation<ProductImportSummary, ApiProblem, { file: File; dryRun: boolean }>({
+    mutationFn: ({ file, dryRun }) => {
+      const form = new FormData()
+      form.append('file', file)
+      return api<ProductImportSummary>(`${BASE}/product-imports`, {
+        method: 'POST',
+        body: form,
+        query: { dryRun: dryRun ? 'true' : undefined },
+      })
+    },
+    onSuccess: (summary) => {
+      if (!summary.dryRun) return qc.invalidateQueries({ queryKey: catalogKeys.products() })
+    },
+  })
 }

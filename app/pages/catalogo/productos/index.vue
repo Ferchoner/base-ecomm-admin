@@ -164,6 +164,14 @@ function openRow(_: Event, row: TableRow<Product>) {
         >Limpiar</UButton
       >
       <div class="flex-1" />
+      <UButton
+        v-if="canWrite"
+        icon="i-lucide-file-up"
+        color="neutral"
+        variant="outline"
+        to="/catalogo/productos/importar"
+        >Cargar CSV</UButton
+      >
       <UButton v-if="canWrite" icon="i-lucide-plus" to="/catalogo/productos/nuevo"
         >Nuevo producto</UButton
       >

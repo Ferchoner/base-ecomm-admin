@@ -10,6 +10,7 @@ import type { ApiProblem } from '~/shared/api/problem'
 import { useApi } from '~/shared/api/use-api'
 import type {
   AdjustmentInput,
+  ReceiptImportSummary,
   ReceiptInput,
   StockEntry,
   StockItemPage,
@@ -211,5 +212,28 @@ export function useTransferStock() {
         qc.invalidateQueries({ queryKey: inventoryKeys.stock() }),
         qc.invalidateQueries({ queryKey: [...inventoryKeys.all, 'movements'] }),
       ]),
+  })
+}
+
+/**
+ * Carga masiva de entradas de mercancía por SKU y código de almacén (API_SPEC §13). Con `dryRun`
+ * solo revisa; todo o nada. El mismo archivo no se carga dos veces (409 `duplicate-value`).
+ */
+export function useImportReceipts() {
+  const api = useApi()
+  const qc = useQueryClient()
+  return useMutation<ReceiptImportSummary, ApiProblem, { file: File; dryRun: boolean }>({
+    mutationFn: ({ file, dryRun }) => {
+      const form = new FormData()
+      form.append('file', file)
+      return api<ReceiptImportSummary>(`${BASE}/receipt-imports`, {
+        method: 'POST',
+        body: form,
+        query: { dryRun: dryRun ? 'true' : undefined },
+      })
+    },
+    onSuccess: (summary) => {
+      if (!summary.dryRun) return qc.invalidateQueries({ queryKey: inventoryKeys.stock() })
+    },
   })
 }

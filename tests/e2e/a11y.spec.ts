@@ -111,6 +111,8 @@ const PAGES: Array<{
   { path: '/precios', heading: 'Precios' },
   { path: '/inventario/stock', heading: 'Inventario' },
   { path: '/inventario/almacenes', heading: 'Almacenes' },
+  { path: '/inventario/cargar-entradas', heading: 'Inventario' },
+  { path: '/catalogo/productos/importar', heading: 'Cargar productos' },
   { path: '/configuracion/pagos', heading: 'Pago en tienda' },
   { path: '/pedidos', heading: 'Pedidos' },
   {

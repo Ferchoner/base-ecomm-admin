@@ -23,3 +23,6 @@ export interface StockListParams {
   availableMax?: number
   sort?: string
 }
+
+/** Carga masiva de entradas de mercancía (API_SPEC §13, ADR-0164). */
+export type ReceiptImportSummary = Schemas['ReceiptImportSummaryDto']

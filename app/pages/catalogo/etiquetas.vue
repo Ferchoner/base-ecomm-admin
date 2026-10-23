@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import { useProduct } from '~/features/catalog/api'
 import LabelSheet from '~/features/catalog/components/LabelSheet.vue'
-import { MAX_COPIES, MAX_LABELS } from '~/features/catalog/labels'
+import { MAX_COPIES, MAX_LABELS, expandLabels } from '~/features/catalog/labels'
 import type { LabelItem } from '~/features/catalog/labels'
 import { variantOptionsLabel } from '~/shared/api/variant-lookup'
 import { usePreferencesStore } from '~/shared/preferences/preferences.store'
-import { COMPACT_SYMBOLOGIES, LABEL_FORMATS, options, usePrintPage } from '~/shared/print/formats'
+import {
+  COMPACT_SYMBOLOGIES,
+  LABEL_FORMATS,
+  labelPageSize,
+  options,
+  usePrintPage,
+} from '~/shared/print/formats'
 import type { CompactSymbology, LabelFormat } from '~/shared/print/formats'
 import { linearBarcode, tooLongFor50mm } from '~/shared/print/symbology'
 import { useVariantScan } from '~/shared/scanner/use-variant-scan'
@@ -18,13 +24,13 @@ const format = ref<LabelFormat>(prefs.labelFormat)
 const symbology = ref<CompactSymbology>(prefs.compactSymbology)
 const FORMATS = options(LABEL_FORMATS)
 const SYMBOLOGIES = options(COMPACT_SYMBOLOGIES)
-usePrintPage(
-  () => LABEL_FORMATS[format.value].page,
-  () => (format.value === 'letter30' ? '12.7mm 4.8mm' : '0'),
-)
 
 // La cola vive en la página: no es estado del servidor ni de la sesión.
 const items = ref<LabelItem[]>([])
+usePrintPage(
+  () => labelPageSize(format.value, expandLabels(items.value).length),
+  () => (format.value === 'letter30' ? '12.7mm 4.8mm' : '0'),
+)
 const total = computed(() => items.value.reduce((n, i) => n + (i.copies || 0), 0))
 
 function add(item: Omit<LabelItem, 'copies'>) {
@@ -62,8 +68,10 @@ const scan = useVariantScan({
   },
 })
 
+const linear = computed(() => format.value === 'roll58' || format.value === 'label50x25')
+const compact = computed(() => format.value === 'roll58compact' || format.value === 'label25x15')
 const longSkus = computed(() =>
-  format.value === 'label50x25' ? items.value.filter(tooLongFor50mm).map((i) => i.sku) : [],
+  linear.value ? items.value.filter(tooLongFor50mm).map((i) => i.sku) : [],
 )
 </script>
 
@@ -78,7 +86,7 @@ const longSkus = computed(() =>
       @update:format="(v) => (format = v as LabelFormat)"
     >
       <USelect
-        v-if="format === 'label25x15'"
+        v-if="compact"
         v-model="symbology"
         :items="SYMBOLOGIES"
         aria-label="Código 2D"
@@ -150,7 +158,7 @@ const longSkus = computed(() =>
             color="warning"
             variant="subtle"
             icon="i-lucide-triangle-alert"
-            title="SKU largos para 50 mm"
+            title="SKU largos para el código de barras"
             :description="`${longSkus.join(', ')}: las barras pueden quedar muy finas. Usa la etiqueta compacta.`"
           />
         </div>

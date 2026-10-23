@@ -1,12 +1,14 @@
 <script setup lang="ts">
+import { LABEL_FORMATS, ROLL_ROWS_PER_PAGE } from '~/shared/print/formats'
 import type { CompactSymbology, LabelFormat } from '~/shared/print/formats'
 import { compactText, linearBarcode } from '~/shared/print/symbology'
 import { LABELS_PER_LETTER, chunk, expandLabels } from '../labels'
 import type { LabelItem } from '../labels'
 
 /**
- * Etiquetas sin precio (D-083): 50 × 25 mm con código lineal, compactas de 25 × 15 mm con código
- * 2D (Data Matrix o QR) y hoja carta de 30. Una etiqueta por hoja en las térmicas.
+ * Etiquetas sin precio (D-083): en rollo térmico de 58 mm (lineal, o compactas 2D de dos en dos),
+ * adhesivas de 50 × 25 mm con código lineal o de 25 × 15 mm con código 2D (Data Matrix o QR), y
+ * hoja carta de 30. En rollo van una tras otra con una línea para cortar; en adhesivas, una por hoja.
  */
 const props = defineProps<{
   items: LabelItem[]
@@ -16,6 +18,10 @@ const props = defineProps<{
 
 const labels = computed(() => expandLabels(props.items))
 const pages = computed(() => chunk(labels.value, LABELS_PER_LETTER))
+const roll = computed(() => LABEL_FORMATS[props.format].roll)
+const rollPages = computed(() =>
+  roll.value ? chunk(labels.value, roll.value.perRow * ROLL_ROWS_PER_PAGE) : [],
+)
 const options = (o: Record<string, string>) => Object.values(o).join(' / ')
 </script>
 
@@ -47,6 +53,58 @@ const options = (o: Record<string, string>) => Object.values(o).join(' / ')
           <p class="font-mono text-[7pt] leading-tight">
             {{ linearBarcode(item).text }}<template v-if="item.gtin"> · {{ item.sku }}</template>
           </p>
+        </div>
+      </div>
+    </template>
+
+    <template v-else-if="roll">
+      <!-- 58 mm de papel con 48 mm imprimibles al centro; el alto de la hoja lo fija @page. -->
+      <div
+        v-for="(page, p) in rollPages"
+        :key="p"
+        :class="[
+          'w-[58mm] px-[5mm] outline outline-1 outline-gray-300 print:outline-0',
+          p < rollPages.length - 1 && 'break-after-page',
+        ]"
+      >
+        <div :class="['grid', roll.perRow === 2 ? 'grid-cols-2' : 'grid-cols-1']">
+          <div
+            v-for="(item, i) in page"
+            :key="i"
+            :style="{ height: `${roll.rowMm}mm` }"
+            :class="[
+              'flex overflow-hidden border-dashed border-black',
+              i + roll.perRow < page.length && 'border-b-[0.2mm]',
+              roll.perRow === 2 && i % 2 === 0 && i + 1 < page.length && 'border-r-[0.2mm]',
+              roll.perRow === 1
+                ? 'flex-col items-center justify-center px-[1mm]'
+                : 'items-center gap-[1mm] px-[1mm]',
+            ]"
+          >
+            <template v-if="roll.perRow === 1">
+              <p class="w-full truncate text-center text-[7pt] leading-tight">
+                {{ item.title
+                }}<template v-if="Object.keys(item.options).length">
+                  · {{ options(item.options) }}</template
+                >
+              </p>
+              <BarcodeSvg
+                :bcid="linearBarcode(item).bcid"
+                :text="linearBarcode(item).text"
+                :height="10"
+                class="h-[13mm] w-full"
+              />
+              <p class="font-mono text-[6.5pt] leading-tight">{{ linearBarcode(item).text }}</p>
+            </template>
+            <template v-else>
+              <BarcodeSvg
+                :bcid="symbology"
+                :text="compactText(item)"
+                class="size-[12mm] shrink-0"
+              />
+              <p class="min-w-0 font-mono text-[5.5pt] leading-tight break-all">{{ item.sku }}</p>
+            </template>
+          </div>
         </div>
       </div>
     </template>

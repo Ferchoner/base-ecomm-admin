@@ -41,6 +41,7 @@ Sin versión publicada todavía: el MVP corre solo en local (G-07). La primera v
 
 ### Corregido
 
+- Las etiquetas salían de lado y con mucho papel en blanco en una térmica de 58 mm: ahora hay formatos de rollo de 58 mm que las acomodan a lo ancho, una tras otra con línea para cortar (código de barras, y compactas 2D en Data Matrix o QR de dos en dos), y son el formato por defecto (D-094).
 - El detalle de un pedido de entrega en tienda fallaba porque no tiene dirección ni plazo de entrega; ahora lo explica, también cuando el comprador no dio sus datos.
 
 - Una mutación sin conexión quedaba en pausa y se enviaba sola al reconectar (QA-01).

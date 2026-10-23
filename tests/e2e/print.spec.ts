@@ -107,7 +107,7 @@ test('etiquetas: desde el producto, con copias, compactas en Data Matrix o QR', 
   await expect(preview.getByRole('img', { name: 'Código 7501055363063' })).toBeVisible()
   await expect(preview.getByRole('img', { name: 'Código CAMISA-LINO-AZUL-MARINO-L' })).toBeVisible()
   await expect(page.getByText('EAN-13')).toBeVisible()
-  await expect(page.getByText('SKU largos para 50 mm')).toBeVisible()
+  await expect(page.getByText('SKU largos para el código de barras')).toBeVisible()
 
   await page.getByLabel('Copias de CAM-M').fill('3')
   await page.getByLabel('Copias de CAM-M').blur()
@@ -115,8 +115,8 @@ test('etiquetas: desde el producto, con copias, compactas en Data Matrix o QR', 
   await expect(preview.getByRole('img', { name: 'Código 7501055363063' })).toHaveCount(3)
 
   await page.getByRole('combobox', { name: 'Papel' }).click()
-  await page.getByRole('option', { name: /Compacta 25 × 15 mm/ }).click()
-  await expect(page.getByText('SKU largos para 50 mm')).toBeHidden()
+  await page.getByRole('option', { name: /compactas 2D/ }).click()
+  await expect(page.getByText('SKU largos para el código de barras')).toBeHidden()
   await expect(page.getByRole('combobox', { name: 'Código 2D' })).toContainText('Data Matrix')
   await expect(preview.getByRole('img', { name: 'Código 7501055363063' })).toHaveCount(3)
   await page.getByRole('combobox', { name: 'Código 2D' }).click()

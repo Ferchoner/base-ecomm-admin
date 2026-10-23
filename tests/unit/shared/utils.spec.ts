@@ -4,6 +4,7 @@ import { isScanCode, isSellable, notSellableReason } from '~/shared/api/variant-
 import { createScanDetector } from '~/shared/scanner/scan-detector'
 import { compactText, linearBarcode, tooLongFor50mm } from '~/shared/print/symbology'
 import { parseSvg } from '~/shared/print/svg'
+import { labelPageSize } from '~/shared/print/formats'
 import { LABELS_PER_LETTER, chunk, expandLabels } from '~/features/catalog/labels'
 import { toQuery } from '~/shared/api/client'
 import { safeRedirect } from '~/shared/auth/redirect'
@@ -211,5 +212,15 @@ describe('impresión (PLAN_API_1.7 §3.2)', () => {
     expect(chunk(Array.from({ length: 31 }), LABELS_PER_LETTER).map((p) => p.length)).toEqual([
       30, 1,
     ])
+  })
+
+  it('en rollo de 58 mm la hoja es vertical y mide lo que las filas', () => {
+    // Más alta que ancha aunque haya una sola etiqueta: si no, el controlador la gira.
+    expect(labelPageSize('roll58', 1)).toBe('58mm 60mm')
+    expect(labelPageSize('roll58', 5)).toBe('58mm 110mm')
+    expect(labelPageSize('roll58', 600)).toBe('58mm 880mm')
+    expect(labelPageSize('roll58compact', 9)).toBe('58mm 75mm')
+    expect(labelPageSize('label50x25', 9)).toBe('50mm 25mm')
+    expect(labelPageSize('letter30', 9)).toBe('letter')
   })
 })

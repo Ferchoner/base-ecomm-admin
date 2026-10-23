@@ -24,7 +24,7 @@ const DEFAULTS: Preferences = {
   scanSound: true,
   ticketFormat: 'thermal58',
   serviceNoteFormat: 'letter',
-  labelFormat: 'label50x25',
+  labelFormat: 'roll58',
   compactSymbology: 'datamatrix',
 }
 

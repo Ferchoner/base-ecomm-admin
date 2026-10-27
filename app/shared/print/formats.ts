@@ -39,18 +39,22 @@ export const LABEL_FORMATS: Record<
   letter30: { label: 'Hoja carta de 30 (3 × 10)', page: 'letter' },
 }
 
-export const ROLL_WIDTH_MM = 58
+/**
+ * La hoja mide lo imprimible del rollo (48 mm), no el papel: si mide 58 mm, el navegador puede reducirla
+ * para que quepa y las barras quedan más finas.
+ */
+export const ROLL_WIDTH_MM = 48
 /** Filas por hoja de rollo: hojas de menos de un metro, que el navegador maneja sin problema. */
 export const ROLL_ROWS_PER_PAGE = 40
 /** La hoja debe quedar más alta que ancha para que el controlador no la gire. */
-export const ROLL_MIN_HEIGHT_MM = 60
+export const ROLL_MIN_HEIGHT_MM = 50
 
 /** Filas en cada hoja de rollo para `count` etiquetas. */
 export function rollRows(roll: RollLayout, count: number): number {
   return Math.min(ROLL_ROWS_PER_PAGE, Math.ceil(count / roll.perRow))
 }
 
-/** Tamaño de hoja para `count` etiquetas: en rollo, 58 mm de ancho y el alto de las filas. */
+/** Tamaño de hoja para `count` etiquetas: en rollo, 48 mm de ancho y el alto de las filas. */
 export function labelPageSize(format: LabelFormat, count: number): string {
   const { page, roll } = LABEL_FORMATS[format]
   if (!roll) return page

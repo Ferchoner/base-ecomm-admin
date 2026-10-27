@@ -12,6 +12,7 @@ import { useListParams } from '~/shared/api/use-list-params'
 import { useSessionStore } from '~/shared/auth/session.store'
 import { SHIPMENT_STATUS } from '~/shared/status/sales'
 import { formatDateTime } from '~/shared/utils/dates'
+import { ORDER_CODE, fixScannedCode } from '~/shared/scanner/scanned-text'
 import { useDebounced } from '~/shared/utils/debounce'
 
 definePageMeta({ title: 'Envíos', permission: 'shipping.manage' })
@@ -22,6 +23,7 @@ const list = useListParams({
 const filters = list.filters
 
 const search = ref(filters.value.q ?? '')
+watch(search, (v) => (search.value = fixScannedCode(v, ORDER_CODE)))
 const debouncedSearch = useDebounced(search)
 watch(debouncedSearch, (q) => list.setFilter('q', q.trim() || undefined))
 

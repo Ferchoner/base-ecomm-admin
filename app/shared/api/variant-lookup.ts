@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/vue-query'
+import { fixScannedCode } from '~/shared/scanner/scanned-text'
 import type { Schemas } from './types'
 import { useApi } from './use-api'
 
@@ -8,7 +9,7 @@ export type VariantLookup = Schemas['VariantLookupDto']
 export const SCAN_CODE = /^[A-Za-z0-9._-]{1,64}$/
 
 export function isScanCode(value: string): boolean {
-  return SCAN_CODE.test(value.trim())
+  return SCAN_CODE.test(fixScannedCode(value, SCAN_CODE).trim())
 }
 
 /**

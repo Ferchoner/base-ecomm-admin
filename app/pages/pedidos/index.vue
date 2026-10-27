@@ -13,6 +13,7 @@ import {
   statusOptions,
 } from '~/shared/status/sales'
 import { formatDateTime } from '~/shared/utils/dates'
+import { ORDER_CODE, fixScannedCode } from '~/shared/scanner/scanned-text'
 import { useDebounced } from '~/shared/utils/debounce'
 import { formatMoney } from '~/shared/utils/money'
 
@@ -38,6 +39,7 @@ const myId = computed(() => session.account?.id)
 const canPlace = computed(() => session.can('orders.place'))
 
 const search = ref(filters.value.q ?? '')
+watch(search, (v) => (search.value = fixScannedCode(v, ORDER_CODE)))
 const debouncedSearch = useDebounced(search)
 watch(debouncedSearch, (q) => list.setFilter('q', q.trim() || undefined))
 

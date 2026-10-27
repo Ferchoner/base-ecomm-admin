@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { ApiProblem } from '~/shared/api/problem'
-import { isScanCode, isSellable, notSellableReason } from '~/shared/api/variant-lookup'
+import { SCAN_CODE, isScanCode, isSellable, notSellableReason } from '~/shared/api/variant-lookup'
 import { createScanDetector } from '~/shared/scanner/scan-detector'
 import { compactText, linearBarcode, tooLongFor50mm } from '~/shared/print/symbology'
 import { parseSvg } from '~/shared/print/svg'
 import { labelPageSize } from '~/shared/print/formats'
+import { FOLIO_CODE, ORDER_CODE, fixScannedCode } from '~/shared/scanner/scanned-text'
 import { LABELS_PER_LETTER, chunk, expandLabels } from '~/features/catalog/labels'
 import { toQuery } from '~/shared/api/client'
 import { safeRedirect } from '~/shared/auth/redirect'
@@ -214,12 +215,22 @@ describe('impresión (PLAN_API_1.7 §3.2)', () => {
     ])
   })
 
+  it("el ' que teclea un lector con otra distribución de teclado vuelve a ser guion", () => {
+    expect(fixScannedCode("K7M4'Q9XA", ORDER_CODE)).toBe('K7M4-Q9XA')
+    expect(fixScannedCode("OT'000123", FOLIO_CODE)).toBe('OT-000123')
+    expect(fixScannedCode("CAM'LIN'AZ'M", SCAN_CODE)).toBe('CAM-LIN-AZ-M')
+    expect(isScanCode("CAM'M")).toBe(true)
+    // Un texto que no es código se respeta.
+    expect(fixScannedCode("O'Neil", ORDER_CODE)).toBe("O'Neil")
+    expect(fixScannedCode('K7M4-Q9XA', ORDER_CODE)).toBe('K7M4-Q9XA')
+  })
+
   it('en rollo de 58 mm la hoja es vertical y mide lo que las filas', () => {
     // Más alta que ancha aunque haya una sola etiqueta: si no, el controlador la gira.
-    expect(labelPageSize('roll58', 1)).toBe('58mm 60mm')
-    expect(labelPageSize('roll58', 5)).toBe('58mm 110mm')
-    expect(labelPageSize('roll58', 600)).toBe('58mm 880mm')
-    expect(labelPageSize('roll58compact', 9)).toBe('58mm 75mm')
+    expect(labelPageSize('roll58', 1)).toBe('48mm 50mm')
+    expect(labelPageSize('roll58', 5)).toBe('48mm 110mm')
+    expect(labelPageSize('roll58', 600)).toBe('48mm 880mm')
+    expect(labelPageSize('roll58compact', 9)).toBe('48mm 75mm')
     expect(labelPageSize('label50x25', 9)).toBe('50mm 25mm')
     expect(labelPageSize('letter30', 9)).toBe('letter')
   })

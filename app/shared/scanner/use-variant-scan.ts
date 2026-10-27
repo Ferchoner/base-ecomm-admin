@@ -1,8 +1,14 @@
 import type { ApiProblem } from '~/shared/api/problem'
-import { isSellable, notSellableReason, useVariantLookup } from '~/shared/api/variant-lookup'
+import {
+  SCAN_CODE,
+  isSellable,
+  notSellableReason,
+  useVariantLookup,
+} from '~/shared/api/variant-lookup'
 import type { VariantLookup } from '~/shared/api/variant-lookup'
 import { usePreferencesStore } from '~/shared/preferences/preferences.store'
 import { scanBeep } from './beep'
+import { fixScannedCode } from './scanned-text'
 
 export interface ScanFeedback {
   tone: 'success' | 'info' | 'warning' | 'error'
@@ -46,7 +52,7 @@ export function useVariantScan(options: VariantScanOptions) {
   }
 
   async function scan(raw: string) {
-    const code = raw.trim()
+    const code = fixScannedCode(raw, SCAN_CODE).trim()
     clear()
     if (!code) return
     pending.value = true

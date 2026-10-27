@@ -41,6 +41,7 @@ Sin versión publicada todavía: el MVP corre solo en local (G-07). La primera v
 
 ### Corregido
 
+- Al escanear, un lector configurado con teclado de EE. UU. en Windows en español escribía `'` en lugar de `-` y no encontraba el SKU, el pedido ni el folio; ahora se corrige al leer, el ticket lleva el código sin guion y los códigos de barras tienen su zona blanca. La hoja de etiquetas en rollo mide los 48 mm imprimibles (D-095, G-28).
 - Las etiquetas salían de lado y con mucho papel en blanco en una térmica de 58 mm: ahora hay formatos de rollo de 58 mm que las acomodan a lo ancho, una tras otra con línea para cortar (código de barras, y compactas 2D en Data Matrix o QR de dos en dos), y son el formato por defecto (D-094).
 - El detalle de un pedido de entrega en tienda fallaba porque no tiene dirección ni plazo de entrega; ahora lo explica, también cuando el comprador no dio sus datos.
 

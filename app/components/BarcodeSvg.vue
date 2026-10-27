@@ -13,6 +13,8 @@ const props = defineProps<{
   height?: number
 }>()
 
+const QUIET_ZONE = 11
+
 const svg = shallowRef<{ viewBox: string; nodes: SvgNode[] } | null>(null)
 const failed = ref(false)
 
@@ -21,7 +23,9 @@ watchEffect(async () => {
   try {
     const { toSVG } = await import('bwip-js/browser')
     const two = bcid === 'datamatrix' || bcid === 'qrcode'
-    svg.value = parseSvg(toSVG({ bcid, text, scale: 2, ...(!two && { height: height ?? 10 }) }))
+    // Los lineales llevan su zona blanca a los lados (11 módulos): sin ella el lector no los toma.
+    const linear = !two && { height: height ?? 10, paddingwidth: QUIET_ZONE }
+    svg.value = parseSvg(toSVG({ bcid, text, scale: 2, ...linear }))
     failed.value = !svg.value
   } catch {
     svg.value = null

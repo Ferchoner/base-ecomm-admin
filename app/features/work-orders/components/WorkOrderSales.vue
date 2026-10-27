@@ -2,6 +2,7 @@
 import { notifyProblem, notifySuccess } from '~/shared/api/feedback'
 import type { ApiProblem } from '~/shared/api/problem'
 import { useSessionStore } from '~/shared/auth/session.store'
+import { ORDER_CODE, fixScannedCode } from '~/shared/scanner/scanned-text'
 import { ORDER_STATUS } from '~/shared/status/sales'
 import { useConfirm } from '~/shared/ui/use-confirm'
 import { formatDateTime } from '~/shared/utils/dates'
@@ -41,6 +42,7 @@ const pendingSale = computed(() =>
 
 // ── Ligar una venta ya colocada, por su código (escrito o escaneado del ticket) ──
 const code = ref('')
+watch(code, (v) => (code.value = fixScannedCode(v, ORDER_CODE)))
 const searched = ref('')
 const sales = useStoreSaleSearch(searched)
 const results = computed(() => (searched.value ? (sales.data.value?.data ?? []) : []))

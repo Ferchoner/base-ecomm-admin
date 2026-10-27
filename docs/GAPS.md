@@ -207,6 +207,11 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 - **Evidencia:** recibir un equipo guarda nombre, teléfono y email del cliente (API_SPEC §25.2) y no pide `privacyNoticeShown` ni versión del aviso, a diferencia de la venta a un invitado (§15.7, G-19).
 - **Supuesto:** el frontend no pide confirmar el aviso de privacidad al recibir un equipo; si el negocio lo requiere, debe definirlo con su asesor y el backend agregar el campo.
 
+### G-28 · Distribución de teclado del lector — ASSUMPTION
+
+- **Evidencia:** el usuario reportó (2026-10-27) que el código del ticket se lee con `'` en lugar de `-`. Un lector en modo teclado configurado como teclado de EE. UU. en un equipo con distribución latinoamericana o española manda la tecla a la derecha del 0, que ahí es `'`. El lookup de variantes rechaza `'` (API_SPEC §11.10: letras, dígitos, `-`, `_` y `.`).
+- **Supuesto:** ningún SKU, código público ni folio lleva `'`, así que el frontend lo cambia por `-` cuando el texto queda con la forma del código (SKU al escanear, código público en Pedidos, Envíos y ligar venta, folio en Órdenes de trabajo); un texto libre como "O'Neil" no cambia. El código de barras del ticket lleva el código público sin guion (la API lo acepta). La solución de fondo es configurar el lector con el teclado del equipo (latinoamericano), con el código de configuración de su manual.
+
 ## Comportamientos que el frontend debe respetar (no son gaps)
 
 - Tolerar enumeraciones desconocidas (mostrar el valor crudo con badge neutro).

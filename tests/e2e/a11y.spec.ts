@@ -187,7 +187,7 @@ test('accesibilidad: ticket de un pedido', async ({ page }) => {
   await page.goto('/pedidos')
   await page.getByRole('link', { name: 'K7M4-Q9XA' }).first().click()
   await page.getByRole('link', { name: 'Imprimir ticket' }).click()
-  await expect(page.getByRole('img', { name: 'Código K7M4-Q9XA' })).toBeVisible()
+  await expect(page.getByRole('img', { name: 'Código K7M4Q9XA' })).toBeVisible()
   await expectNoViolations(page)
 })
 

@@ -13,6 +13,7 @@ import type { WorkOrderSummary } from '~/features/work-orders/types'
 import { useListParams } from '~/shared/api/use-list-params'
 import { useSessionStore } from '~/shared/auth/session.store'
 import { formatDateTime } from '~/shared/utils/dates'
+import { FOLIO_CODE, fixScannedCode } from '~/shared/scanner/scanned-text'
 import { useDebounced } from '~/shared/utils/debounce'
 
 definePageMeta({ title: 'Órdenes de trabajo', permission: 'work-orders.read' })
@@ -26,6 +27,7 @@ const myId = computed(() => session.account?.id)
 const canManage = computed(() => session.can('work-orders.manage'))
 
 const search = ref(filters.value.q ?? '')
+watch(search, (v) => (search.value = fixScannedCode(v, FOLIO_CODE)))
 const debouncedSearch = useDebounced(search)
 /** Al abrir la orden, la búsqueda pendiente ya no debe cambiar la URL (cancelaría la navegación). */
 let leaving = false

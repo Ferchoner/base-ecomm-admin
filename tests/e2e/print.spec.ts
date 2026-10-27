@@ -42,7 +42,7 @@ test('ticket: 58 mm por defecto, carta como opción y el papel preferido de Mi c
   await expect(ticket.getByText('Pedido K7M4-Q9XA')).toBeVisible()
   await expect(ticket.getByText('2 × $599.00')).toBeVisible()
   await expect(ticket.getByText('Este ticket no es un comprobante fiscal.')).toBeVisible()
-  await expect(ticket.getByRole('img', { name: 'Código K7M4-Q9XA' })).toBeVisible()
+  await expect(ticket.getByRole('img', { name: 'Código K7M4Q9XA' })).toBeVisible()
   await expect(page.getByRole('combobox', { name: 'Papel' })).toContainText('Térmica 58 mm')
 
   await page.getByRole('combobox', { name: 'Papel' }).click()
@@ -140,4 +140,8 @@ test('etiquetas: agregar una variante escaneando', async ({ page }) => {
   await page.getByLabel('Agregar por código').press('Enter')
   await expect(page.getByText('CAM-M agregado.')).toBeVisible()
   await expect(page.getByText('1 etiqueta', { exact: true })).toBeVisible()
+  // Lector con teclado de EE. UU. en Windows en español: teclea ' en lugar de - (G-28).
+  await page.getByLabel('Agregar por código').fill("CAM'M")
+  await page.getByLabel('Agregar por código').press('Enter')
+  await expect(page.getByText('2 etiquetas')).toBeVisible()
 })

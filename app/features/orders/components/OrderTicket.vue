@@ -135,7 +135,7 @@ const totals = computed(() => {
     <div :class="['mt-3 flex flex-col items-center', !narrow && 'items-start']">
       <BarcodeSvg
         bcid="code128"
-        :text="order.publicCode"
+        :text="order.publicCode.replace('-', '')"
         :height="8"
         :class="narrow ? 'h-[12mm] w-full' : 'h-[14mm] w-[60mm]'"
       />

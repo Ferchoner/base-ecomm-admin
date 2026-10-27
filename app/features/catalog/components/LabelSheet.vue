@@ -58,12 +58,12 @@ const options = (o: Record<string, string>) => Object.values(o).join(' / ')
     </template>
 
     <template v-else-if="roll">
-      <!-- 58 mm de papel con 48 mm imprimibles al centro; el alto de la hoja lo fija @page. -->
+      <!-- Los 48 mm imprimibles del rollo de 58 mm; el alto de la hoja lo fija @page. -->
       <div
         v-for="(page, p) in rollPages"
         :key="p"
         :class="[
-          'w-[58mm] px-[5mm] outline outline-1 outline-gray-300 print:outline-0',
+          'w-[48mm] outline outline-1 outline-gray-300 print:outline-0',
           p < rollPages.length - 1 && 'break-after-page',
         ]"
       >

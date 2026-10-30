@@ -48,7 +48,8 @@ const options = (o: Record<string, string>) => Object.values(o).join(' / ')
             :bcid="linearBarcode(item).bcid"
             :text="linearBarcode(item).text"
             :height="10"
-            class="h-[13mm] w-full"
+            :max-width="62"
+            class="h-[13mm]"
           />
           <p class="font-mono text-[7pt] leading-tight">
             {{ linearBarcode(item).text }}<template v-if="item.gtin"> · {{ item.sku }}</template>
@@ -92,7 +93,8 @@ const options = (o: Record<string, string>) => Object.values(o).join(' / ')
                 :bcid="linearBarcode(item).bcid"
                 :text="linearBarcode(item).text"
                 :height="10"
-                class="h-[13mm] w-full"
+                :max-width="46"
+                class="h-[13mm]"
               />
               <p class="font-mono text-[6.5pt] leading-tight">{{ linearBarcode(item).text }}</p>
             </template>
@@ -131,7 +133,8 @@ const options = (o: Record<string, string>) => Object.values(o).join(' / ')
             :bcid="linearBarcode(item).bcid"
             :text="linearBarcode(item).text"
             :height="10"
-            class="h-[14mm] w-full"
+            :max-width="47"
+            class="h-[14mm]"
           />
           <p class="font-mono text-[6.5pt] leading-tight">{{ linearBarcode(item).text }}</p>
         </template>

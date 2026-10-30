@@ -137,7 +137,8 @@ const totals = computed(() => {
         bcid="code128"
         :text="order.publicCode.replace('-', '')"
         :height="8"
-        :class="narrow ? 'h-[12mm] w-full' : 'h-[14mm] w-[60mm]'"
+        :max-width="narrow ? 46 : 60"
+        :class="narrow ? 'h-[12mm]' : 'h-[14mm]'"
       />
       <p class="mt-1">{{ order.publicCode }}</p>
     </div>

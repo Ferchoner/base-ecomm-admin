@@ -12,6 +12,11 @@ interface Preferences {
   lowStockThreshold: number
   /** Aviso sonoro al escanear un código (PLAN_API_1.7 §3.1). */
   scanSound: boolean
+  /**
+   * El lector usa teclado de EE. UU. (de fábrica): se lee la tecla física, no lo que tecleó el
+   * sistema con su distribución (GAPS G-28).
+   */
+  scannerUsKeyboard: boolean
   /** Papeles preferidos para imprimir (D-083): ticket en 58 mm y nota de servicio en carta. */
   ticketFormat: DocumentFormat
   serviceNoteFormat: DocumentFormat
@@ -22,6 +27,7 @@ interface Preferences {
 const DEFAULTS: Preferences = {
   lowStockThreshold: DEFAULT_LOW_STOCK_THRESHOLD,
   scanSound: true,
+  scannerUsKeyboard: true,
   ticketFormat: 'thermal58',
   serviceNoteFormat: 'letter',
   labelFormat: 'roll58',
@@ -40,6 +46,8 @@ function read(key: string): Preferences {
       lowStockThreshold:
         Number.isInteger(t) && (t as number) >= 0 ? (t as number) : DEFAULTS.lowStockThreshold,
       scanSound: typeof p.scanSound === 'boolean' ? p.scanSound : DEFAULTS.scanSound,
+      scannerUsKeyboard:
+        typeof p.scannerUsKeyboard === 'boolean' ? p.scannerUsKeyboard : DEFAULTS.scannerUsKeyboard,
       ticketFormat: oneOf(DOCUMENT_FORMATS, p.ticketFormat, DEFAULTS.ticketFormat),
       serviceNoteFormat: oneOf(DOCUMENT_FORMATS, p.serviceNoteFormat, DEFAULTS.serviceNoteFormat),
       labelFormat: oneOf(LABEL_FORMATS, p.labelFormat, DEFAULTS.labelFormat),
@@ -63,6 +71,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
 
   const lowStockThreshold = computed(() => prefs.value.lowStockThreshold)
   const scanSound = computed(() => prefs.value.scanSound)
+  const scannerUsKeyboard = computed(() => prefs.value.scannerUsKeyboard)
   const ticketFormat = computed(() => prefs.value.ticketFormat)
   const serviceNoteFormat = computed(() => prefs.value.serviceNoteFormat)
   const labelFormat = computed(() => prefs.value.labelFormat)
@@ -87,6 +96,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
     save({ scanSound: value })
   }
 
+  function setScannerUsKeyboard(value: boolean) {
+    save({ scannerUsKeyboard: value })
+  }
+
   /** Papeles de impresión; un valor desconocido se ignora. */
   function setPrint(
     changes: Partial<
@@ -107,6 +120,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setLowStockThreshold,
     scanSound,
     setScanSound,
+    scannerUsKeyboard,
+    setScannerUsKeyboard,
     ticketFormat,
     serviceNoteFormat,
     labelFormat,

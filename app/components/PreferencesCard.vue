@@ -25,6 +25,11 @@ function onScanSound(value: boolean) {
   prefs.setScanSound(value)
   notifySuccess(toast, 'Preferencia guardada')
 }
+
+function onScannerUsKeyboard(value: boolean) {
+  prefs.setScannerUsKeyboard(value)
+  notifySuccess(toast, 'Preferencia guardada')
+}
 </script>
 
 <template>
@@ -52,6 +57,13 @@ function onScanSound(value: boolean) {
       label="Sonido al escanear"
       description="Un tono corto cuando el lector encuentra el código y otro grave cuando no."
       @update:model-value="onScanSound"
+    />
+    <USwitch
+      :model-value="prefs.scannerUsKeyboard"
+      label="Lector con teclado de EE. UU. (de fábrica)"
+      description="Lee cada código tal como está impreso, sin importar el idioma del teclado del equipo. Apágalo solo si configuraste el lector con el mismo teclado que el equipo."
+      class="mt-4"
+      @update:model-value="onScannerUsKeyboard"
     />
   </UCard>
 </template>

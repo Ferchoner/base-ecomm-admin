@@ -197,6 +197,7 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 
 - **Evidencia:** la API no genera PDF ni imágenes (ADR-0163); el navegador imprime solo con su diálogo.
 - **Decisión:** se imprime con `window.print()` y estilos de impresión; cortar papel, abrir el cajón o imprimir sin diálogo exigiría software local, fuera de alcance.
+- **Supuesto:** la térmica imprime a 203 dpi (8 puntos por mm, 384 puntos en 48 mm), lo común en 58 y 80 mm. Los códigos lineales se dibujan con módulos de 3 o 2 puntos exactos; si el diálogo de impresión escala la hoja (escala distinta de 100 % o márgenes), las barras dejan de caer en puntos enteros.
 
 ### G-26 · Hardware del lector — ASSUMPTION
 
@@ -209,8 +210,8 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 
 ### G-28 · Distribución de teclado del lector — ASSUMPTION
 
-- **Evidencia:** el usuario reportó (2026-10-27) que el código del ticket se lee con `'` en lugar de `-`. Un lector en modo teclado configurado como teclado de EE. UU. en un equipo con distribución latinoamericana o española manda la tecla a la derecha del 0, que ahí es `'`. El lookup de variantes rechaza `'` (API_SPEC §11.10: letras, dígitos, `-`, `_` y `.`).
-- **Supuesto:** ningún SKU, código público ni folio lleva `'`, así que el frontend lo cambia por `-` cuando el texto queda con la forma del código (SKU al escanear, código público en Pedidos, Envíos y ligar venta, folio en Órdenes de trabajo); un texto libre como "O'Neil" no cambia. El código de barras del ticket lleva el código público sin guion (la API lo acepta). La solución de fondo es configurar el lector con el teclado del equipo (latinoamericano), con el código de configuración de su manual.
+- **Evidencia:** el usuario reportó (2026-10-27) que el código del ticket se lee con `'` en lugar de `-`. Un lector en modo teclado (HID) manda teclas físicas; el sistema las traduce con su distribución. Un lector de fábrica asume teclado de EE. UU., y en un equipo con teclado latinoamericano o español la tecla del `-` escribe `'` (y otros símbolos cambian). El lookup de variantes rechaza `'` (API_SPEC §11.10).
+- **Supuesto:** el lector usa la distribución de EE. UU. (de fábrica). Durante una ráfaga del lector se toma la tecla física (`KeyboardEvent.code`) con la distribución de EE. UU., en cualquier campo y en la captura de la venta en tienda, así el código llega tal como está impreso sin importar el idioma del equipo. Si alguien configura el lector con el mismo teclado que el equipo, apaga "Lector con teclado de EE. UU." en Mi cuenta. Como respaldo, un `'` en un texto con forma de SKU, código público o folio se toma como `-`; el ticket codifica el código público sin guion (la API lo acepta).
 
 ## Comportamientos que el frontend debe respetar (no son gaps)
 

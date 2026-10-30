@@ -101,7 +101,8 @@ const hidden = computed(() => !!(w.value.blockedAt || w.value.anonymizedAt))
         bcid="code128"
         :text="w.folio"
         :height="8"
-        :class="narrow ? 'h-[12mm] w-full' : 'h-[14mm] w-[60mm]'"
+        :max-width="narrow ? 46 : 60"
+        :class="narrow ? 'h-[12mm]' : 'h-[14mm]'"
       />
       <p class="mt-1">{{ w.folio }}</p>
     </div>

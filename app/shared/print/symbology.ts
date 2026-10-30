@@ -38,3 +38,21 @@ export function tooLongFor50mm(v: { sku: string; gtin: string | null }): boolean
   const b = linearBarcode(v)
   return b.bcid === 'code128' && b.text.length > MAX_CODE128_ON_50MM
 }
+
+/**
+ * Las térmicas de 58 y 80 mm imprimen a 203 dpi: 8 puntos por milímetro (GAPS G-25). Un módulo
+ * (la barra más delgada) que no mide puntos enteros sale con barras de grosor dispar y el lector
+ * necesita varios intentos; por eso el código mide un número entero de puntos por módulo.
+ */
+export const DOTS_PER_MM = 8
+/** De 3 puntos (0.375 mm) si cabe, si no de 2 (0.25 mm); más delgado ya no se lee bien. */
+const MODULE_DOTS = [3, 2]
+
+/** Ancho en mm de un código lineal de `modules` módulos que quepa en `maxMm`, en puntos enteros. */
+export function linearWidthMm(modules: number, maxMm: number): number {
+  for (const dots of MODULE_DOTS) {
+    const mm = (modules * dots) / DOTS_PER_MM
+    if (mm <= maxMm) return mm
+  }
+  return maxMm
+}

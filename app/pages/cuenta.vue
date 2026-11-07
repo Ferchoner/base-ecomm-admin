@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AccountProfile from '~/features/account/components/AccountProfile.vue'
+import DeviceWarehouseCard from '~/features/inventory/components/DeviceWarehouseCard.vue'
 import { useSessionStore } from '~/shared/auth/session.store'
 
 definePageMeta({ title: 'Mi cuenta' })
@@ -24,6 +25,7 @@ async function logout() {
   <div class="space-y-6">
     <AccountProfile v-if="session.account" :account="session.account" />
     <PreferencesCard />
+    <DeviceWarehouseCard v-if="session.can('inventory.read')" />
     <PrintPreferencesCard
       v-if="
         session.can('orders.read') || session.can('catalog.read') || session.can('work-orders.read')

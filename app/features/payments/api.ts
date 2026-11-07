@@ -76,7 +76,11 @@ export function useManualRefund(id: MaybeRefOrGetter<string>) {
       }),
     onSuccess: (payment) => {
       qc.setQueryData(paymentKeys.detail(payment.id), payment)
-      invalidateRoots(qc, [QUERY_ROOT.payments, QUERY_ROOT.orders], [QUERY_ROOT.orders])
+      invalidateRoots(
+        qc,
+        [QUERY_ROOT.payments, QUERY_ROOT.orders, QUERY_ROOT.cashClosings],
+        [QUERY_ROOT.orders],
+      )
     },
     onError: (error) => {
       if (error.type === 'version-conflict')

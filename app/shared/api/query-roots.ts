@@ -12,6 +12,7 @@ export const QUERY_ROOT = {
   inventory: 'inventory',
   customers: 'customers',
   staff: 'staff',
+  cashClosings: 'cash-closings',
 } as const
 
 export type QueryRoot = (typeof QUERY_ROOT)[keyof typeof QUERY_ROOT]

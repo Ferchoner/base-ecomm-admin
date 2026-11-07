@@ -498,7 +498,29 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
       status: 'ACTIVE',
       productStatus: 'PUBLISHED',
     },
-  ]
+    // Precio libre (ADR-0171 de base-shop): sin precio de lista, la línea lleva el suyo.
+    {
+      variantId: uuid(),
+      sku: 'SR-JUEGO',
+      gtin: null as string | null,
+      productTitle: 'Artículo sin registrar',
+      unit: 0,
+      available: 100000,
+      status: 'ACTIVE',
+      productStatus: 'PUBLISHED',
+      openPrice: true,
+    },
+  ] as Array<{
+    variantId: string
+    sku: string
+    gtin: string | null
+    productTitle: string
+    unit: number
+    available: number
+    status: string
+    productStatus: string
+    openPrice?: boolean
+  }>
   let priceBump = 0
   let pendingPriceChange = !!seed.priceChangeOnPlace
   const CUSTOMER = {
@@ -613,25 +635,52 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
     )
   }
 
+  // Productos de precio libre del catálogo (ADR-0171 de base-shop), para "Artículo sin registrar".
+  if (seed.storeCatalog)
+    await page.route(`${API}/v1/admin/catalog/products?**`, (route) => {
+      const url = new URL(route.request().url())
+      if (route.request().method() === 'OPTIONS' || url.searchParams.get('openPrice') !== 'true')
+        return route.fallback()
+      return json(
+        route,
+        200,
+        page1(
+          STOCK.filter((v) => v.openPrice).map((v) => ({
+            id: `p-${v.sku}`,
+            title: v.productTitle,
+            slug: v.sku.toLowerCase(),
+            status: 'PUBLISHED',
+            storeOnly: true,
+            openPrice: true,
+            variants: [
+              { id: v.variantId, sku: v.sku, options: { tipo: 'Juego' }, status: 'ACTIVE' },
+            ],
+          })),
+        ),
+      )
+    })
+
   /** El único cupón que aplica en la simulación: 10% de cada línea (API_SPEC §26.8). */
   const COUPON = 'BUENFIN'
   function quote(input: {
-    lines: Array<{ variantId: string; quantity: number }>
+    lines: Array<{ variantId: string; quantity: number; unitPrice?: number; note?: string }>
     fulfillment?: string
     couponCode?: string
   }) {
     const withCoupon = input.couponCode === COUPON
     const lines = input.lines.map((l) => {
       const v = STOCK.find((x) => x.variantId === l.variantId)!
-      const lineTotal = (v.unit + priceBump) * l.quantity
-      const discount = withCoupon ? Math.round(lineTotal / 10) : 0
+      const unit = v.openPrice ? (l.unitPrice ?? 0) : v.unit + priceBump
+      const lineTotal = unit * l.quantity
+      const discount = withCoupon && !v.openPrice ? Math.round(lineTotal / 10) : 0
       return {
         variantId: v.variantId,
         sku: v.sku,
         productTitle: v.productTitle,
         options: { talla: 'M' },
         quantity: l.quantity,
-        unitPrice: money(v.unit + priceBump),
+        unitPrice: money(unit),
+        note: v.openPrice ? (l.note ?? null) : null,
         taxRateBp: 1600,
         taxAmount: money(Math.round((lineTotal * 16) / 116)),
         lineTotal: money(lineTotal),

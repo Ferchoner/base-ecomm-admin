@@ -21,6 +21,8 @@ import type {
   StaffQuote,
   StaffQuoteInput,
   StoreProfile,
+  OpenPriceProduct,
+  OpenPriceVariant,
 } from './types'
 import type { Page } from '~/shared/api/types'
 
@@ -69,7 +71,7 @@ function useOrderMutation<V>(
       qc.setQueryData(orderKeys.detail(order.id), order)
       invalidateRoots(
         qc,
-        [QUERY_ROOT.orders, QUERY_ROOT.payments, QUERY_ROOT.shipping],
+        [QUERY_ROOT.orders, QUERY_ROOT.payments, QUERY_ROOT.shipping, QUERY_ROOT.cashClosings],
         options.background ? [QUERY_ROOT.orders, QUERY_ROOT.shipping] : [],
       )
     },
@@ -190,7 +192,7 @@ export function usePlaceStaffOrder() {
       api<AdminOrder>(BASE, { method: 'POST', body: { ...input }, idempotencyKey }),
     onSuccess: (order) => {
       qc.setQueryData(orderKeys.detail(order.id), order)
-      invalidateRoots(qc, [QUERY_ROOT.orders, QUERY_ROOT.inventory])
+      invalidateRoots(qc, [QUERY_ROOT.orders, QUERY_ROOT.inventory, QUERY_ROOT.cashClosings])
     },
   })
 }
@@ -295,5 +297,35 @@ export function useBlockedData(id: MaybeRefOrGetter<string>) {
         method: 'POST',
         body: { reason },
       }),
+  })
+}
+
+/**
+ * Las variantes de precio libre (ADR-0171 de base-shop, D-098): de los productos publicados con
+ * `openPrice`, que solo se venden en la tienda. Se leen del catálogo (`catalog.read`) para ofrecer
+ * "Artículo sin registrar" en la venta; son pocas (una por tipo de artículo), así que basta una página.
+ */
+export function useOpenPriceVariants(enabled: MaybeRefOrGetter<boolean>) {
+  const api = useApi()
+  return useQuery<OpenPriceVariant[], ApiProblem>({
+    queryKey: [QUERY_ROOT.orders, 'open-price-variants'],
+    queryFn: async ({ signal }) => {
+      const page = await api<Page<OpenPriceProduct>>('/v1/admin/catalog/products', {
+        query: { openPrice: true, status: 'PUBLISHED', pageSize: 100 },
+        signal,
+      })
+      return page.data.flatMap((product) =>
+        product.variants
+          .filter((v) => v.status === 'ACTIVE')
+          .map((v) => ({
+            variantId: v.id,
+            sku: v.sku,
+            productTitle: product.title,
+            label: Object.values(v.options).join(' / ') || product.title,
+          })),
+      )
+    },
+    enabled: computed(() => toValue(enabled)),
+    staleTime: 5 * 60_000,
   })
 }

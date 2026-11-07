@@ -6,6 +6,7 @@ import type { ApiProblem } from '~/shared/api/problem'
 import type { Money } from '~/shared/api/types'
 import { isScanCode } from '~/shared/api/variant-lookup'
 import { useSessionStore } from '~/shared/auth/session.store'
+import { useDeviceWarehouse } from '~/shared/device/device-warehouse'
 import { promotionLabel } from '~/shared/status/sales'
 import { useScannerCapture } from '~/shared/scanner/use-scanner-capture'
 import { useVariantScan } from '~/shared/scanner/use-variant-scan'
@@ -16,16 +17,23 @@ import { formatMoney } from '~/shared/utils/money'
 import {
   useBuyer,
   useBuyerSearch,
+  useOpenPriceVariants,
   usePlaceStaffOrder,
   useSellableStock,
   useStaffQuote,
   useStockInWarehouse,
   useWarehouseOptions,
 } from '../api'
-import { storeOrderSchema, toStaffOrderInput } from '../schemas'
+import {
+  MAX_OPEN_PRICE_NOTE,
+  openPriceLineReady,
+  storeOrderSchema,
+  toStaffOrderInput,
+  toStaffOrderLine,
+} from '../schemas'
 import { couponProblemMessage } from '../status'
 import type { StoreOrderForm } from '../schemas'
-import type { BuyerCustomer, SellableStock, StaffQuoteInput } from '../types'
+import type { BuyerCustomer, OpenPriceVariant, SellableStock, StaffQuoteInput } from '../types'
 
 /**
  * Pedido en la tienda física a nombre de un cliente presente (UC-ORD-12 y 13, ADR-0161): se cotiza
@@ -47,6 +55,8 @@ const canSearchStock = computed(() => session.can('inventory.read'))
 const canSearchCustomers = computed(() => session.can('customers.read'))
 /** Escanear busca el código en el catálogo (`catalog.read`) y su existencia (`inventory.read`). */
 const canScan = computed(() => canSearchStock.value && session.can('catalog.read'))
+/** Vender lo que aún no está en el catálogo (ADR-0171 de base-shop, D-098). */
+const canOpenPrice = computed(() => session.can('orders.open-price'))
 /** Versión del aviso de privacidad para invitados (GAPS G-19); vacía, no se aceptan invitados. */
 const privacyNoticeVersion = String(useRuntimeConfig().public.privacyNoticeVersion ?? '').trim()
 
@@ -76,12 +86,25 @@ const activeWarehouses = computed(() =>
 const warehouseOptions = computed(() =>
   activeWarehouses.value.map((w) => ({ value: w.id, label: `${w.name} (${w.code})` })),
 )
+// Empieza en el local de este equipo (D-097); si no tiene, en el primer almacén activo.
+const device = useDeviceWarehouse()
 watch(
   activeWarehouses,
   (list) => {
-    if (!state.warehouseId && list[0]) state.warehouseId = list[0].id
+    if (!state.warehouseId) state.warehouseId = device.initial(list.map((w) => w.id))
   },
   { immediate: true },
+)
+const deviceWarehouseName = computed(() => {
+  const w = activeWarehouses.value.find((x) => x.id === device.warehouseId.value)
+  return w ? `${w.name} (${w.code})` : null
+})
+/** Se vende desde otro almacén que el de este equipo: se avisa, por si fue un descuido. */
+const otherThanDevice = computed(
+  () =>
+    !!deviceWarehouseName.value &&
+    !!state.warehouseId &&
+    state.warehouseId !== device.warehouseId.value,
 )
 const FULFILLMENT_OPTIONS = [
   { value: 'IN_STORE', label: 'Venta de mostrador (se entrega en la tienda)' },
@@ -96,17 +119,36 @@ const stock = useSellableStock(() =>
     ? { warehouseId: state.warehouseId, q: debouncedSearch.value.trim() }
     : null,
 )
-function addLine(item: SellableStock) {
+const openPriceVariants = useOpenPriceVariants(
+  () => canOpenPrice.value && session.can('catalog.read'),
+)
+const openPriceIds = computed(
+  () => new Set((openPriceVariants.data.value ?? []).map((v) => v.variantId)),
+)
+function addLine(item: Pick<SellableStock, 'variantId' | 'sku' | 'productTitle'>) {
   const existing = state.lines.find((l) => l.variantId === item.variantId)
-  if (existing) existing.quantity = Math.min(MAX_UNITS, (existing.quantity ?? 0) + 1)
-  else if (state.lines.length < MAX_LINES)
+  if (existing) {
+    if (!existing.openPrice) existing.quantity = Math.min(MAX_UNITS, (existing.quantity ?? 0) + 1)
+  } else if (state.lines.length < MAX_LINES) {
+    const openPrice = openPriceIds.value.has(item.variantId)
     state.lines.push({
       variantId: item.variantId,
       sku: item.sku,
       productTitle: item.productTitle,
       quantity: 1,
+      ...(openPrice && { openPrice: true, unitPrice: '', note: '' }),
     })
+  }
   search.value = ''
+}
+/**
+ * "Artículo sin registrar": una línea de precio libre. Cada variante va una vez por venta, así que dos
+ * artículos distintos van en variantes distintas (Juego, Consola…), como fija ADR-0171 de base-shop.
+ */
+const openPriceTaken = (v: OpenPriceVariant) => state.lines.some((l) => l.variantId === v.variantId)
+function addOpenPrice(v: OpenPriceVariant) {
+  if (openPriceTaken(v)) return
+  addLine(v)
 }
 function removeLine(variantId: string) {
   state.lines = state.lines.filter((l) => l.variantId !== variantId)
@@ -165,9 +207,11 @@ useScannerCapture((code) => {
 
 // ── Cotización ──
 const quoteInput = computed<StaffQuoteInput | null>(() => {
+  // Una línea de precio libre se cotiza cuando ya tiene su precio y qué se vendió.
   const lines = state.lines
     .filter((l) => Number.isInteger(l.quantity) && l.quantity! >= 1 && l.quantity! <= MAX_UNITS)
-    .map((l) => ({ variantId: l.variantId, quantity: l.quantity! }))
+    .filter((l) => !l.openPrice || openPriceLineReady(l))
+    .map((l) => toStaffOrderLine(l, l.quantity!))
   if (!state.warehouseId || lines.length === 0) return null
   return {
     lines,
@@ -204,6 +248,24 @@ const quoteHints = computed(() =>
 
 const quoteLine = (variantId: string) =>
   quote.data.value?.lines.find((l) => l.variantId === variantId)
+
+/**
+ * Sin leer el catálogo, una variante de precio libre se reconoce cuando la cotización la rechaza por
+ * faltarle el precio (`openPriceRequired` en `lines[i].unitPrice`): la línea pasa a pedirlo.
+ */
+watch(
+  () => quote.error.value,
+  (p) => {
+    const sent = debouncedQuoteInput.value?.lines ?? []
+    for (const error of p?.errors ?? []) {
+      const match = /^lines[.[](\d+)\]?\.unitPrice$/.exec(error.field)
+      if (!match || error.code !== 'openPriceRequired') continue
+      const variantId = sent[Number(match[1])]?.variantId
+      const line = state.lines.find((l) => l.variantId === variantId)
+      if (line && !line.openPrice) Object.assign(line, { openPrice: true, unitPrice: '', note: '' })
+    }
+  },
+)
 
 // ── Comprador ──
 const BUYER_OPTIONS = computed(() => [
@@ -317,8 +379,24 @@ async function onSubmit(event: FormSubmitEvent<StoreOrderForm>) {
     } else if (p.type === 'email-not-verified') {
       problemMessages.value = ['El cliente debe confirmar su email antes de comprar.']
     }
-    const fields = [...FORM_FIELDS, ...state.lines.map((_, i) => `lines.${i}.quantity`)]
-    const { fieldErrors, otherMessages } = problemFieldErrors(p, fields, FIELD_MAP)
+    const fields = [
+      ...FORM_FIELDS,
+      ...state.lines.flatMap((_, i) => [
+        `lines.${i}.quantity`,
+        `lines.${i}.unitPrice`,
+        `lines.${i}.note`,
+      ]),
+    ]
+    // La API nombra `lines[0].unitPrice` los errores de las líneas que revisa el dominio.
+    const lineFields = Object.fromEntries(
+      state.lines.flatMap((_, i) =>
+        ['quantity', 'unitPrice', 'note'].map((f) => [`lines[${i}].${f}`, `lines.${i}.${f}`]),
+      ),
+    )
+    const { fieldErrors, otherMessages } = problemFieldErrors(p, fields, {
+      ...FIELD_MAP,
+      ...lineFields,
+    })
     form.value?.setErrors(fieldErrors)
     problemMessages.value.push(...otherMessages)
     problem.value = p
@@ -352,6 +430,9 @@ async function onSubmit(event: FormSubmitEvent<StoreOrderForm>) {
               placeholder="Elige el almacén"
               class="w-full"
             />
+            <p v-if="otherThanDevice" class="mt-1 text-sm text-warning">
+              Este equipo es de {{ deviceWarehouseName }}: confirma que el producto sale de aquí.
+            </p>
           </UFormField>
           <URadioGroup v-model="state.fulfillment" :items="FULFILLMENT_OPTIONS" legend="Entrega" />
         </div>
@@ -416,6 +497,25 @@ async function onSubmit(event: FormSubmitEvent<StoreOrderForm>) {
             Buscar productos requiere el permiso para consultar el inventario.
           </p>
 
+          <div
+            v-if="canOpenPrice && openPriceVariants.data.value?.length"
+            class="flex flex-wrap items-center gap-2 text-sm"
+          >
+            <span class="text-muted">Artículo sin registrar:</span>
+            <UButton
+              v-for="v in openPriceVariants.data.value"
+              :key="v.variantId"
+              size="sm"
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-plus"
+              :disabled="!state.warehouseId || openPriceTaken(v)"
+              :aria-label="`Agregar artículo sin registrar: ${v.label}`"
+              @click="addOpenPrice(v)"
+              >{{ v.label }}</UButton
+            >
+          </div>
+
           <UFormField name="lines">
             <p v-if="state.lines.length === 0" class="text-sm text-muted">
               Agrega los productos que lleva el cliente.
@@ -446,6 +546,39 @@ async function onSubmit(event: FormSubmitEvent<StoreOrderForm>) {
                     class="text-error"
                   >
                     No alcanza en este almacén junto con lo demás.
+                  </p>
+                  <div v-if="line.openPrice" class="mt-2 grid gap-2 sm:grid-cols-3">
+                    <UFormField :name="`lines.${i}.unitPrice`" label="Precio con IVA" required>
+                      <UInput
+                        v-model="line.unitPrice"
+                        inputmode="decimal"
+                        placeholder="0.00"
+                        icon="i-lucide-dollar-sign"
+                        :aria-label="`Precio de ${line.sku}`"
+                        class="w-full"
+                      />
+                    </UFormField>
+                    <UFormField
+                      :name="`lines.${i}.note`"
+                      label="Qué se vendió"
+                      required
+                      class="sm:col-span-2"
+                    >
+                      <UInput
+                        v-model="line.note"
+                        :maxlength="MAX_OPEN_PRICE_NOTE"
+                        placeholder="Ej. Juego usado de carreras"
+                        :aria-label="`Qué se vendió en ${line.sku}`"
+                        class="w-full"
+                      />
+                    </UFormField>
+                  </div>
+                  <p
+                    v-if="line.openPrice && !openPriceLineReady(line)"
+                    class="mt-1 text-xs text-muted"
+                  >
+                    Precio libre: se cotiza al escribir el precio y qué se vendió. No recibe
+                    promociones ni cupones.
                   </p>
                 </div>
                 <UFormField :name="`lines.${i}.quantity`">

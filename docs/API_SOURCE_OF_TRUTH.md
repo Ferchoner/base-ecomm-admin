@@ -14,6 +14,14 @@ La carpeta de contexto "docs" del proyecto solo contiene los prompts de gobierno
 
 Relación entre fuentes: `API_SPEC.md` declara que el OpenAPI versionado debe coincidir con la especificación y que una prueba de contrato lo verifica en cada CI (ADR-0155). No se detectaron contradicciones (DOCUMENTATION CONFLICT) entre ambas en lo revisado. La única diferencia es esperada: `POST /v1/admin/payments/{paymentId}/refunds/retry` figura en la especificación como **pendiente (T-192)** y no existe en el OpenAPI → se trata como NO DISPONIBLE.
 
+## Cambios desde `7af0f1d` (2026-11-07)
+
+Copia de `openapi/v1.json` tomada de la rama `feat/T-183-cash-closings` de base-shop (`edad780`, PR #143 sobre el #142), aún sin fusionar: al fusionarse se vuelve a fijar al commit de `main` o al tag `v1.10.0`. Sin operaciones eliminadas ni campos quitados.
+
+- **1.8.0 (ADR-0169):** solo variables de los correos; nada cambia para el backoffice.
+- **1.9.0 (ADR-0170):** `POST /v1/admin/catalog/products/{productId}/description-draft`; sin pantalla por ahora (GAPS G-30).
+- **1.10 (ADR-0171):** `openPrice` en los productos (filtro y campo); `unitPrice` y `note` en las líneas de precio libre de la cotización y la orden del staff, y `note` en sus líneas; `GET /v1/admin/orders/open-price-lines`; corte de caja en `/v1/admin/cash-closings`; permisos `orders.open-price`, `cash-closings.read` y `cash-closings.manage`.
+
 ## Cambios desde `ff10406` (2026-10-17)
 
 `7af0f1d` es el tag `v1.7.0` de base-shop. Sin operaciones eliminadas ni campos quitados. Detalle y plan en PLAN_API_1.7.md.

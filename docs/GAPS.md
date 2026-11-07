@@ -213,6 +213,16 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 - **Evidencia:** el usuario reportó (2026-10-27) que el código del ticket se lee con `'` en lugar de `-`. Un lector en modo teclado (HID) manda teclas físicas; el sistema las traduce con su distribución. Un lector de fábrica asume teclado de EE. UU., y en un equipo con teclado latinoamericano o español la tecla del `-` escribe `'` (y otros símbolos cambian). El lookup de variantes rechaza `'` (API_SPEC §11.10).
 - **Supuesto:** el lector usa la distribución de EE. UU. (de fábrica). Durante una ráfaga del lector se toma la tecla física (`KeyboardEvent.code`) con la distribución de EE. UU., en cualquier campo y en la captura de la venta en tienda, así el código llega tal como está impreso sin importar el idioma del equipo. Si alguien configura el lector con el mismo teclado que el equipo, apaga "Lector con teclado de EE. UU." en Mi cuenta. Como respaldo, un `'` en un texto con forma de SKU, código público o folio se toma como `-`; el ticket codifica el código público sin guion (la API lo acepta).
 
+### G-29 · Pedidos en línea pagados en la tienda fuera del corte — GAP menor (backend)
+
+- **Evidencia:** API_SPEC §15.9 (ADR-0171): el corte cuenta solo las órdenes del canal `STORE` de un almacén; un pedido en línea no tiene almacén.
+- **Efecto:** si un local cobra en efectivo un pedido en línea, ese efectivo no sale en lo esperado y el cierre muestra una diferencia. La pantalla del corte lo dice; la nota del cierre lo explica.
+
+### G-30 · Contrato 1.8 y 1.9 sin pantalla — NO PLANEADO por ahora
+
+- **Evidencia:** la copia de `openapi/v1.json` se actualizó de la 1.7 a la rama de T-183 (1.10) de base-shop, que incluye la 1.8 (URLs de los correos, sin cambios para el backoffice) y la 1.9 (`POST …/description-draft`, borrador de descripción con IA).
+- **Decisión:** el borrador con IA no se agrega en este cambio; se tipa pero no tiene pantalla.
+
 ## Comportamientos que el frontend debe respetar (no son gaps)
 
 - Tolerar enumeraciones desconocidas (mostrar el valor crudo con badge neutro).

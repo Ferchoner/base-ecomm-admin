@@ -69,6 +69,7 @@ El permiso de ruta es solo experiencia de usuario; la API vuelve a autorizar cad
 | `/pedidos/nuevo`               | `orders.place`       | `ordenTrabajo`, `folio` (venta para una orden de trabajo; al colocarla vuelve a ella)           | Vender en tienda                  |
 | `/imprimir/ticket/[id]`        | `orders.read`        | —                                                                                               | Ticket (layout `print`)           |
 | `/imprimir/nota-servicio/[id]` | `work-orders.read`   | —                                                                                               | Nota de servicio (layout `print`) |
+| `/caja`                        | `cash-closings.read` | `local` (almacén), `dia` (`AAAA-MM-DD`; hoy de la Ciudad de México por omisión)                 | Corte de caja (D-099)             |
 
 `page=1` y el tamaño por defecto (20) no se escriben en la URL.
 

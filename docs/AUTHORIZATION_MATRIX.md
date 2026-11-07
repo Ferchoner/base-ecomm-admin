@@ -113,3 +113,14 @@ Sin el permiso de ruta: la sección no aparece en el menú ni en el Inicio, y en
 | Órdenes de trabajo | Anonimizar                                                 | `customers.manage`                    | Solo cerrada y sin cliente registrado (§25.12)                                     |
 
 - **Rol Vendedor** desde ADR-0165: suma `work-orders.read` y `work-orders.manage`. **Administrador:** además `work-orders.read-blocked`.
+
+## API 1.10 (2026-11-07)
+
+| Pantalla         | Acción                                | Permiso que la muestra                                         | Notas                                             |
+| ---------------- | ------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------- |
+| Mi cuenta        | Elegir el local de este equipo        | `inventory.read`                                               | Del navegador, no de la cuenta (D-097)            |
+| Vender en tienda | Artículo sin registrar (precio libre) | `orders.place` + `orders.open-price` + `catalog.read`          | La API vuelve a revisar `orders.open-price` (403) |
+| Corte de caja    | Ver el corte y los cierres            | `cash-closings.read` (+ `inventory.read` para elegir el local) | —                                                 |
+| Corte de caja    | Cerrar la caja                        | `cash-closings.manage`                                         | Una vez por local y día; no se deshace            |
+
+- **Rol Vendedor** desde ADR-0171: suma `orders.open-price`, `cash-closings.read` y `cash-closings.manage`; el Administrador también.

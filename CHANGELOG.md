@@ -1,6 +1,6 @@
 # Changelog
 
-Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado semántico. Contrato de la API: `Ferchoner/base-shop` commit `ffcaa49` (API 1.11, rama del PR #148).
+Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado semántico. Contrato de la API: `Ferchoner/base-shop` commit `a57d27c` (API 1.11, en `main`).
 
 ## [Unreleased]
 

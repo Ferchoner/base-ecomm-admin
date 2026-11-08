@@ -169,7 +169,7 @@ Se listan solo las operaciones que usa el backoffice (96 de 133). Las rutas de t
 
 Pruebas: `tests/unit/shared/device-warehouse.spec.ts`, `tests/unit/sales/sales.spec.ts`, `tests/unit/shared/utils.spec.ts`, `tests/e2e/cash-closings.spec.ts` y `tests/e2e/sales.spec.ts`.
 
-## API 1.11 (rama de base-shop del PR #148, `ffcaa49`, 2026-11-08)
+## API 1.11 (contrato de `main` de base-shop, `a57d27c`, 2026-11-08)
 
 | API_SPEC | Caso de uso                                               | Pantalla                         | Código                                                                                             | Estado                         |
 | -------- | --------------------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------ |

@@ -1,14 +1,14 @@
 # API_SOURCE_OF_TRUTH
 
-Fuente de verdad del backend para el backoffice. Fecha de lectura: 2026-10-05; actualizada el 2026-10-06 a `ff10406`, el 2026-10-17 a `7af0f1d` (v1.7.0), el 2026-11-08 a `3af8641` (API 1.10, en `main`) y el mismo día a `a57d27c` (API 1.11, en `main`) y a `4fdf545` (API 1.12, rama de T-166 en PR).
+Fuente de verdad del backend para el backoffice. Fecha de lectura: 2026-10-05; actualizada el 2026-10-06 a `ff10406`, el 2026-10-17 a `7af0f1d` (v1.7.0), el 2026-11-08 a `3af8641` (API 1.10, en `main`) y el mismo día a `a57d27c` (API 1.11, en `main`) y a `e8985fa` (API 1.12, en `main`).
 
 ## Fuentes localizadas
 
 | Prioridad | Fuente                                | Ubicación                                                                                        | Versión fijada                |
 | --------- | ------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------- |
-| 1         | Documentación oficial de la API       | `docs/API_SPEC.md` del repo `Ferchoner/base-shop` (estado: aprobado, ADR-0071)                   | commit `4fdf545` (2026-11-08) |
-| 2         | OpenAPI 3.0 generado desde NestJS     | `docs/openapi/v1.json` del mismo repo (173 operaciones, 237 esquemas)                            | commit `4fdf545`              |
-| —         | Contexto complementario (no contrato) | `docs/BUSINESS_RULES.md`, `REQUIREMENTS.md`, `SECURITY.md`, `DECISIONS.md` (ADRs) del mismo repo | commit `4fdf545`              |
+| 1         | Documentación oficial de la API       | `docs/API_SPEC.md` del repo `Ferchoner/base-shop` (estado: aprobado, ADR-0071)                   | commit `e8985fa` (2026-11-08) |
+| 2         | OpenAPI 3.0 generado desde NestJS     | `docs/openapi/v1.json` del mismo repo (173 operaciones, 237 esquemas)                            | commit `e8985fa`              |
+| —         | Contexto complementario (no contrato) | `docs/BUSINESS_RULES.md`, `REQUIREMENTS.md`, `SECURITY.md`, `DECISIONS.md` (ADRs) del mismo repo | commit `e8985fa`              |
 
 La carpeta de contexto "docs" del proyecto solo contiene los prompts de gobierno (00–08); no contiene documentación de API. La documentación se encontró en el repositorio del backend.
 
@@ -16,7 +16,7 @@ Relación entre fuentes: `API_SPEC.md` declara que el OpenAPI versionado debe co
 
 ## Cambios desde `a57d27c` (2026-11-08)
 
-Copia de `openapi/v1.json` tomada de la rama `feat/T-166-count-sheets` de base-shop en `4fdf545` (2026-11-08), que lleva encima la de T-165; sus PR #151 (paso 0 y T-165) y #152 (T-166) siguen abiertos. Se vuelve a fijar a `main` cuando se fusionen, y al tag `v1.12.0` cuando se publique. Sin operaciones eliminadas ni campos quitados.
+Copia de `openapi/v1.json` tomada de `main` de base-shop en `e8985fa` (2026-11-08), con los PR #151 (paso 0 y T-165) y #152 (T-166) fusionados; es la misma que la de la rama de T-166 en `4fdf545`. Se vuelve a fijar al tag `v1.12.0` cuando se publique. Sin operaciones eliminadas ni campos quitados.
 
 - **1.12 (ADR-0173), ubicaciones:** `location` en las existencias, filtros `location` (exacta o con `*` al final, por prefijo) y `hasLocation`, y `PUT /v1/admin/inventory/locations`, que la pone o la quita aunque la variante no tenga unidades; permiso `inventory.count` (Vendedor y Administrador).
 - **1.12 (ADR-0173), hojas de conteo:** `GET`/`POST /v1/admin/inventory/counts`, `GET …/counts/{countId}`, `PUT …/{countId}/lines/{variantId}` (capturar, `inventory.count`, sin `version`), `POST …/lines/{variantId}/recount`, `POST …/{countId}/apply` (con `Idempotency-Key`) y `POST …/{countId}/cancel`; problema `variant-in-open-count` (409, con `lines`); `countId` en los movimientos. Sin `inventory.write`, la hoja llega a ciegas (`blind`, sin `expected` ni `difference`).

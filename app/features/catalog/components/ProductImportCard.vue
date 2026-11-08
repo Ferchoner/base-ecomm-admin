@@ -25,7 +25,8 @@ const summarize = (s: ProductImportSummary) =>
       <code>sku</code>; opcionales <code>description</code>, <code>brand</code> y
       <code>categories</code> (slugs, separadas por <code>|</code>), <code>gtin</code>,
       <code>weightGrams</code>, <code>lengthCm</code>, <code>widthCm</code>, <code>heightCm</code>,
-      <code>storeOnly</code> y una <code>option:&lt;nombre&gt;</code> por opción, como
+      <code>storeOnly</code>, <code>countClass</code> (<code>A</code>, <code>B</code> o
+      <code>C</code>) y una <code>option:&lt;nombre&gt;</code> por opción, como
       <code>option:talla</code>.
     </p>
     <p class="mt-1">

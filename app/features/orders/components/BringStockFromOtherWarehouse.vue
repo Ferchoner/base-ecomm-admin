@@ -92,7 +92,8 @@ async function bringFrom(s: SellableStock) {
         :loading="bringing === s.warehouseId"
         :disabled="bring.isPending.value"
         @click="bringFrom(s)"
-        >Traer {{ unitsToBring(s) }} de {{ nameOf(s.warehouseId) }}</UButton
+        >Traer {{ unitsToBring(s) }} de {{ nameOf(s.warehouseId)
+        }}{{ s.location ? ` (${s.location})` : '' }}</UButton
       >
       <span v-if="sources[0]!.available < missing" class="text-xs text-muted"
         >Faltan {{ missing }}: ningún almacén tiene todas.</span

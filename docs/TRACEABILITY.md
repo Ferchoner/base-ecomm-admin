@@ -181,3 +181,19 @@ Pruebas: `tests/unit/shared/device-warehouse.spec.ts`, `tests/unit/sales/sales.s
 | §13      | `GET …/transfers/{transferId}`                            | —                                | —                                                                                                  | NOT_PLANNED (el listado basta) |
 
 Pruebas: `tests/unit/inventory/inventory.spec.ts`, `tests/e2e/pricing-inventory.spec.ts`, `tests/e2e/sales.spec.ts`, `tests/e2e/cash-closings.spec.ts` y `tests/e2e/a11y.spec.ts`.
+
+## API 1.12 (contrato de la rama de T-166 de base-shop, `4fdf545`, 2026-11-08)
+
+| API_SPEC | Caso de uso                                                         | Pantalla                                             | Código                                                                         | Estado |
+| -------- | ------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------ | ------ |
+| §13      | UC-INV-17 `PUT /v1/admin/inventory/locations`                       | Existencias                                          | `LocationModal.vue`, `useSetLocation`                                          | DONE   |
+| §13      | Filtros `location` y `hasLocation` de `GET …/stock-items`           | Existencias, Inicio, Etiquetas, Etiquetas de estante | `pages/inventario/stock.vue`, `useStockLocations`                              | DONE   |
+| §13      | UC-INV-18 `POST /v1/admin/inventory/counts`                         | Conteos                                              | `OpenCountModal.vue`, `useOpenCount`                                           | DONE   |
+| §13      | `GET /v1/admin/inventory/counts`                                    | Conteos, Inicio                                      | `pages/inventario/conteos/index.vue`, `useCounts`                              | DONE   |
+| §13      | `GET …/counts/{countId}`                                            | Hoja de conteo, hoja impresa                         | `pages/inventario/conteos/[id].vue`, `CountSheetDocument.vue`                  | DONE   |
+| §13      | UC-INV-19 `PUT …/counts/{countId}/lines/{variantId}`                | Hoja de conteo                                       | `CountedInput.vue`, `useCaptureCount`, `withLine`                              | DONE   |
+| §13      | UC-INV-20 `POST …/lines/{variantId}/recount`, `…/apply`, `…/cancel` | Hoja de conteo                                       | `useRecountLine`, `useApplyCount`, `useCancelCount`                            | DONE   |
+| §11.6    | UC-CAT-19 `countClass` en productos y `PUT …/catalog/count-classes` | Producto, Productos, Clases de conteo                | `ProductForm.vue`, `useSetCountClasses`, `pages/catalogo/productos/clases.vue` | DONE   |
+| §15.7    | UC-ORD-18 `GET /v1/admin/orders/count-class-suggestions`            | Clases de conteo                                     | `useCountClassSuggestions`                                                     | DONE   |
+
+Pruebas: `tests/unit/inventory/counts.spec.ts`, `tests/e2e/counts.spec.ts` y `tests/e2e/a11y.spec.ts`.

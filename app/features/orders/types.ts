@@ -69,3 +69,7 @@ export interface OpenPriceVariant {
   /** Sus opciones (por ejemplo, "Juego"), o el título del producto sin opciones. */
   label: string
 }
+
+/** La clase de conteo sugerida por las ventas de 90 días (UC-ORD-18, ADR-0173 de base-shop). */
+export type CountClassSuggestion = Schemas['CountClassSuggestionDto']
+export type CountClassSuggestionList = Schemas['CountClassSuggestionListDto']

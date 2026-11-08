@@ -74,6 +74,15 @@ export interface SalesOrderSeed {
 
 export interface SalesSeed {
   orders: SalesOrderSeed[]
+  /** Clases de conteo sugeridas por ventas (UC-ORD-18, ADR-0173 de base-shop). */
+  countClassSuggestions?: Array<{
+    productId: string
+    productTitle: string
+    countClass: 'A' | 'B' | 'C' | null
+    suggestedClass: 'A' | 'B' | 'C'
+    sales: number
+    units: number
+  }>
   /** Pago manual deshabilitado (API_SPEC §16.6). */
   manualPaymentsDisabled?: boolean
   /** La configuración leída dice habilitado, pero otro cambio lo deshabilitó antes del registro. */
@@ -881,6 +890,21 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
     const q = url.searchParams
 
     // ── Pedidos ────────────────────────────────────────────────────────────────
+    if (parts[0] === 'orders' && parts[1] === 'count-class-suggestions' && method === 'GET') {
+      const data = (seed.countClassSuggestions ?? []).map((s) => ({
+        ...s,
+        sales: { amount: s.sales, currency: 'MXN' },
+      }))
+      return json(route, 200, {
+        data,
+        meta: {
+          from: '2026-07-08T12:00:00.000Z',
+          to: '2026-10-06T12:00:00.000Z',
+          days: 90,
+          total: { amount: data.reduce((n, s) => n + s.sales.amount, 0), currency: 'MXN' },
+        },
+      })
+    }
     if (parts[0] === 'orders') {
       if (
         (parts[1] === 'quote' || !parts[1]) &&

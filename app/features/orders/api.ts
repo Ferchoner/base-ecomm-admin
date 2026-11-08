@@ -18,6 +18,7 @@ import type {
   BringStockInput,
   BroughtStock,
   BuyerCustomer,
+  CountClassSuggestionList,
   SellableStock,
   StaffOrderInput,
   StaffQuote,
@@ -372,5 +373,20 @@ export function useOpenPriceVariants(enabled: MaybeRefOrGetter<boolean>) {
     },
     enabled: computed(() => toValue(enabled)),
     staleTime: 5 * 60_000,
+  })
+}
+
+/**
+ * La clase de conteo sugerida de cada producto por lo vendido en los últimos 90 días
+ * (`GET /v1/admin/orders/count-class-suggestions`, `orders.read`, ADR-0173 de base-shop). Se aplica
+ * en Catálogo: Catálogo no depende de las ventas.
+ */
+export function useCountClassSuggestions(enabled: MaybeRefOrGetter<boolean> = true) {
+  const api = useApi()
+  return useQuery<CountClassSuggestionList, ApiProblem>({
+    queryKey: [...orderKeys.all, 'count-class-suggestions'],
+    queryFn: ({ signal }) =>
+      api<CountClassSuggestionList>(`${BASE}/count-class-suggestions`, { signal }),
+    enabled: computed(() => toValue(enabled)),
   })
 }

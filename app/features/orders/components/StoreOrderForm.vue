@@ -186,7 +186,7 @@ const scan = useVariantScan({
       }
     return {
       tone: 'success',
-      text: `${v.sku} · ${v.product.title}: ${quantity} ${quantity === 1 ? 'unidad' : 'unidades'}.`,
+      text: `${v.sku} · ${v.product.title}: ${quantity} ${quantity === 1 ? 'unidad' : 'unidades'}.${item?.location ? ` Está en ${item.location}.` : ''}`,
     }
   },
 })
@@ -488,6 +488,12 @@ async function onSubmit(event: FormSubmitEvent<StoreOrderForm>) {
                   <code class="text-xs font-medium">{{ item.sku }}</code>
                   <div class="truncate text-muted">{{ item.productTitle }}</div>
                 </div>
+                <span
+                  v-if="item.location"
+                  class="shrink-0 text-xs font-medium"
+                  :aria-label="`Ubicación de ${item.sku}`"
+                  ><UIcon name="i-lucide-map-pin" class="align-middle" /> {{ item.location }}</span
+                >
                 <div class="flex items-center gap-2">
                   <span :class="item.available > 0 ? 'text-muted' : 'text-error'"
                     >{{ item.available }} disponibles</span

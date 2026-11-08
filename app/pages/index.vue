@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { useEventDeliveries } from '~/features/events/api'
-import { useStockItems, useTransfers } from '~/features/inventory/api'
+import { useCounts, useStockItems, useTransfers } from '~/features/inventory/api'
 import { useOrders } from '~/features/orders/api'
 import { useShipments } from '~/features/shipping/api'
 import { useSessionStore } from '~/shared/auth/session.store'
+import { useDeviceWarehouse } from '~/shared/device/device-warehouse'
 import { visibleNavigation } from '~/shared/navigation'
 import { usePreferencesStore } from '~/shared/preferences/preferences.store'
 
@@ -39,6 +40,18 @@ const lowStock = useStockItems(() => ({ ...ONE, availableMax: prefs.lowStockThre
 
 // Préstamos para mostrar que pasaron su hora de regreso sin cerrarse (ADR-0172 de base-shop).
 const overdueLoans = useTransfers({ ...ONE, overdue: true }, { enabled: canInventory })
+
+// Hojas de conteo por terminar y lo que aún no tiene ubicación (ADR-0173), en el local de este
+// equipo si tiene uno.
+const device = useDeviceWarehouse()
+const here = computed(() => device.warehouseId.value ?? undefined)
+const hereQuery = computed(() => (here.value ? `&warehouseId=${here.value}` : ''))
+const openCounts = useCounts(() => ({ ...ONE, status: 'OPEN', warehouseId: here.value }), {
+  enabled: canInventory,
+})
+const unlocated = useStockItems(() => ({ ...ONE, hasLocation: false, warehouseId: here.value }), {
+  enabled: canInventory,
+})
 
 interface CountDef {
   show: boolean
@@ -102,6 +115,22 @@ const counts = computed(() => {
       to: '/inventario/traslados?view=overdue',
       query: overdueLoans,
       color: 'error',
+    },
+    {
+      show: canInventory.value,
+      label: 'Hojas de conteo abiertas',
+      icon: 'i-lucide-clipboard-check',
+      to: here.value ? `/inventario/conteos?warehouseId=${here.value}` : '/inventario/conteos',
+      query: openCounts,
+      color: 'info',
+    },
+    {
+      show: canInventory.value,
+      label: 'Variantes sin ubicación',
+      icon: 'i-lucide-map-pin-off',
+      to: `/inventario/stock?hasLocation=false${hereQuery.value}`,
+      query: unlocated,
+      color: 'info',
     },
     {
       show: canEvents.value,

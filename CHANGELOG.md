@@ -1,6 +1,6 @@
 # Changelog
 
-Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado semántico. Contrato de la API: `Ferchoner/base-shop` commit `a57d27c` (API 1.11, en `main`).
+Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versionado semántico. Contrato de la API: `Ferchoner/base-shop` commit `4fdf545` (API 1.12, rama de T-166 en PR).
 
 ## [Unreleased]
 
@@ -8,6 +8,7 @@ Sin versión publicada todavía: el MVP corre solo en local (G-07). La primera v
 
 ### Agregado
 
+- **API 1.12, ubicación de productos y conteo:** ubicación de cada producto por local en Existencias (columna, filtro con `*` y "Sin ubicación"), Trasladar, Vender en tienda y etiquetas; pestaña Conteos con hojas por ubicación, categoría o clase, captura a ciegas con el lector, revisión, recuento, aplicación y cancelación; hoja de conteo impresa sin cantidades y etiquetas de estante; clase de conteo en el producto, filtro y clases sugeridas por las ventas de 90 días; hojas abiertas y variantes sin ubicación en Inicio (D-103 a D-107).
 - **API 1.11, traslados entre locales:** trasladar y prestar para mostrar desde Existencias en un solo paso; pestaña Traslados con préstamos abiertos y vencidos, cancelación en los primeros 10 minutos y cierre del préstamo con lo que regresó; "Traer del otro local" en Vender en tienda; aviso de préstamos abiertos en el corte y conteo de vencidos en Inicio (D-100 a D-102). Ya no hay transferencias con dos ajustes (G-20 resuelto).
 - **API 1.10, operación diaria de la tienda física:** local de cada equipo (Mi cuenta), con el que empiezan la venta, las entradas y el corte; artículo sin registrar a precio libre en Vender en tienda; pantalla Corte de caja (`/caja`) con las cifras del día y el cierre con el efectivo contado (D-097 a D-099).
 - **Base (F0, PR #1):** Nuxt 4 SPA con TypeScript estricto, Nuxt UI 4, TanStack Query, Pinia y Zod; tipos generados del OpenAPI; cliente API con Bearer, renovación ante 401, Problem Details e `Idempotency-Key`; sesión con token en memoria y renovación de una en una entre pestañas; guard de sesión, contraseña forzada y permisos; layout responsive; CI.

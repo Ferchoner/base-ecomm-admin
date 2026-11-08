@@ -22,6 +22,7 @@ const ALL = [
   'inventory.read',
   'inventory.write',
   'inventory.transfer',
+  'inventory.count',
   'orders.read',
   'orders.manage',
   'orders.read-blocked',
@@ -71,8 +72,10 @@ async function seedAll(page: Page) {
         sku: 'CAM-001',
         productTitle: 'Camisa de lino',
         onHand: 3,
+        location: 'A1',
       },
     ],
+    openCounts: [{ location: 'A*' }],
   })
   await mockIdentityApi(page, {
     customers: [{ email: 'maria@example.com', firstNames: 'María' }],
@@ -128,6 +131,14 @@ const PAGES: Array<{
   { path: '/inventario/almacenes', heading: 'Almacenes' },
   { path: '/inventario/cargar-entradas', heading: 'Inventario' },
   { path: '/inventario/traslados', heading: 'Traslados' },
+  { path: '/inventario/conteos?status=all', heading: 'Conteos' },
+  {
+    path: '/inventario/conteos?status=all',
+    heading: 'Hoja de conteo',
+    open: { link: 'C-000001', url: /\/inventario\/conteos\/.+/ },
+  },
+  { path: '/inventario/etiquetas-estante', heading: 'Etiquetas de estante' },
+  { path: '/catalogo/productos/clases', heading: 'Clases de conteo' },
   { path: '/catalogo/productos/importar', heading: 'Cargar productos' },
   { path: '/catalogo/etiquetas', heading: 'Etiquetas' },
   { path: '/configuracion/pagos', heading: 'Pago en tienda' },

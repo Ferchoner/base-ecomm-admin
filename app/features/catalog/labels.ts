@@ -6,6 +6,8 @@ export interface LabelItem {
   title: string
   options: Record<string, string>
   copies: number
+  /** Dónde está en el almacén elegido (ADR-0173), si se pidió imprimirla. */
+  location?: string | null
 }
 
 export const MAX_COPIES = 100

@@ -48,6 +48,7 @@ interface Stock {
   onHand: number
   reserved: number
   warehouseId: string
+  location: string | null
 }
 
 export const SECOND_WAREHOUSE_ID = '0192a3b4-0000-7000-8000-00000000b002'
@@ -66,7 +67,15 @@ export interface PricingInventorySeed {
     onHand: number
     reserved?: number
     warehouseId?: string
+    /** Ubicación en su almacén (ADR-0173 de base-shop). */
+    location?: string | null
   }>
+  /** Las hojas responden a ciegas, como a quien solo cuenta (sin `inventory.write`). */
+  blindCounts?: boolean
+  /** Hojas ya abiertas en el almacén principal, por ubicación. */
+  openCounts?: Array<{ location: string }>
+  /** Una hoja abierta que ya tiene estas variantes: abrir otra con ellas es 409. */
+  busyVariants?: Array<{ variantId: string; countId: string; folio: string }>
   /** Almacenes además del principal (ADR-0160). */
   warehouses?: Array<{ id?: string; code: string; name: string; priority: number; status?: string }>
   /**
@@ -94,6 +103,7 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
     id: uuid(),
     reserved: 0,
     warehouseId: WAREHOUSE_ID,
+    location: null,
     ...s,
   }))
   const movements = new Map<string, Array<Record<string, unknown>>>()
@@ -172,7 +182,7 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
     let item = stock.find((s) => s.variantId === variantId && s.warehouseId === warehouseId)
     if (!item) {
       const same = stock.find((s) => s.variantId === variantId)!
-      item = { ...same, id: uuid(), onHand: 0, reserved: 0, warehouseId }
+      item = { ...same, id: uuid(), onHand: 0, reserved: 0, warehouseId, location: null }
       stock.push(item)
       movements.set(item.id, [])
     }
@@ -356,6 +366,197 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
     return problem(route, 404, 'not-found', 'No encontrado')
   }
 
+  // ── Hojas de conteo (API_SPEC §13, ADR-0173 de base-shop) ──
+  const counts: Array<Record<string, unknown> & { lines: Array<Record<string, unknown>> }> = []
+  const matches = (pattern: string, location: string | null) =>
+    location !== null &&
+    (pattern.endsWith('*') ? location.startsWith(pattern.slice(0, -1)) : location === pattern)
+  const countDto = (c: (typeof counts)[number]) => {
+    const blind = !!seed.blindCounts
+    const lines = c.lines.map((l) => ({
+      ...l,
+      expected: blind ? null : l.expected,
+      difference:
+        blind || l.counted === null ? null : (l.counted as number) - (l.expected as number),
+    }))
+    return {
+      ...c,
+      blind,
+      lines,
+      lineCount: lines.length,
+      countedCount: lines.filter((l) => l.counted !== null).length,
+    }
+  }
+  const openCount = (body: Record<string, unknown> | null) => {
+    const location = body?.location as string | undefined
+    const taken = stock
+      .filter((s) => s.warehouseId === body?.warehouseId)
+      .filter((s) => !location || matches(location, s.location))
+      .sort(
+        (a, b) =>
+          (a.location ?? '\uffff').localeCompare(b.location ?? '\uffff') ||
+          a.sku.localeCompare(b.sku),
+      )
+    const busy = (seed.busyVariants ?? []).filter((b) =>
+      taken.some((s) => s.variantId === b.variantId),
+    )
+    if (busy.length)
+      return { status: 409, type: 'variant-in-open-count', extra: { lines: busy } } as const
+    if (taken.length === 0)
+      return {
+        status: 400,
+        type: 'validation-error',
+        extra: { errors: [{ field: 'location', code: 'noLines', message: 'Ninguna variante.' }] },
+      } as const
+    const filter = Object.fromEntries(
+      ['location', 'categoryId', 'countClass']
+        .filter((k) => body?.[k] !== undefined)
+        .map((k) => [k, body![k]]),
+    )
+    const created = {
+      id: uuid(),
+      folio: `C-${String(counts.length + 1).padStart(6, '0')}`,
+      warehouseId: body?.warehouseId,
+      status: 'OPEN',
+      filter,
+      note: body?.note ?? null,
+      version: 1,
+      createdAt: NOW.toISOString(),
+      createdBy: '0192a3b4-0000-7000-8000-000000000001',
+      closedAt: null,
+      closedBy: null,
+      lines: taken.map((s, i) => ({
+        variantId: s.variantId,
+        sku: s.sku,
+        productTitle: s.productTitle,
+        position: i + 1,
+        location: s.location,
+        counted: null,
+        countedBy: null,
+        countedAt: null,
+        recount: false,
+        expected: null,
+        outcome: null,
+        movementId: null,
+      })),
+    }
+    counts.unshift(created)
+    return created
+  }
+  const countsRoute = (
+    route: Route,
+    method: string,
+    seg: string[],
+    url: URL,
+    body: Record<string, unknown> | null,
+  ) => {
+    if (seg.length === 2 && method === 'GET') {
+      const status = url.searchParams.get('status')
+      const warehouseId = url.searchParams.get('warehouseId')
+      const data = counts
+        .filter(
+          (c) =>
+            (!status || c.status === status) && (!warehouseId || c.warehouseId === warehouseId),
+        )
+        .map((c) => {
+          const { lines: _lines, blind: _blind, ...summary } = countDto(c)
+          return summary
+        })
+      return json(route, 200, {
+        data,
+        meta: { page: 1, pageSize: 20, totalItems: data.length, totalPages: data.length ? 1 : 0 },
+      })
+    }
+    if (seg.length === 2 && method === 'POST') {
+      const created = openCount(body)
+      if ('type' in created)
+        return problem(route, created.status, created.type, 'No se pudo abrir', created.extra)
+      return json(route, 201, countDto(created))
+    }
+    const count = counts.find((c) => c.id === seg[2])
+    if (!count) return problem(route, 404, 'not-found', 'No encontrado')
+    if (seg.length === 3) return json(route, 200, countDto(count))
+    const open = count.status === 'OPEN'
+    if (!open) return problem(route, 409, 'invalid-state-transition', 'Transición no permitida')
+    const versioned = seg[3] !== 'lines' || seg[5] === 'recount'
+    if (versioned && body?.version !== count.version)
+      return problem(route, 409, 'version-conflict', 'Otro usuario lo cambió')
+    count.version = (count.version as number) + 1
+    if (seg[3] === 'lines' && method === 'PUT') {
+      let line = count.lines.find((l) => l.variantId === seg[4])
+      const item = stock.find((s) => s.variantId === seg[4] && s.warehouseId === count.warehouseId)
+      if (!line) {
+        const same = stock.find((s) => s.variantId === seg[4])
+        line = {
+          variantId: seg[4],
+          sku: same?.sku ?? 'NUEVO',
+          productTitle: same?.productTitle ?? 'Producto',
+          position: count.lines.length + 1,
+          location: item?.location ?? null,
+          recount: false,
+          outcome: null,
+          movementId: null,
+        }
+        count.lines.push(line)
+      }
+      Object.assign(line, {
+        counted: body?.counted,
+        expected: item?.onHand ?? 0,
+        countedBy: '0192a3b4-0000-7000-8000-000000000001',
+        countedAt: NOW.toISOString(),
+        recount: false,
+      })
+      return json(
+        route,
+        200,
+        countDto(count).lines.find((l) => l.variantId === seg[4]),
+      )
+    }
+    if (seg[5] === 'recount') {
+      const line = count.lines.find((l) => l.variantId === seg[4])!
+      Object.assign(line, {
+        counted: null,
+        expected: null,
+        countedBy: null,
+        countedAt: null,
+        recount: true,
+      })
+      return json(route, 200, countDto(count))
+    }
+    if (seg[3] === 'apply') {
+      if (!route.request().headers()['idempotency-key'])
+        return problem(route, 400, 'validation-error', 'Falta Idempotency-Key')
+      for (const line of count.lines) {
+        if (line.counted === null) {
+          line.outcome = 'NOT_COUNTED'
+          continue
+        }
+        const item = stock.find(
+          (s) => s.variantId === line.variantId && s.warehouseId === count.warehouseId,
+        )!
+        const difference = (line.counted as number) - (line.expected as number)
+        if (difference === 0) line.outcome = 'NO_DIFFERENCE'
+        else if (item.onHand + difference < item.reserved) line.outcome = 'SKIPPED_RESERVED'
+        else {
+          item.onHand += difference
+          line.outcome = 'ADJUSTED'
+          line.movementId = uuid()
+        }
+      }
+      Object.assign(count, { status: 'APPLIED', closedAt: NOW.toISOString() })
+      return json(route, 200, countDto(count))
+    }
+    if (seg[3] === 'cancel') {
+      for (const line of count.lines) line.outcome = 'NOT_COUNTED'
+      Object.assign(count, { status: 'CANCELLED', closedAt: NOW.toISOString() })
+      return json(route, 200, countDto(count))
+    }
+    return problem(route, 404, 'not-found', 'No encontrado')
+  }
+
+  for (const c of seed.openCounts ?? [])
+    openCount({ warehouseId: WAREHOUSE_ID, location: c.location })
+
   await page.route(new RegExp(`^${API}/v1/admin/(pricing|inventory)/`), async (route) => {
     const request = route.request()
     const method = request.method()
@@ -501,8 +702,12 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
         const max = url.searchParams.get('availableMax')
         const variantId = url.searchParams.get('variantId')
         const warehouseId = url.searchParams.get('warehouseId')
+        const location = url.searchParams.get('location')
+        const hasLocation = url.searchParams.get('hasLocation')
         const items = stock
           .filter((s) => !warehouseId || s.warehouseId === warehouseId)
+          .filter((s) => !location || matches(location, s.location))
+          .filter((s) => hasLocation === null || (s.location !== null) === (hasLocation === 'true'))
           .filter(
             (s) =>
               !q || s.sku.toLowerCase().includes(q) || s.productTitle.toLowerCase().includes(q),
@@ -560,6 +765,7 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
             onHand: 0,
             reserved: 0,
             warehouseId: target.id as string,
+            location: null,
           }
           stock.push(item)
           movements.set(item.id, [])
@@ -581,9 +787,16 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
         return json(route, 201, { stockItem: stockDto(item), movement })
       }
       if (seg[1] === 'transfers') return transfersRoute(route, method, seg, url, body)
+      if (seg[1] === 'counts') return countsRoute(route, method, seg, url, body)
+      if (seg[1] === 'locations' && method === 'PUT') {
+        const item = stockAt(body?.variantId as string, body?.warehouseId as string)
+        const text = body?.location as string | null
+        item.location = text === null ? null : text.trim().replace(/\s+/g, ' ').toUpperCase()
+        return json(route, 200, stockDto(item))
+      }
     }
     return problem(route, 404, 'not-found', 'No encontrado')
   })
 
-  return { calls, periods, stock, warehouse, warehouses, transfers }
+  return { calls, periods, stock, warehouse, warehouses, transfers, counts }
 }

@@ -16,7 +16,7 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 | Categorías (árbol) y marcas                                                          | AVAILABLE | `/v1/admin/catalog/categories`, `/brands`                                  | Sin GET individual; el detalle sale del árbol/listado                       |
 | Precios por variante, programados, importación CSV                                   | AVAILABLE | `/v1/admin/pricing/**`                                                     | Solo lista `GENERAL`; sin alta/edición de listas (ADR-0039)                 |
 | Precio visible en listado de productos                                               | GAP       | —                                                                          | Ver G-04                                                                    |
-| Stock, movimientos, entradas, ajustes, almacén                                       | AVAILABLE | `/v1/admin/inventory/**`                                                   | Varios almacenes con prioridad (ADR-0160); traslados y préstamos (ADR-0172) |
+| Stock, movimientos, entradas, ajustes, almacén                                       | AVAILABLE | `/v1/admin/inventory/**`                                                   | Almacenes con prioridad (ADR-0160); traslados (ADR-0172); conteo (ADR-0173) |
 | Pedidos: listado, detalle, cancelar, reintentar surtido, reintegro, datos bloqueados | AVAILABLE | `/v1/admin/orders/**`                                                      |                                                                             |
 | Pago manual (captura)                                                                | AVAILABLE | `POST /v1/admin/orders/{id}/manual-capture`, `/payment-settings`           | G-02 resuelto                                                               |
 | Pagos: listado, detalle, reembolso manual                                            | AVAILABLE | `/v1/admin/payments/**`                                                    |                                                                             |
@@ -220,6 +220,16 @@ Clasificación: AVAILABLE · PARTIAL · GAP · UNKNOWN. Marcadores: NO DOCUMENTA
 
 - **Evidencia:** la copia de `openapi/v1.json` se actualizó de la 1.7 a la rama de T-183 (1.10) de base-shop, que incluye la 1.8 (URLs de los correos, sin cambios para el backoffice) y la 1.9 (`POST …/description-draft`, borrador de descripción con IA).
 - **Decisión:** el borrador con IA no se agrega en este cambio; se tipa pero no tiene pantalla.
+
+### G-31 · Sin lista de ubicaciones ni existencias de varias variantes a la vez — GAP menor
+
+- **Evidencia:** API_SPEC §13 (ADR-0173): `GET /v1/admin/inventory/stock-items` filtra por una sola `variantId` y no hay una ruta con las ubicaciones de un almacén.
+- **Efecto:** las sugerencias del diálogo de ubicación y "Agregar las que ya se usan" en las etiquetas de estante salen de las primeras 100 existencias con ubicación; las etiquetas con ubicación consultan cada variante por separado, de cinco en cinco. Basta para una tienda pequeña; con miles de variantes convendría un filtro `variantIds` o una ruta de ubicaciones.
+
+### G-32 · Quién contó una línea, sin nombre — GAP menor (relacionado con G-21)
+
+- **Evidencia:** `CountLine.countedBy` es el ID de la cuenta (API_SPEC §13), y el backoffice no tiene una ruta para leer el nombre de otro miembro del staff sin `staff.manage`.
+- **Efecto:** la hoja no muestra quién contó cada línea; la auditoría de la API registra quién abrió, aplicó o canceló la hoja.
 
 ## Comportamientos que el frontend debe respetar (no son gaps)
 

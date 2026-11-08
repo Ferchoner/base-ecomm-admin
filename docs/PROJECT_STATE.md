@@ -169,3 +169,12 @@ Gaps nuevos: G-22 a G-27. El técnico se elige de la lista de staff solo con `st
 - "Traer del otro local" en Vender en tienda (D-101); aviso de préstamos abiertos en el corte y conteo de vencidos en Inicio (D-102).
 - Contrato fijado a `main` de base-shop (`a57d27c`), con sus PR #147 (T-163) y #148 (T-164) fusionados; se vuelve a fijar al tag `v1.11.0` cuando se publique.
 - Calidad: lint, formato, tipos, 129 pruebas unitarias, build y 275 E2E en escritorio y móvil.
+
+## API 1.12, ubicación de productos y conteo — en PR (2026-11-08)
+
+- Ubicación de cada producto por local en Existencias, Trasladar, Vender en tienda y etiquetas, con filtro por prefijo y "Sin ubicación" (D-103).
+- Pestaña Conteos: abrir hojas por ubicación, categoría o clase; contar a ciegas con el lector; revisar, recontar, aplicar o cancelar (D-104, D-105).
+- Hoja de conteo impresa sin cantidades y etiquetas de estante (D-106).
+- Clase de conteo en el producto, filtro y clases sugeridas por las ventas de 90 días; Inicio cuenta hojas abiertas y variantes sin ubicación (D-107).
+- Contrato fijado a la rama de T-166 de base-shop (`4fdf545`), con sus PR #151 y #152 abiertos; se vuelve a fijar a `main` al fusionarlos y al tag `v1.12.0` cuando se publique.
+- Calidad: lint, formato, tipos, 138 pruebas unitarias, build y 299 E2E en escritorio y móvil (35 se omiten a propósito: el tema oscuro solo en escritorio).

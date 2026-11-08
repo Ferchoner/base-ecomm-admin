@@ -73,6 +73,12 @@ export const NAVIGATION: NavGroup[] = [
         permission: 'orders.place',
       },
       {
+        label: 'Corte de caja',
+        icon: 'i-lucide-calculator',
+        to: '/caja',
+        permission: 'cash-closings.read',
+      },
+      {
         label: 'Órdenes de trabajo',
         icon: 'i-lucide-wrench',
         to: '/ordenes-trabajo',

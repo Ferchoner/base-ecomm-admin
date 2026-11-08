@@ -154,3 +154,17 @@ Se listan solo las operaciones que usa el backoffice (96 de 133). Las rutas de t
 | §25.7, §25.8     | UC-WRK-05 Ligar y desligar ventas  | Orden de trabajo, Vender en tienda                | `WorkOrderSales.vue`, `StoreOrderForm` (`returnTo`)       | F   |
 | §25.9            | UC-WRK-06 Nota de servicio         | Nota de servicio                                  | `ServiceNoteDocument.vue`, `pages/imprimir/nota-servicio` | F   |
 | §25.11, §25.12   | Datos bloqueados y anonimizar      | Orden de trabajo                                  | `WorkOrderBlockedDataModal.vue`, `ReasonDialog`           | F   |
+
+## API 1.10 (contrato de la rama de T-183 de base-shop, `edad780`, 2026-11-07)
+
+| API_SPEC | Caso de uso                                     | Pantalla                                                | Código                                                                              | Estado                  |
+| -------- | ----------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------- |
+| —        | Local del equipo (D-097)                        | Mi cuenta, Vender en tienda, Existencias, Corte de caja | `shared/device/device-warehouse.ts`, `inventory/components/DeviceWarehouseCard.vue` | DONE                    |
+| §15.7    | Línea de precio libre (UC-ORD-12 y 13)          | Vender en tienda                                        | `orders/components/StoreOrderForm.vue`, `orders/schemas.ts`, `useOpenPriceVariants` | DONE                    |
+| §15.7    | `GET /v1/admin/orders/open-price-lines`         | —                                                       | —                                                                                   | NOT_PLANNED (por ahora) |
+| §15.9    | UC-ORD-16 `GET /v1/admin/cash-closings/summary` | Corte de caja                                           | `features/cash-closings`, `pages/caja/index.vue`                                    | DONE                    |
+| §15.9    | UC-ORD-17 `POST /v1/admin/cash-closings`        | Corte de caja                                           | `CloseCashForm.vue`, `schemas.ts`                                                   | DONE                    |
+| §15.9    | `GET /v1/admin/cash-closings`                   | Corte de caja (cierres anteriores)                      | `useCashClosings`                                                                   | DONE                    |
+| §15.9    | `GET /v1/admin/cash-closings/{closingId}`       | —                                                       | `useCashClosing` (sin pantalla propia)                                              | DONE (consulta)         |
+
+Pruebas: `tests/unit/shared/device-warehouse.spec.ts`, `tests/unit/sales/sales.spec.ts`, `tests/unit/shared/utils.spec.ts`, `tests/e2e/cash-closings.spec.ts` y `tests/e2e/sales.spec.ts`.

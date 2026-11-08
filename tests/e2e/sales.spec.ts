@@ -445,3 +445,51 @@ test('vender en tienda: entregar una venta de mostrador pagada', async ({ page }
   await expect(page.getByRole('button', { name: 'Entregar en tienda' })).toHaveCount(0)
   expect(api.calls.find((c) => c.path.endsWith('/hand-over'))?.body).toEqual({ version: 3 })
 })
+
+test('vender en tienda: un artículo sin registrar a precio libre (ADR-0171 de base-shop)', async ({
+  page,
+}) => {
+  await mockAuthApi(page, staff([...SELLER, 'orders.open-price']))
+  const api = await mockSalesApi(page, { orders: [], storeCatalog: true })
+  await login(page)
+  await page.goto('/pedidos/nuevo')
+
+  await page.getByRole('button', { name: 'Agregar artículo sin registrar: Juego' }).click()
+  await expect(page.getByText(/se cotiza al escribir el precio/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Colocar pedido' })).toBeDisabled()
+  await page.getByLabel('Precio de SR-JUEGO').fill('349.50')
+  await page.getByLabel('Qué se vendió en SR-JUEGO').fill('Juego usado de carreras')
+  await expect(page.getByText('$349.50').last()).toBeVisible()
+  // Cada variante va una vez por venta.
+  await expect(
+    page.getByRole('button', { name: 'Agregar artículo sin registrar: Juego' }),
+  ).toBeDisabled()
+  await page.getByRole('radio', { name: 'Sin datos del comprador' }).click()
+
+  await page.getByRole('button', { name: 'Colocar pedido' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Colocar pedido' }).click()
+  await expect(page.getByRole('heading', { name: 'Pedido T5N8-W2RP' })).toBeVisible()
+  const place = api.calls.find((c) => c.method === 'POST' && c.path === '/v1/admin/orders')
+  expect(place!.body).toMatchObject({
+    lines: [
+      {
+        variantId: expect.any(String),
+        quantity: 1,
+        unitPrice: 34950,
+        note: 'Juego usado de carreras',
+      },
+    ],
+    expectedTotal: 34950,
+  })
+})
+
+test('vender en tienda: sin orders.open-price no se ofrece el artículo sin registrar', async ({
+  page,
+}) => {
+  await mockAuthApi(page, staff(SELLER))
+  await mockSalesApi(page, { orders: [], storeCatalog: true })
+  await login(page)
+  await page.goto('/pedidos/nuevo')
+  await expect(page.getByLabel('Buscar productos')).toBeVisible()
+  await expect(page.getByText('Artículo sin registrar:')).toHaveCount(0)
+})

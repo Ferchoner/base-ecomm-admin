@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useDeviceWarehouse } from '~/shared/device/device-warehouse'
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import { useProduct } from '~/features/catalog/api'
 import ProductPicker from '~/features/catalog/components/ProductPicker.vue'
@@ -112,12 +113,16 @@ const productQuery = useProduct(() => pickedProduct.value ?? '')
 const variantOptions = computed(() =>
   (productQuery.data.value?.variants ?? []).map((v) => ({ value: v.id, label: v.sku })),
 )
+// El almacén inicial es el del equipo (D-097), salvo que la lista ya esté filtrada por uno.
+const device = useDeviceWarehouse()
 const pickedWarehouse = ref<string>()
 watch(
   [pickerOpen, activeWarehouses],
   () => {
     if (pickerOpen.value && !pickedWarehouse.value)
-      pickedWarehouse.value = filters.value.warehouseId ?? activeWarehouses.value[0]?.id
+      pickedWarehouse.value =
+        filters.value.warehouseId ??
+        (device.initial(activeWarehouses.value.map((w) => w.id)) || undefined)
   },
   { immediate: true },
 )

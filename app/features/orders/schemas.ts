@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { addressFieldsSchema, checkAddress, toAddressInput } from '~/shared/address/address-form'
+import { PESOS_PATTERN, pesosTextToCents } from '~/shared/utils/money'
 import type { StaffOrderInput } from './types'
 
 const optionalNote = z.string().trim().max(500, 'Máximo 500 caracteres.')
@@ -73,6 +74,45 @@ export interface StoreOrderLineForm {
   sku: string
   productTitle: string
   quantity: number | undefined
+  /** Variante de precio libre (ADR-0171 de base-shop): lleva el precio y qué se vendió (D-098). */
+  openPrice?: boolean
+  /** Pesos escritos por el staff, con IVA. */
+  unitPrice?: string
+  note?: string
+}
+
+/** Precio libre de una línea, con IVA (API_SPEC §15.7): de $0.01 a $100,000.00. */
+export const MAX_OPEN_UNIT_PRICE_CENTS = 10_000_000
+export const MAX_OPEN_PRICE_NOTE = 200
+
+/** El precio libre escrito, en centavos, o `null` si no es válido. */
+export function openUnitPriceCents(text: string | undefined): number | null {
+  const t = (text ?? '').trim()
+  if (!PESOS_PATTERN.test(t)) return null
+  const cents = pesosTextToCents(t)
+  return cents >= 1 && cents <= MAX_OPEN_UNIT_PRICE_CENTS ? cents : null
+}
+
+/** La línea de precio libre ya tiene lo que la API exige para cotizarla. */
+export function openPriceLineReady(line: StoreOrderLineForm): boolean {
+  const note = (line.note ?? '').trim()
+  return (
+    openUnitPriceCents(line.unitPrice) !== null &&
+    note.length >= 1 &&
+    note.length <= MAX_OPEN_PRICE_NOTE
+  )
+}
+
+/** Lo que viaja de una línea: el precio y la nota solo en una de precio libre. */
+export function toStaffOrderLine(line: StoreOrderLineForm, quantity: number) {
+  return {
+    variantId: line.variantId,
+    quantity,
+    ...(line.openPrice && {
+      unitPrice: openUnitPriceCents(line.unitPrice) ?? 0,
+      note: (line.note ?? '').trim(),
+    }),
+  }
 }
 
 /**
@@ -94,6 +134,9 @@ export const storeOrderSchema = z
           .int('De 1 a 30 unidades.')
           .min(1, 'De 1 a 30 unidades.')
           .max(30, 'De 1 a 30 unidades.'),
+        openPrice: z.boolean().optional(),
+        unitPrice: z.string().optional(),
+        note: z.string().optional(),
       }),
     ),
     buyer: z.enum(['customer', 'guest', 'none']),
@@ -111,6 +154,15 @@ export const storeOrderSchema = z
       ctx.addIssue({ code: 'custom', path, message })
     if (v.lines.length === 0) issue(['lines'], 'Agrega al menos un producto.')
     if (v.lines.length > 100) issue(['lines'], 'Máximo 100 productos distintos.')
+    v.lines.forEach((line, i) => {
+      if (!line.openPrice) return
+      if (openUnitPriceCents(line.unitPrice) === null)
+        issue(['lines', i, 'unitPrice'], 'Escribe el precio con IVA, de $0.01 a $100,000.')
+      const note = (line.note ?? '').trim()
+      if (note.length === 0) issue(['lines', i, 'note'], 'Escribe qué se vendió.')
+      else if (note.length > MAX_OPEN_PRICE_NOTE)
+        issue(['lines', i, 'note'], `Máximo ${MAX_OPEN_PRICE_NOTE} caracteres.`)
+    })
     if (v.buyer === 'customer' && !v.customerId) issue(['customerId'], 'Elige el cliente.')
     if (v.buyer === 'guest') {
       if (!z.email().max(254).safeParse(v.contactEmail).success)
@@ -134,7 +186,7 @@ export function toStaffOrderInput(
   expectedTotal: number,
   privacyNoticeVersion: string,
 ): StaffOrderInput {
-  const lines = v.lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity ?? 0 }))
+  const lines = v.lines.map((l) => toStaffOrderLine(l, l.quantity ?? 0))
   const buyer =
     v.buyer === 'customer'
       ? { customerId: v.customerId }

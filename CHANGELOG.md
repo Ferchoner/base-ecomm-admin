@@ -8,6 +8,7 @@ Sin versión publicada todavía: el MVP corre solo en local (G-07). La primera v
 
 ### Agregado
 
+- **API 1.10, operación diaria de la tienda física:** local de cada equipo (Mi cuenta), con el que empiezan la venta, las entradas y el corte; artículo sin registrar a precio libre en Vender en tienda; pantalla Corte de caja (`/caja`) con las cifras del día y el cierre con el efectivo contado (D-097 a D-099).
 - **Base (F0, PR #1):** Nuxt 4 SPA con TypeScript estricto, Nuxt UI 4, TanStack Query, Pinia y Zod; tipos generados del OpenAPI; cliente API con Bearer, renovación ante 401, Problem Details e `Idempotency-Key`; sesión con token en memoria y renovación de una en una entre pestañas; guard de sesión, contraseña forzada y permisos; layout responsive; CI.
 - **Acceso y cuenta (F1, PR #2):** Mi cuenta, recuperar y restablecer contraseña con la política de la API.
 - **Catálogo (F2, PR #3 y #4):** productos con variantes e imágenes y su ciclo de vida, categorías en árbol, marcas; filtros en la URL; conflicto de versión.

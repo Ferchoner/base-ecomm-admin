@@ -54,3 +54,15 @@ export interface RestockConflictLine {
   restocked: number
   requested: number
 }
+
+/** Un producto de precio libre del catálogo, con sus variantes (ADR-0171 de base-shop). */
+export type OpenPriceProduct = Schemas['AdminProductDto']
+
+/** Una variante de precio libre, lista para agregar a la venta (D-098). */
+export interface OpenPriceVariant {
+  variantId: string
+  sku: string
+  productTitle: string
+  /** Sus opciones (por ejemplo, "Juego"), o el título del producto sin opciones. */
+  label: string
+}

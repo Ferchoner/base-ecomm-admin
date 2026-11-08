@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import { login, mockAuthApi, staff } from './mock-api'
-import { mockSalesApi } from './mock-sales'
+import { mockSalesApi, OTHER_LOCAL_ID } from './mock-sales'
 
 const ALL = [
   'orders.read',
@@ -387,6 +388,78 @@ test('vender en tienda: cupón que no aplica y cupón aplicado', async ({ page }
   await expect(page.getByRole('heading', { name: 'Pedido T5N8-W2RP' })).toBeVisible()
   const place = api.calls.find((c) => c.method === 'POST' && c.path === '/v1/admin/orders')!
   expect(place.body).toMatchObject({ couponCode: 'BUENFIN', expectedTotal: 53910 })
+})
+
+async function scanCode(page: Page, code: string) {
+  await page.keyboard.type(code, { delay: 5 })
+  await page.keyboard.press('Enter')
+}
+
+test('vender en tienda: traer del otro local lo que aquí no hay, y luego cobrarlo aquí', async ({
+  page,
+}) => {
+  await mockAuthApi(page, staff([...SELLER, 'inventory.transfer']))
+  const api = await mockSalesApi(page, {
+    orders: [],
+    storeCatalog: true,
+    otherLocalStock: { 'CIN-01': 3, 'PAN-32': 1 },
+  })
+  await login(page)
+  await page.goto('/pedidos/nuevo')
+  await expect(page.getByLabel('Buscar productos')).toBeFocused()
+
+  // Aquí no hay: con permiso de traslado se agrega igual, para traerlo.
+  await scanCode(page, 'CIN-01')
+  await expect(
+    page.getByText('No hay CIN-01 en este almacén: tráelo de otro local desde la línea.'),
+  ).toBeVisible()
+  await expect(page.getByText('No alcanza en este almacén junto con lo demás.')).toBeVisible()
+  await page.getByRole('button', { name: 'Traer 1 de Local 206' }).click()
+  await expect(page.getByText('Traslado T-000001 registrado', { exact: true })).toBeVisible()
+  await expect(page.getByText('No alcanza en este almacén junto con lo demás.')).toBeHidden()
+  const bring = api.calls.find((c) => c.path === '/v1/admin/inventory/transfers')!
+  expect(bring.body).toEqual({
+    kind: 'TRANSFER',
+    reason: 'SALE',
+    fromWarehouseId: OTHER_LOCAL_ID,
+    toWarehouseId: '0192a3b4-0000-7000-8000-00000000b001',
+    lines: [{ variantId: expect.any(String), quantity: 1 }],
+    note: 'Para vender en mostrador',
+  })
+  expect(bring.headers['idempotency-key']).toBeTruthy()
+
+  // Si el otro local no tiene todo lo que falta, trae lo que hay y lo dice.
+  await page.getByLabel('Buscar productos').fill('pan')
+  await page.getByRole('button', { name: 'Agregar PAN-32' }).click()
+  await page.getByLabel('Unidades de PAN-32').fill('4')
+  await page.getByLabel('Unidades de PAN-32').press('Tab')
+  await expect(page.getByRole('button', { name: 'Traer 1 de Local 206' })).toBeVisible()
+  await expect(page.getByText('Faltan 3: ningún almacén tiene todas.')).toBeVisible()
+
+  await page.getByLabel('Unidades de PAN-32').fill('1')
+  await page.getByLabel('Unidades de PAN-32').press('Tab')
+  await expect(page.getByText('No alcanza en este almacén junto con lo demás.')).toBeHidden()
+  await page.getByRole('radio', { name: 'Sin datos del comprador' }).click()
+  await page.getByRole('button', { name: 'Colocar pedido' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Colocar pedido' }).click()
+  await expect(page.getByRole('heading', { name: 'Pedido T5N8-W2RP' })).toBeVisible()
+  const place = api.calls.find((c) => c.method === 'POST' && c.path === '/v1/admin/orders')!
+  expect(place.body).toMatchObject({ warehouseId: '0192a3b4-0000-7000-8000-00000000b001' })
+})
+
+test('vender en tienda: sin permiso de traslado no se ofrece traer del otro local', async ({
+  page,
+}) => {
+  await mockAuthApi(page, staff(SELLER))
+  await mockSalesApi(page, { orders: [], storeCatalog: true, otherLocalStock: { 'PAN-32': 5 } })
+  await login(page)
+  await page.goto('/pedidos/nuevo')
+  await page.getByLabel('Buscar productos').fill('pan')
+  await page.getByRole('button', { name: 'Agregar PAN-32' }).click()
+  await page.getByLabel('Unidades de PAN-32').fill('3')
+  await page.getByLabel('Unidades de PAN-32').press('Tab')
+  await expect(page.getByText('No alcanza en este almacén junto con lo demás.')).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Traer/ })).toHaveCount(0)
 })
 
 test('vender en tienda: cliente registrado con su dirección guardada', async ({ page }) => {

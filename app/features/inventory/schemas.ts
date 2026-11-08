@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { addressFieldsSchema, checkAddress } from '~/shared/address/address-form'
-import { DECREASE_ONLY } from './status'
+import { DECREASE_ONLY, LOAN_MINUTES } from './status'
 
 // ReceiptDto, AdjustmentDto y UpdateWarehouseDto (openapi/v1.json) y API_SPEC §13.
 
@@ -70,9 +70,19 @@ export const warehouseSchema = z
   })
 export type WarehouseForm = z.input<typeof warehouseSchema>
 
-/** Transferencia entre almacenes: dos ajustes `WAREHOUSE_TRANSFER` (API_SPEC §13, ADR-0160). */
+/**
+ * Traslado o préstamo de una variante (CreateTransferDto, API_SPEC §13, ADR-0172): un traslado lleva
+ * motivo, y `OTHER` exige nota; un préstamo dura de 5 minutos a 24 horas.
+ */
 export const transferSchema = z
   .object({
+    kind: z.enum(['TRANSFER', 'LOAN']),
+    reason: z.enum(['SALE', 'RESTOCK', 'OTHER']),
+    loanMinutes: z
+      .number({ error: 'Elige cuánto dura el préstamo.' })
+      .int()
+      .min(LOAN_MINUTES.min, `Mínimo ${LOAN_MINUTES.min} minutos.`)
+      .max(LOAN_MINUTES.max, 'Máximo 24 horas.'),
     fromWarehouseId: z.string().min(1, 'Elige el almacén de origen.'),
     toWarehouseId: z
       .string({ error: 'Elige el almacén de destino.' })
@@ -88,4 +98,26 @@ export const transferSchema = z
     path: ['toWarehouseId'],
     message: 'Elige un almacén distinto del origen.',
   })
+  .refine((v) => v.kind === 'LOAN' || v.reason !== 'OTHER' || v.note !== '', {
+    path: ['note'],
+    message: 'Explica el traslado cuando el motivo es "Otro".',
+  })
 export type TransferForm = z.input<typeof transferSchema>
+
+/** Cierre de un préstamo (CloseLoanDto): lo que regresó de cada línea, de 0 a lo prestado. */
+export function closeLoanSchema(lines: { variantId: string; quantity: number }[]) {
+  return z
+    .object({ returned: z.record(z.string(), z.number().int().optional()) })
+    .superRefine((v, ctx) => {
+      for (const line of lines) {
+        const value = v.returned[line.variantId]
+        if (value === undefined || value < 0 || value > line.quantity)
+          ctx.addIssue({
+            code: 'custom',
+            path: ['returned', line.variantId],
+            message: `De 0 a ${line.quantity}.`,
+          })
+      }
+    })
+}
+export type CloseLoanForm = { returned: Record<string, number | undefined> }

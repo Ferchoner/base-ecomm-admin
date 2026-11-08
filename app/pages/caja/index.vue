@@ -4,7 +4,7 @@ import CashClosingCard from '~/features/cash-closings/components/CashClosingCard
 import CashDayFigures from '~/features/cash-closings/components/CashDayFigures.vue'
 import CloseCashForm from '~/features/cash-closings/components/CloseCashForm.vue'
 import { differenceTone, staffLabel } from '~/features/cash-closings/status'
-import { useWarehouses } from '~/features/inventory/api'
+import { useTransfers, useWarehouses } from '~/features/inventory/api'
 import { useSessionStore } from '~/shared/auth/session.store'
 import { useDeviceWarehouse } from '~/shared/device/device-warehouse'
 import { formatCalendarDate, formatDateTime, mexicoDate } from '~/shared/utils/dates'
@@ -58,6 +58,14 @@ watch(
 const summary = useCashSummary(() => ({ warehouseId: warehouseId.value, date: date.value }))
 const history = useCashClosings(() => ({ warehouseId: warehouseId.value, pageSize: 31 }))
 const future = computed(() => date.value > today)
+
+// Préstamos para mostrar sin cerrar que salen de este local o llegan a él (ADR-0172 de base-shop): se
+// avisa antes del corte, sin impedirlo, por si el producto prestado ya se vendió en el otro local.
+const openLoans = useTransfers(
+  () => ({ page: 1, pageSize: 1, kind: 'LOAN', status: 'OPEN', warehouseId: warehouseId.value }),
+  { enabled: computed(() => !!warehouseId.value && session.can('inventory.read')) },
+)
+const openLoanCount = computed(() => openLoans.data.value?.meta.totalItems ?? 0)
 </script>
 
 <template>
@@ -97,6 +105,26 @@ const future = computed(() => date.value > today)
     <p v-else-if="!warehouseId" class="text-sm text-muted">Elige el local para ver su corte.</p>
 
     <template v-if="warehouseId">
+      <UAlert
+        v-if="openLoanCount > 0"
+        color="warning"
+        variant="subtle"
+        icon="i-lucide-package-open"
+        :title="
+          openLoanCount === 1
+            ? 'Hay 1 préstamo para mostrar sin cerrar en este local'
+            : `Hay ${openLoanCount} préstamos para mostrar sin cerrar en este local`
+        "
+        description="Puedes hacer el corte, pero ciérralos con lo que regresó para que las existencias de cada local cuadren."
+        :actions="[
+          {
+            label: 'Ver los préstamos',
+            to: { path: '/inventario/traslados', query: { view: 'loans', warehouseId } },
+            color: 'warning',
+            variant: 'outline',
+          },
+        ]"
+      />
       <UAlert
         v-if="future"
         color="neutral"

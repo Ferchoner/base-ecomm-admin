@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { login, mockAuthApi, staff } from './mock-api'
-import { LOCAL_206, mockCashClosingsApi } from './mock-cash-closings'
+import { LOCAL_204, LOCAL_206, mockCashClosingsApi } from './mock-cash-closings'
 
 const SELLER = ['inventory.read', 'cash-closings.read', 'cash-closings.manage']
 
@@ -57,4 +57,28 @@ test('corte de caja: sin cash-closings.manage se consulta pero no se cierra', as
   await expect(page.getByRole('heading', { name: /Local 206 \(L206\)/ })).toBeVisible()
   await expect(page.getByText(/Cerrar la caja requiere el permiso/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Cerrar caja' })).toHaveCount(0)
+})
+
+test('corte de caja: avisa de los préstamos sin cerrar del local, sin impedir el corte', async ({
+  page,
+}) => {
+  await mockAuthApi(page, staff(SELLER))
+  const api = await mockCashClosingsApi(page, { openLoans: { [LOCAL_204]: 2 } })
+  await login(page)
+  await page.goto(`/caja?local=${LOCAL_204}`)
+  await expect(
+    page.getByText('Hay 2 préstamos para mostrar sin cerrar en este local'),
+  ).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Ver los préstamos' })).toHaveAttribute(
+    'href',
+    `/inventario/traslados?view=loans&warehouseId=${LOCAL_204}`,
+  )
+  await expect(page.getByRole('button', { name: 'Cerrar caja' })).toBeEnabled()
+  const loans = api.calls.find((c) => c.path.endsWith('/transfers') && c.query.includes('LOAN'))
+  expect(loans?.query).toContain(`warehouseId=${LOCAL_204}`)
+  expect(loans?.query).toContain('status=OPEN')
+
+  await page.goto(`/caja?local=${LOCAL_206}`)
+  await expect(page.getByRole('heading', { name: /Local 206/ })).toBeVisible()
+  await expect(page.getByText(/préstamos? para mostrar sin cerrar/)).toHaveCount(0)
 })

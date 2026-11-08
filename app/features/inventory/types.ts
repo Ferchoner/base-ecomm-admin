@@ -24,5 +24,25 @@ export interface StockListParams {
   sort?: string
 }
 
+/** Traslados y préstamos entre almacenes (API_SPEC §13, ADR-0172, versión 1.11). */
+export type Transfer = Schemas['TransferDto']
+export type TransferLine = Schemas['TransferLineDto']
+export type TransferPage = Page<Transfer>
+export type TransferKind = Transfer['kind']
+export type TransferStatus = Transfer['status']
+export type TransferReason = Transfer['reason']
+export type TransferCreateInput = Schemas['CreateTransferDto']
+export type CloseLoanInput = Schemas['CloseLoanDto']
+
+/** Filtros de `GET /v1/admin/inventory/transfers`. */
+export interface TransferListParams {
+  page: number
+  pageSize: number
+  kind?: TransferKind
+  status?: TransferStatus
+  warehouseId?: string
+  overdue?: boolean
+}
+
 /** Carga masiva de entradas de mercancía (API_SPEC §13, ADR-0164). */
 export type ReceiptImportSummary = Schemas['ReceiptImportSummaryDto']

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useEventDeliveries } from '~/features/events/api'
-import { useStockItems } from '~/features/inventory/api'
+import { useStockItems, useTransfers } from '~/features/inventory/api'
 import { useOrders } from '~/features/orders/api'
 import { useShipments } from '~/features/shipping/api'
 import { useSessionStore } from '~/shared/auth/session.store'
@@ -36,6 +36,9 @@ const failedDeliveries = useEventDeliveries({ ...ONE, status: 'FAILED' }, { enab
 const lowStock = useStockItems(() => ({ ...ONE, availableMax: prefs.lowStockThreshold }), {
   enabled: canInventory,
 })
+
+// Préstamos para mostrar que pasaron su hora de regreso sin cerrarse (ADR-0172 de base-shop).
+const overdueLoans = useTransfers({ ...ONE, overdue: true }, { enabled: canInventory })
 
 interface CountDef {
   show: boolean
@@ -91,6 +94,14 @@ const counts = computed(() => {
       to: `/inventario/stock?availableMax=${prefs.lowStockThreshold}`,
       query: lowStock,
       color: 'warning',
+    },
+    {
+      show: canInventory.value,
+      label: 'Préstamos vencidos',
+      icon: 'i-lucide-alarm-clock',
+      to: '/inventario/traslados?view=overdue',
+      query: overdueLoans,
+      color: 'error',
     },
     {
       show: canEvents.value,

@@ -5,6 +5,7 @@ import { useSessionStore } from '~/shared/auth/session.store'
 const session = useSessionStore()
 const links = computed(() => [
   { label: 'Existencias', icon: 'i-lucide-boxes', to: '/inventario/stock' },
+  { label: 'Traslados', icon: 'i-lucide-arrow-right-left', to: '/inventario/traslados' },
   { label: 'Almacenes', icon: 'i-lucide-warehouse', to: '/inventario/almacenes' },
   ...(session.can('inventory.write')
     ? [{ label: 'Cargar entradas', icon: 'i-lucide-file-up', to: '/inventario/cargar-entradas' }]

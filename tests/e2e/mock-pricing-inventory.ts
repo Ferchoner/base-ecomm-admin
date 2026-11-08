@@ -69,8 +69,11 @@ export interface PricingInventorySeed {
   }>
   /** Almacenes además del principal (ADR-0160). */
   warehouses?: Array<{ id?: string; code: string; name: string; priority: number; status?: string }>
-  /** Hace fallar los ajustes positivos con 500, para probar una transferencia a medias. */
-  failPositiveAdjustments?: boolean
+  /**
+   * Préstamos para mostrar ya registrados (ADR-0172 de base-shop), por SKU, del almacén principal al
+   * primero de `warehouses`; `minutesLeft` negativo, vencido.
+   */
+  loans?: Array<{ sku: string; quantity: number; minutesLeft: number }>
   /** Movimientos de cada stock item por SKU, para probar la paginación por cursor. */
   movements?: Record<string, number>
   /** Respuesta de la importación de precios: `ok` o errores por fila. */
@@ -161,6 +164,197 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
       return json(route, 200, { data: [{ code: '16', name: 'Michoacán de Ocampo' }] })
     return json(route, 200, { data: [{ code: '16053', name: 'Morelia' }] })
   })
+
+  // ── Traslados y préstamos (API_SPEC §13, ADR-0172 de base-shop), con la hora real del navegador ──
+  const transfers: Array<Record<string, unknown> & { lines: Array<Record<string, unknown>> }> = []
+  let folio = 0
+  const stockAt = (variantId: string, warehouseId: string) => {
+    let item = stock.find((s) => s.variantId === variantId && s.warehouseId === warehouseId)
+    if (!item) {
+      const same = stock.find((s) => s.variantId === variantId)!
+      item = { ...same, id: uuid(), onHand: 0, reserved: 0, warehouseId }
+      stock.push(item)
+      movements.set(item.id, [])
+    }
+    return item
+  }
+  const move = (
+    t: Record<string, unknown>,
+    lines: Array<{ variantId: string; quantity: number }>,
+  ) => {
+    for (const l of lines) {
+      stockAt(l.variantId, t.fromWarehouseId as string).onHand -= l.quantity
+      stockAt(l.variantId, t.toWarehouseId as string).onHand += l.quantity
+    }
+  }
+  const newTransfer = (input: {
+    kind: string
+    reason: string
+    fromWarehouseId: string
+    toWarehouseId: string
+    lines: Array<{ variantId: string; quantity: number }>
+    note?: string | null
+    returnBy?: string | null
+    loanId?: string | null
+    createdAt?: Date
+  }) => {
+    const created = input.createdAt ?? new Date()
+    const t = {
+      id: uuid(),
+      folio: `${input.kind === 'LOAN' ? 'P' : 'T'}-${String(++folio).padStart(6, '0')}`,
+      kind: input.kind,
+      reason: input.reason,
+      status: input.kind === 'LOAN' ? 'OPEN' : 'COMPLETED',
+      fromWarehouseId: input.fromWarehouseId,
+      toWarehouseId: input.toWarehouseId,
+      note: input.note ?? null,
+      lines: input.lines.map((l) => {
+        const s = stock.find((x) => x.variantId === l.variantId)!
+        return {
+          variantId: l.variantId,
+          sku: s.sku,
+          productTitle: s.productTitle,
+          quantity: l.quantity,
+          returned: null as number | null,
+        }
+      }),
+      createdBy: '0192a3b4-0000-7000-8000-000000000001',
+      createdAt: created.toISOString(),
+      cancellableUntil: input.loanId
+        ? null
+        : new Date(created.getTime() + 10 * 60_000).toISOString(),
+      cancelledAt: null,
+      cancelledBy: null,
+      returnBy: input.returnBy ?? null,
+      closedBy: null,
+      closedAt: null,
+      loanId: input.loanId ?? null,
+      returnTransferId: null,
+      version: 1,
+    }
+    transfers.unshift(t)
+    return t
+  }
+  const transferDto = (t: Record<string, unknown>) => {
+    const now = Date.now()
+    return {
+      ...t,
+      cancellableUntil:
+        ['COMPLETED', 'OPEN'].includes(t.status as string) &&
+        t.cancellableUntil &&
+        Date.parse(t.cancellableUntil as string) >= now
+          ? t.cancellableUntil
+          : null,
+      overdue: t.status === 'OPEN' && Date.parse(t.returnBy as string) < now,
+    }
+  }
+  for (const loan of seed.loans ?? []) {
+    const s = stock.find((x) => x.sku === loan.sku)!
+    const createdAt = new Date(Date.now() - 2 * 3600_000)
+    const t = newTransfer({
+      kind: 'LOAN',
+      reason: 'SHOW',
+      fromWarehouseId: WAREHOUSE_ID,
+      toWarehouseId: warehouses[1]!.id as string,
+      lines: [{ variantId: s.variantId, quantity: loan.quantity }],
+      returnBy: new Date(Date.now() + loan.minutesLeft * 60_000).toISOString(),
+      createdAt,
+    })
+    move(t, [{ variantId: s.variantId, quantity: loan.quantity }])
+  }
+  const idempotentTransfers = new Map<string, Record<string, unknown>>()
+  function transfersRoute(
+    route: Route,
+    method: string,
+    seg: string[],
+    url: URL,
+    body: Record<string, unknown> | null,
+  ) {
+    if (method === 'GET' && seg.length === 2) {
+      const q = url.searchParams
+      const items = transfers
+        .map(transferDto)
+        .filter((t) => !q.get('kind') || t.kind === q.get('kind'))
+        .filter((t) => !q.get('status') || t.status === q.get('status'))
+        .filter(
+          (t) =>
+            !q.get('warehouseId') ||
+            t.fromWarehouseId === q.get('warehouseId') ||
+            t.toWarehouseId === q.get('warehouseId'),
+        )
+        .filter((t) => q.get('overdue') === null || String(t.overdue) === q.get('overdue'))
+      return json(route, 200, {
+        data: items,
+        meta: { page: 1, pageSize: 20, totalItems: items.length, totalPages: items.length ? 1 : 0 },
+      })
+    }
+    if (method === 'POST' && seg.length === 2) {
+      const key = route.request().headers()['idempotency-key']
+      if (!key) return problem(route, 400, 'validation-error', 'Falta Idempotency-Key')
+      if (idempotentTransfers.has(key)) return json(route, 201, idempotentTransfers.get(key))
+      const lines = body!.lines as Array<{ variantId: string; quantity: number }>
+      for (const l of lines) {
+        const from = stockAt(l.variantId, body!.fromWarehouseId as string)
+        if (from.onHand - from.reserved < l.quantity)
+          return problem(route, 409, 'insufficient-stock', 'Existencias insuficientes', {
+            lines: [{ variantId: l.variantId, canFulfill: false }],
+          })
+      }
+      const t = newTransfer(body as Parameters<typeof newTransfer>[0])
+      move(t, lines)
+      const dto = transferDto(t)
+      idempotentTransfers.set(key, dto)
+      return json(route, 201, dto)
+    }
+    const t = transfers.find((x) => x.id === seg[2])
+    if (!t) return problem(route, 404, 'not-found', 'No encontrado')
+    if (body?.version !== t.version)
+      return problem(route, 409, 'version-conflict', 'El recurso cambió')
+    if (seg[3] === 'cancel') {
+      if (!transferDto(t).cancellableUntil)
+        return problem(route, 409, 'invalid-state-transition', 'Transición no permitida', {
+          reason: 'cancel-window-closed',
+        })
+      move({ fromWarehouseId: t.toWarehouseId, toWarehouseId: t.fromWarehouseId }, t.lines as never)
+      Object.assign(t, {
+        status: 'CANCELLED',
+        cancelledAt: new Date().toISOString(),
+        cancelledBy: '0192a3b4-0000-7000-8000-000000000001',
+        version: (t.version as number) + 1,
+      })
+      return json(route, 200, transferDto(t))
+    }
+    if (seg[3] === 'close') {
+      const returned = body.lines as Array<{ variantId: string; returned: number }>
+      const back = returned
+        .filter((r) => r.returned > 0)
+        .map((r) => ({ variantId: r.variantId, quantity: r.returned }))
+      for (const line of t.lines)
+        line.returned = returned.find((r) => r.variantId === line.variantId)?.returned ?? 0
+      let returnTransferId: string | null = null
+      if (back.length) {
+        const r = newTransfer({
+          kind: 'TRANSFER',
+          reason: 'LOAN_RETURN',
+          fromWarehouseId: t.toWarehouseId as string,
+          toWarehouseId: t.fromWarehouseId as string,
+          lines: back,
+          loanId: t.id as string,
+        })
+        move(r, back)
+        returnTransferId = r.id
+      }
+      Object.assign(t, {
+        status: 'CLOSED',
+        closedAt: new Date().toISOString(),
+        closedBy: '0192a3b4-0000-7000-8000-000000000001',
+        returnTransferId,
+        version: (t.version as number) + 1,
+      })
+      return json(route, 200, transferDto(t))
+    }
+    return problem(route, 404, 'not-found', 'No encontrado')
+  }
 
   await page.route(new RegExp(`^${API}/v1/admin/(pricing|inventory)/`), async (route) => {
     const request = route.request()
@@ -348,8 +542,6 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
           return problem(route, 404, 'not-found', 'No encontrado')
         let item = stock.find((s) => s.variantId === body.variantId && s.warehouseId === target.id)
         const quantity = body.quantity as number
-        if (seg[1] === 'adjustments' && seed.failPositiveAdjustments && quantity > 0)
-          return problem(route, 500, 'internal-error', 'Error interno')
         if (seg[1] === 'adjustments' && !item && quantity < 0)
           return problem(route, 409, 'insufficient-stock', 'Existencias insuficientes', {
             lines: [{ variantId: body.variantId, canFulfill: false }],
@@ -388,9 +580,10 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
         movements.get(item.id)!.unshift(movement)
         return json(route, 201, { stockItem: stockDto(item), movement })
       }
+      if (seg[1] === 'transfers') return transfersRoute(route, method, seg, url, body)
     }
     return problem(route, 404, 'not-found', 'No encontrado')
   })
 
-  return { calls, periods, stock, warehouse, warehouses }
+  return { calls, periods, stock, warehouse, warehouses, transfers }
 }

@@ -25,6 +25,9 @@ export type StaffQuote = Schemas['CheckoutQuoteDto']
 export type StaffQuoteLine = Schemas['CheckoutQuoteLineDto']
 /** Existencias por almacén para elegir variantes (`GET …/inventory/stock-items`, `inventory.read`). */
 export type SellableStock = Schemas['StockItemDto']
+/** "Traer del otro local" antes de vender (ADR-0172 de base-shop): un traslado con motivo `SALE`. */
+export type BringStockInput = Schemas['CreateTransferDto']
+export type BroughtStock = Schemas['TransferDto']
 /** Cliente registrado a nombre de quien se coloca el pedido (`customers.read`). */
 export type BuyerCustomer = Schemas['AdminCustomerDto']
 export type BuyerAddress = Schemas['AddressDto']

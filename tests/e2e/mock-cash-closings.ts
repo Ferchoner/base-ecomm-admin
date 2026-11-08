@@ -53,9 +53,28 @@ function day(warehouseId: string) {
 }
 
 /** El corte de caja de dos locales (API_SPEC §15.9), con sus cierres en memoria. */
-export async function mockCashClosingsApi(page: Page) {
+/** `openLoans`: préstamos para mostrar sin cerrar que tocan cada local (ADR-0172 de base-shop). */
+export async function mockCashClosingsApi(
+  page: Page,
+  options: { openLoans?: Record<string, number> } = {},
+) {
   const closings: Array<Record<string, unknown>> = []
   const calls: Array<{ method: string; path: string; query: string; body: unknown }> = []
+
+  // Solo el conteo: el corte pide `pageSize=1` y lee `meta.totalItems`.
+  await page.route(`${API}/v1/admin/inventory/transfers**`, (route) => {
+    if (route.request().method() === 'OPTIONS') return cors(route)
+    const url = new URL(route.request().url())
+    calls.push({ method: 'GET', path: url.pathname, query: url.search, body: null })
+    const open =
+      url.searchParams.get('kind') === 'LOAN' && url.searchParams.get('status') === 'OPEN'
+        ? (options.openLoans?.[url.searchParams.get('warehouseId') ?? ''] ?? 0)
+        : 0
+    return json(route, 200, {
+      data: [],
+      meta: { page: 1, pageSize: 1, totalItems: open, totalPages: open },
+    })
+  })
 
   await page.route(`${API}/v1/admin/inventory/warehouses**`, (route) =>
     route.request().method() === 'OPTIONS'

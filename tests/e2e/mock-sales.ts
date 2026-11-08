@@ -4,6 +4,7 @@ import { API, json } from './mock-api'
 /** Pedidos, pagos y envíos en memoria con las formas de openapi/v1.json (API_SPEC §15–17). */
 const NOW = '2026-10-05T12:00:00.000Z'
 const WAREHOUSE_ID = '0192a3b4-0000-7000-8000-00000000b001'
+export const OTHER_LOCAL_ID = '0192a3b4-0000-7000-8000-00000000b002'
 const STAFF_ID = '0192a3b4-0000-7000-8000-000000000001'
 let seq = 0
 const uuid = () => `0192a3b4-0000-7000-8000-${String(800000 + ++seq).padStart(12, '0')}`
@@ -81,6 +82,11 @@ export interface SalesSeed {
   storeCatalog?: boolean
   /** El precio sube entre la cotización y la colocación: el primer intento recibe `total-mismatch`. */
   priceChangeOnPlace?: boolean
+  /**
+   * Un segundo local con estas existencias disponibles por SKU, para "Traer del otro local"
+   * (`POST /v1/admin/inventory/transfers`, ADR-0172 de base-shop).
+   */
+  otherLocalStock?: Record<string, number>
 }
 
 interface Line {
@@ -546,6 +552,75 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
     ],
   }
   const idempotency = new Map<string, Order>()
+  const otherLocal: Record<string, number> = { ...seed.otherLocalStock }
+  const transfers = new Map<string, Record<string, unknown>>()
+
+  // "Traer del otro local" (ADR-0172 de base-shop): un traslado de un paso, con Idempotency-Key.
+  if (seed.otherLocalStock)
+    await page.route(`${API}/v1/admin/inventory/transfers`, async (route) => {
+      const request = route.request()
+      if (request.method() === 'OPTIONS') return route.fallback()
+      const body = request.postDataJSON() as {
+        fromWarehouseId: string
+        toWarehouseId: string
+        reason: string
+        kind: string
+        note?: string
+        lines: Array<{ variantId: string; quantity: number }>
+      }
+      const headers = request.headers()
+      calls.push({
+        method: request.method(),
+        path: new URL(request.url()).pathname,
+        body,
+        query: '',
+        headers,
+      })
+      const key = headers['idempotency-key']!
+      if (transfers.has(key)) return json(route, 201, transfers.get(key))
+      const line = body.lines[0]!
+      const v = STOCK.find((x) => x.variantId === line.variantId)!
+      if ((otherLocal[v.sku] ?? 0) < line.quantity)
+        return problem(route, 409, 'insufficient-stock', 'Existencias insuficientes', {
+          lines: [{ variantId: v.variantId, canFulfill: false }],
+        })
+      otherLocal[v.sku]! -= line.quantity
+      v.available += line.quantity
+      const created = new Date()
+      const transfer = {
+        id: uuid(),
+        folio: `T-${String(transfers.size + 1).padStart(6, '0')}`,
+        kind: body.kind,
+        reason: body.reason,
+        status: 'COMPLETED',
+        fromWarehouseId: body.fromWarehouseId,
+        toWarehouseId: body.toWarehouseId,
+        note: body.note ?? null,
+        lines: [
+          {
+            variantId: v.variantId,
+            sku: v.sku,
+            productTitle: v.productTitle,
+            quantity: line.quantity,
+            returned: null,
+          },
+        ],
+        createdBy: STAFF_ID,
+        createdAt: created.toISOString(),
+        cancellableUntil: new Date(created.getTime() + 10 * 60_000).toISOString(),
+        cancelledAt: null,
+        cancelledBy: null,
+        returnBy: null,
+        overdue: false,
+        closedBy: null,
+        closedAt: null,
+        loanId: null,
+        returnTransferId: null,
+        version: 1,
+      }
+      transfers.set(key, transfer)
+      return json(route, 201, transfer)
+    })
 
   if (seed.storeCatalog) {
     await page.route(
@@ -582,6 +657,20 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
                 createdAt: NOW,
                 updatedAt: NOW,
               },
+              ...(seed.otherLocalStock
+                ? [
+                    {
+                      id: OTHER_LOCAL_ID,
+                      code: 'L206',
+                      name: 'Local 206',
+                      priority: 2,
+                      status: 'ACTIVE',
+                      address: null,
+                      createdAt: NOW,
+                      updatedAt: NOW,
+                    },
+                  ]
+                : []),
             ],
           })
         if (url.pathname.endsWith('/variants/lookup')) {
@@ -607,21 +696,29 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
         if (url.pathname.endsWith('/stock-items')) {
           const text = url.searchParams.get('q')?.toLowerCase() ?? ''
           const variantId = url.searchParams.get('variantId')
-          const items = STOCK.filter(
+          const warehouseId = url.searchParams.get('warehouseId')
+          const matching = STOCK.filter(
             (v) =>
               (!variantId || v.variantId === variantId) &&
               (v.sku.toLowerCase().includes(text) || v.productTitle.toLowerCase().includes(text)),
-          ).map((v) => ({
+          )
+          const item = (v: (typeof STOCK)[number], warehouse: string, available: number) => ({
             id: uuid(),
             variantId: v.variantId,
-            warehouseId: WAREHOUSE_ID,
+            warehouseId: warehouse,
             sku: v.sku,
             productTitle: v.productTitle,
-            onHand: v.available,
+            onHand: available,
             reserved: 0,
-            available: v.available,
+            available,
             updatedAt: NOW,
-          }))
+          })
+          const items = [
+            ...matching.map((v) => item(v, WAREHOUSE_ID, v.available)),
+            ...matching
+              .filter((v) => otherLocal[v.sku] !== undefined)
+              .map((v) => item(v, OTHER_LOCAL_ID, otherLocal[v.sku]!)),
+          ].filter((i) => !warehouseId || i.warehouseId === warehouseId)
           return json(route, 200, page1(items))
         }
         const id = url.pathname.split('/')[5]

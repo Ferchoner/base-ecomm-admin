@@ -141,7 +141,10 @@ async function onSubmit(event: FormSubmitEvent<TransferForm>) {
         />
         <p class="text-sm">
           Desde <strong>{{ fromName }}</strong
-          >: {{ item.available }} disponibles de {{ item.onHand }} físicas.
+          >: {{ item.available }} disponibles de {{ item.onHand }} físicas<template
+            v-if="item.location"
+            >, en <strong>{{ item.location }}</strong></template
+          >.
         </p>
         <UFormField label="Almacén de destino" name="toWarehouseId" required>
           <USelect

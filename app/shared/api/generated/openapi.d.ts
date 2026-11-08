@@ -264,6 +264,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/catalog/count-classes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Cambiar la clase de conteo de varios productos
+         * @description ADR-0173. De 1 a 500 productos, cada uno una vez (400 `duplicateProduct` en `items`), en cualquier estado, también archivados. Todo o nada: un producto que no existe es 404 y no cambia ninguno. Sin `version`: solo cambia la clase, y la versión de cada producto que cambia sube. Cada producto que cambia se audita como `products.update`.
+         */
+        put: operations["AdminCountClassesController_set_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/catalog/product-imports": {
         parameters: {
             query?: never;
@@ -952,6 +972,150 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/inventory/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar las hojas de conteo
+         * @description De la más reciente a la más antigua, sin sus líneas: cuántas tiene y cuántas están contadas. Por almacén y estado.
+         */
+        get: operations["AdminCountsController_list_v1"];
+        put?: never;
+        /**
+         * Abrir una hoja de conteo
+         * @description ADR-0173. Con un almacén y un filtro: `location` (exacta o, con `*` al final, por prefijo), `categoryId` (los productos directamente en ella), `countClass` (`C` incluye a los productos sin clase), varios a la vez; o `variantIds`, solo (400 `variantIdsAlone`). Sin filtro, 400 `countFilter`. Con un filtro toma las variantes con existencia o con ubicación en ese almacén; con `variantIds`, exactamente esas. Ninguna línea es 400 `noLines`, y más de 1,000, 400 `tooManyLines`, en el primer filtro. Las líneas van por ubicación (sin ella al final) y SKU. Una variante va en una sola hoja abierta por almacén: si alguna ya está en otra, 409 `variant-in-open-count` con esas variantes y sus hojas. Un almacén o una variante de la lista que no existe es 404. Se audita como `inventory.count-open`.
+         */
+        post: operations["AdminCountsController_open_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/inventory/counts/{countId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar una hoja de conteo
+         * @description Con sus líneas en orden. Sin `inventory.write` es a ciegas (`blind`): sin `expected` ni `difference`.
+         */
+        get: operations["AdminCountsController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/inventory/counts/{countId}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Aplicar una hoja de conteo
+         * @description ADR-0173. Exige `Idempotency-Key` y la `version` leída. Cada línea contada con diferencia crea un ajuste `PHYSICAL_COUNT` ligado a la hoja (`countId` en el movimiento) por la diferencia, sobre las físicas de ahora; una sin diferencia queda `NO_DIFFERENCE`, y una sin contar, `NOT_COUNTED`, sin tocarse. Una línea que dejaría menos físicas que las apartadas no se aplica (`SKIPPED_RESERVED`) y las demás sí. La hoja queda `APPLIED` y sus variantes pueden ir en otra. Una hoja que no está abierta es 409 `invalid-state-transition`. Se audita como `inventory.count-apply`.
+         */
+        post: operations["AdminCountsController_apply_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/inventory/counts/{countId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancelar una hoja de conteo
+         * @description ADR-0173. Sin ajustar nada; sus variantes pueden ir en otra hoja. Exige la `version` leída. Una hoja que no está abierta es 409 `invalid-state-transition`. Se audita como `inventory.count-cancel`.
+         */
+        post: operations["AdminCountsController_cancel_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/inventory/counts/{countId}/lines/{variantId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Capturar lo contado de una variante
+         * @description ADR-0173. De 0 a 100,000. Guarda también las físicas de ese momento, para comparar, así que lo vendido antes o después no sale como faltante. Una variante que no está en la hoja se agrega al final; si está en otra hoja abierta del almacén, 409 `variant-in-open-count`. Volver a capturar reemplaza lo anterior y quita la petición de recontar. Sin `version`: cada captura cuenta una versión de la hoja. Una hoja que no está abierta es 409 `invalid-state-transition`. Responde la línea, a ciegas sin `inventory.write`. No se audita.
+         */
+        put: operations["AdminCountsController_capture_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/inventory/counts/{countId}/lines/{variantId}/recount": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pedir volver a contar una línea
+         * @description ADR-0173. Quita lo contado y marca la línea con `recount`. Exige la `version` leída. Una línea que no está en la hoja es 404, y una hoja que no está abierta, 409 `invalid-state-transition`.
+         */
+        post: operations["AdminCountsController_recount_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/inventory/locations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Cambiar la ubicación de un producto en un almacén
+         * @description ADR-0173. Por variante y almacén, aunque la variante todavía no tenga unidades ahí: crea su existencia en 0. `null` la quita; quitarla donde no hay existencia es 404. Se guarda sin espacios de sobra y en mayúsculas; vacía o de más de 20 caracteres es 400 `isLength`. La variante puede estar en cualquier estado y el almacén, inactivo. Un traslado no la cambia. Se audita como `inventory.location` cuando cambia.
+         */
+        put: operations["AdminStockController_setLocation_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/inventory/receipt-imports": {
         parameters: {
             query?: never;
@@ -1198,6 +1362,26 @@ export interface paths {
          * @description UC-ORD-13 (ADR-0161). Exige `Idempotency-Key`. Para un cliente registrado y activo, con el email verificado, cuyo contacto es el email de su cuenta; o para un invitado, con `contactEmail` y la versión del aviso de privacidad que el staff le presentó. Exactamente uno de `customerId` y `contactEmail`, y uno de `addressId` y `shippingAddress`; `addressId` solo con `customerId`. Recalcula todo sin cache; si el total difiere de `expectedTotal` responde 409 `total-mismatch` con `currentTotal`. Reserva todo el stock en el almacén `warehouseId` o nada, y crea la orden `STORE` en `PENDING_PAYMENT`, en una sola transacción; sin carrito, una orden vencida no regresa a ninguno. Con `couponCode`, el cupón se revisa y cuenta su uso en la misma transacción; si no aplica, 409 `coupon-not-applicable` con `reason`, y hasta 10 códigos que nadie tiene por IP cada 15 minutos. Si el almacén no existe o está inactivo, 404. Hasta 30 órdenes por cuenta de staff cada 10 minutos. Una línea de una variante de precio libre (ADR-0171) lleva `unitPrice` y `note`, y las demás no: si no, 400 en `lines[i].unitPrice` o `lines[i].note`. Esa línea se cobra al precio escrito, guarda la nota y no recibe promociones ni cupones, ni cuenta para su mínimo. Vender una variante de precio libre exige `orders.open-price`: sin él, 403. Se audita como `orders.place`.
          */
         post: operations["AdminOrdersController_place_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/orders/count-class-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sugerir la clase de conteo de cada producto por sus ventas
+         * @description ADR-0173. Lo vendido por producto en los últimos 90 días, en línea y en la tienda física: las líneas de las órdenes colocadas en ese tiempo que se pagaron y no se cancelaron, vencieron ni reembolsaron, cada una por su total menos su descuento. `A` para los productos que suman el primer 80 % de lo vendido (el que pasa del 80 % todavía es `A`), `B` para el siguiente 15 % y `C` para el resto; un empate va por ID del producto. Los productos que no vendieron nada no aparecen: son `C`. Sin paginación. La clase se aplica en Catálogo con `PUT /v1/admin/catalog/count-classes`.
+         */
+        get: operations["AdminOrdersController_countClassSuggestions_v1"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2820,7 +3004,7 @@ export interface components {
             /** @description Staff con contraseña temporal, que solo puede cambiarla. */
             mustChangePassword: boolean;
             /** @description Permisos de los roles del staff; vacío en un cliente. */
-            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "inventory.transfer" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "orders.open-price" | "cash-closings.read" | "cash-closings.manage" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
+            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "inventory.transfer" | "inventory.count" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "orders.open-price" | "cash-closings.read" | "cash-closings.manage" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
             /** @description Roles del staff; vacío en un cliente. */
             roles: components["schemas"]["StaffRoleDto"][];
             /**
@@ -3602,6 +3786,11 @@ export interface components {
             /** @description `null` sin marca. */
             brand: components["schemas"]["NamedReferenceDto"] | null;
             categories: components["schemas"]["NamedReferenceDto"][];
+            /**
+             * @description Cada cuándo se cuenta (ADR-0173): `A` cada semana, `B` cada mes, `C` cada trimestre; `null` sin clase, que se cuenta como `C`.
+             * @enum {string|null}
+             */
+            countClass: "A" | "B" | "C" | null;
             /** Format: date-time */
             createdAt: string;
             /** @description Solo en el detalle; el listado no la incluye. */
@@ -4331,6 +4520,247 @@ export interface components {
              */
             token: string;
         };
+        CountClassItemDto: {
+            /**
+             * @description `null` le quita la clase.
+             * @enum {string|null}
+             */
+            countClass: "A" | "B" | "C" | null;
+            /**
+             * Format: uuid
+             * @description El producto, en cualquier estado; una vez por solicitud.
+             */
+            productId: string;
+        };
+        CountClassSuggestionDto: {
+            /**
+             * @description La clase que tiene hoy; `null` sin clase.
+             * @enum {string|null}
+             */
+            countClass: "A" | "B" | "C" | null;
+            /** Format: uuid */
+            productId: string;
+            /**
+             * @description El título del producto hoy.
+             * @example Zelda: Tears of the Kingdom
+             */
+            productTitle: string;
+            /** @description Lo vendido: el total de sus líneas menos sus descuentos. */
+            sales: components["schemas"]["MoneyDto"];
+            /**
+             * @description La clase por sus ventas: `A`, los productos que suman el primer 80 % de lo vendido; `B`, el siguiente 15 %; `C`, el resto.
+             * @enum {string}
+             */
+            suggestedClass: "A" | "B" | "C";
+            /**
+             * @description Unidades vendidas.
+             * @example 14
+             */
+            units: number;
+        };
+        CountClassSuggestionListDto: {
+            /** @description Del producto que más vendió al que menos; los que no vendieron nada no aparecen y son `C`. */
+            data: components["schemas"]["CountClassSuggestionDto"][];
+            meta: components["schemas"]["CountClassSuggestionsMetaDto"];
+        };
+        CountClassSuggestionsMetaDto: {
+            /**
+             * @description Días de ventas que cuenta.
+             * @example 90
+             */
+            days: number;
+            /** Format: date-time */
+            from: string;
+            /**
+             * Format: date-time
+             * @description Sin incluirlo: el momento de la consulta.
+             */
+            to: string;
+            /** @description Lo vendido en total. */
+            total: components["schemas"]["MoneyDto"];
+        };
+        CountClassesDto: {
+            /** @description De 1 a 500 productos, cada uno una vez. */
+            items: components["schemas"]["CountClassItemDto"][];
+        };
+        CountClassesResultDto: {
+            /**
+             * @description Productos cuya clase cambió; los que ya la tenían no cuentan.
+             * @example 12
+             */
+            updated: number;
+        };
+        CountDto: {
+            /** @description Sin `expected` ni `difference`: quien no tiene `inventory.write` cuenta a ciegas. */
+            blind: boolean;
+            /** Format: date-time */
+            closedAt: string | null;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que la aplicó o la canceló.
+             */
+            closedBy: string | null;
+            /**
+             * @description Cuántas están contadas.
+             * @example 12
+             */
+            countedCount: number;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que la abrió.
+             */
+            createdBy: string;
+            filter: components["schemas"]["CountFilterDto"];
+            /**
+             * @description El folio, consecutivo.
+             * @example C-000123
+             */
+            folio: string;
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description Cuántas líneas tiene.
+             * @example 40
+             */
+            lineCount: number;
+            /** @description En su orden en la hoja. */
+            lines: components["schemas"]["CountLineDto"][];
+            /** @description Nota del staff; `null` sin ella. */
+            note: string | null;
+            /**
+             * @description `OPEN` mientras se cuenta; `APPLIED` o `CANCELLED` ya no cambia.
+             * @enum {string}
+             */
+            status: "OPEN" | "APPLIED" | "CANCELLED";
+            /**
+             * @description Versión para revisarla, aplicarla o cancelarla (bloqueo optimista).
+             * @example 3
+             */
+            version: number;
+            /** Format: uuid */
+            warehouseId: string;
+        };
+        CountFilterDto: {
+            /** Format: uuid */
+            categoryId?: string;
+            /** @enum {string} */
+            countClass?: "A" | "B" | "C";
+            /**
+             * @description La ubicación o el prefijo con `*`, en mayúsculas.
+             * @example A*
+             */
+            location?: string;
+            variantIds?: string[];
+        };
+        CountLineDto: {
+            /** @description Lo contado; `null` mientras no se cuenta. */
+            counted: number | null;
+            /** Format: date-time */
+            countedAt: string | null;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que la contó.
+             */
+            countedBy: string | null;
+            /** @description Lo contado menos `expected`; `null` sin contar y en una hoja a ciegas. */
+            difference: number | null;
+            /** @description Las físicas al contarla; `null` sin contar y en una hoja a ciegas (`blind`). */
+            expected: number | null;
+            /**
+             * @description La ubicación de la existencia cuando se tomó la línea; `null` sin ella.
+             * @example A1
+             */
+            location: string | null;
+            /**
+             * Format: uuid
+             * @description El ajuste `PHYSICAL_COUNT` de una línea `ADJUSTED`.
+             */
+            movementId: string | null;
+            /**
+             * @description Lo que hizo aplicar la hoja: `ADJUSTED`, `NO_DIFFERENCE`, `NOT_COUNTED` o `SKIPPED_RESERVED` (dejaría menos físicas que las apartadas); `null` mientras está abierta.
+             * @enum {string|null}
+             */
+            outcome: "ADJUSTED" | "NO_DIFFERENCE" | "NOT_COUNTED" | "SKIPPED_RESERVED" | null;
+            /**
+             * @description Su orden en la hoja, desde 1.
+             * @example 1
+             */
+            position: number;
+            /** @example The Legend of Zelda */
+            productTitle: string;
+            /** @description Se pidió volver a contarla. */
+            recount: boolean;
+            /** @example JUE-ZELDA-SW */
+            sku: string;
+            /** Format: uuid */
+            variantId: string;
+        };
+        CountLineInputDto: {
+            /**
+             * @description Lo contado, de 0 a 100,000.
+             * @example 7
+             */
+            counted: number;
+        };
+        CountListDto: {
+            /** @description De la más reciente a la más antigua. */
+            data: components["schemas"]["CountSummaryDto"][];
+            meta: components["schemas"]["PageMetaDto"];
+        };
+        CountSummaryDto: {
+            /** Format: date-time */
+            closedAt: string | null;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que la aplicó o la canceló.
+             */
+            closedBy: string | null;
+            /**
+             * @description Cuántas están contadas.
+             * @example 12
+             */
+            countedCount: number;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que la abrió.
+             */
+            createdBy: string;
+            filter: components["schemas"]["CountFilterDto"];
+            /**
+             * @description El folio, consecutivo.
+             * @example C-000123
+             */
+            folio: string;
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description Cuántas líneas tiene.
+             * @example 40
+             */
+            lineCount: number;
+            /** @description Nota del staff; `null` sin ella. */
+            note: string | null;
+            /**
+             * @description `OPEN` mientras se cuenta; `APPLIED` o `CANCELLED` ya no cambia.
+             * @enum {string}
+             */
+            status: "OPEN" | "APPLIED" | "CANCELLED";
+            /**
+             * @description Versión para revisarla, aplicarla o cancelarla (bloqueo optimista).
+             * @example 3
+             */
+            version: number;
+            /** Format: uuid */
+            warehouseId: string;
+        };
+        CountVersionDto: {
+            /** @description Versión leída de la hoja (bloqueo optimista). */
+            version: number;
+        };
         CreateAddressDto: {
             /**
              * @description Ciudad o localidad, de 1 a 120 caracteres; opcional.
@@ -4424,6 +4854,35 @@ export interface components {
              */
             slug?: string;
         };
+        CreateCountDto: {
+            /**
+             * Format: uuid
+             * @description Los productos que están directamente en esta categoría.
+             */
+            categoryId?: string;
+            /**
+             * @description Los productos de esta clase; `C` incluye a los que no tienen clase.
+             * @enum {string}
+             */
+            countClass?: "A" | "B" | "C";
+            /**
+             * @description Una ubicación, o con `*` al final las que empiezan así; sin importar mayúsculas.
+             * @example A*
+             */
+            location?: string;
+            /**
+             * @description Hasta 500 caracteres.
+             * @example Conteo semanal clase A
+             */
+            note?: string | null;
+            /** @description Exactamente estas variantes, de 1 a 1,000, cada una una vez; sin otro filtro. */
+            variantIds?: string[];
+            /**
+             * Format: uuid
+             * @description El almacén que se cuenta, en cualquier estado.
+             */
+            warehouseId: string;
+        };
         CreateProductDto: {
             /**
              * Format: uuid
@@ -4432,6 +4891,11 @@ export interface components {
             brandId?: string | null;
             /** @description Categorías activas, hasta 10. */
             categoryIds?: string[];
+            /**
+             * @description Cada cuándo se cuenta (ADR-0173); sin ella, o con `null`, el producto queda sin clase y se cuenta como `C`.
+             * @enum {string|null}
+             */
+            countClass?: "A" | "B" | "C" | null;
             /** @description Hasta 10,000 caracteres; opcional. */
             description?: string | null;
             /**
@@ -4511,7 +4975,7 @@ export interface components {
              *       "orders.read"
              *     ]
              */
-            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "inventory.transfer" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "orders.open-price" | "cash-closings.read" | "cash-closings.manage" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
+            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "inventory.transfer" | "inventory.count" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "orders.open-price" | "cash-closings.read" | "cash-closings.manage" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
         };
         CreateStaffDto: {
             /**
@@ -5791,7 +6255,7 @@ export interface components {
              * @example /problems/not-found
              * @enum {string}
              */
-            type: "/problems/validation-error" | "/problems/password-policy-violation" | "/problems/invalid-or-expired-token" | "/problems/idempotency-key-missing" | "/problems/unauthenticated" | "/problems/invalid-credentials" | "/problems/invalid-refresh-token" | "/problems/invalid-webhook-signature" | "/problems/forbidden" | "/problems/email-not-verified" | "/problems/staff-cannot-purchase" | "/problems/password-change-required" | "/problems/manual-payments-disabled" | "/problems/not-found" | "/problems/version-conflict" | "/problems/total-mismatch" | "/problems/insufficient-stock" | "/problems/variant-not-sellable" | "/problems/invalid-state-transition" | "/problems/duplicate-value" | "/problems/resource-in-use" | "/problems/price-period-conflict" | "/problems/idempotency-request-in-progress" | "/problems/cart-not-active" | "/problems/cart-line-limit-reached" | "/problems/image-limit-reached" | "/problems/address-limit-reached" | "/problems/last-superadmin" | "/problems/restock-not-allowed" | "/problems/active-orders-exist" | "/problems/field-locked" | "/problems/empty-cart" | "/problems/source-cart-unavailable" | "/problems/sale-not-linkable" | "/problems/coupon-not-applicable" | "/problems/idempotency-key-mismatch" | "/problems/payload-too-large" | "/problems/unsupported-media-type" | "/problems/rate-limit-exceeded" | "/problems/internal-error" | "/problems/ai-unavailable";
+            type: "/problems/validation-error" | "/problems/password-policy-violation" | "/problems/invalid-or-expired-token" | "/problems/idempotency-key-missing" | "/problems/unauthenticated" | "/problems/invalid-credentials" | "/problems/invalid-refresh-token" | "/problems/invalid-webhook-signature" | "/problems/forbidden" | "/problems/email-not-verified" | "/problems/staff-cannot-purchase" | "/problems/password-change-required" | "/problems/manual-payments-disabled" | "/problems/not-found" | "/problems/version-conflict" | "/problems/total-mismatch" | "/problems/insufficient-stock" | "/problems/variant-not-sellable" | "/problems/invalid-state-transition" | "/problems/duplicate-value" | "/problems/resource-in-use" | "/problems/price-period-conflict" | "/problems/idempotency-request-in-progress" | "/problems/cart-not-active" | "/problems/cart-line-limit-reached" | "/problems/image-limit-reached" | "/problems/address-limit-reached" | "/problems/last-superadmin" | "/problems/restock-not-allowed" | "/problems/active-orders-exist" | "/problems/field-locked" | "/problems/empty-cart" | "/problems/source-cart-unavailable" | "/problems/sale-not-linkable" | "/problems/coupon-not-applicable" | "/problems/variant-in-open-count" | "/problems/idempotency-key-mismatch" | "/problems/payload-too-large" | "/problems/unsupported-media-type" | "/problems/rate-limit-exceeded" | "/problems/internal-error" | "/problems/ai-unavailable";
         };
         ProductDetailDto: {
             /** @description Alguna variante vendible está disponible (ADR-0061). */
@@ -6353,7 +6817,7 @@ export interface components {
              *       "orders.read"
              *     ]
              */
-            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "inventory.transfer" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "orders.open-price" | "cash-closings.read" | "cash-closings.manage" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
+            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "inventory.transfer" | "inventory.count" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "orders.open-price" | "cash-closings.read" | "cash-closings.manage" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
             /** Format: date-time */
             updatedAt: string;
             /** @description Staff con este rol. */
@@ -6646,6 +7110,11 @@ export interface components {
             /** Format: uuid */
             id: string;
             /**
+             * @description Dónde está en el almacén, en mayúsculas (ADR-0173); `null` sin ubicación.
+             * @example A1
+             */
+            location: string | null;
+            /**
              * @description Unidades físicas en el almacén.
              * @example 25
              */
@@ -6670,12 +7139,34 @@ export interface components {
             data: components["schemas"]["StockItemDto"][];
             meta: components["schemas"]["PageMetaDto"];
         };
+        StockLocationDto: {
+            /**
+             * @description De 1 a 20 caracteres; se guarda sin espacios de sobra y en mayúsculas. `null` la quita.
+             * @example vitrina 1
+             */
+            location: string | null;
+            /**
+             * Format: uuid
+             * @description La variante, en cualquier estado.
+             */
+            variantId: string;
+            /**
+             * Format: uuid
+             * @description Cualquier almacén, también uno inactivo.
+             */
+            warehouseId: string;
+        };
         StockMovementDto: {
             /**
              * Format: uuid
              * @description Staff que lo registró; `null` si fue el sistema.
              */
             actorId: string | null;
+            /**
+             * Format: uuid
+             * @description La hoja de conteo de un ajuste `PHYSICAL_COUNT` que la aplicó (ADR-0173); `null` en los demás.
+             */
+            countId: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: uuid */
@@ -6980,6 +7471,11 @@ export interface components {
             brandId?: string | null;
             /** @description Reemplaza las categorías, hasta 10. Las nuevas deben estar activas; las que ya tenía se conservan aunque se hayan desactivado. */
             categoryIds?: string[];
+            /**
+             * @description Cada cuándo se cuenta (ADR-0173); `null` la quita.
+             * @enum {string|null}
+             */
+            countClass?: "A" | "B" | "C" | null;
             /** @description Hasta 10,000 caracteres; `null` la quita. */
             description?: string | null;
             /**
@@ -7035,7 +7531,7 @@ export interface components {
             /** @description Nombre único, de 1 a 50 caracteres. */
             name?: string;
             /** @description Reemplaza el conjunto. El rol superadministrador no cambia sus permisos. */
-            permissions?: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "inventory.transfer" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "orders.open-price" | "cash-closings.read" | "cash-closings.manage" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
+            permissions?: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "inventory.transfer" | "inventory.count" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "orders.open-price" | "cash-closings.read" | "cash-closings.manage" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
             /** @description Versión leída (bloqueo optimista). */
             version: number;
         };
@@ -8767,6 +9263,83 @@ export interface operations {
             };
         };
     };
+    AdminCountClassesController_set_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CountClassesDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountClassesResultDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     AdminProductImportsController_import_v1: {
         parameters: {
             query?: {
@@ -8872,6 +9445,10 @@ export interface operations {
                 storeOnly?: boolean;
                 /** @description `true`: solo los productos de precio libre (ADR-0171); `false`: solo los de precio de lista. */
                 openPrice?: boolean;
+                /** @description Solo los productos de esta clase de conteo (ADR-0173). */
+                countClass?: "A" | "B" | "C";
+                /** @description `true`: solo los productos con clase de conteo; `false`: solo los que no tienen (ADR-0173). */
+                hasCountClass?: boolean;
                 /** @description Parte del título, de un SKU o de un GTIN, sin distinguir mayúsculas. */
                 q?: string;
                 /** @description Solo los productos de esta marca. */
@@ -12133,6 +12710,694 @@ export interface operations {
             };
         };
     };
+    AdminCountsController_list_v1: {
+        parameters: {
+            query?: {
+                /** @description Página, de 1 a 1,000,000. */
+                page?: number;
+                /** @description Resultados por página, de 1 a 100. */
+                pageSize?: number;
+                /** @description Las hojas en este estado. */
+                status?: "OPEN" | "APPLIED" | "CANCELLED";
+                /** @description Las hojas de este almacén. */
+                warehouseId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountListDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminCountsController_open_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCountDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `variant-in-open-count`: Variante en otra hoja de conteo */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminCountsController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID de la hoja de conteo. */
+                countId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminCountsController_apply_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Llave de idempotencia de 1 a 255 caracteres; se recomienda un UUID (API_SPEC.md, sección 4). */
+                "Idempotency-Key": string;
+            };
+            path: {
+                /** @description ID de la hoja de conteo. */
+                countId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CountVersionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountDto"];
+                };
+            };
+            /** @description `idempotency-key-missing`: Falta la llave de idempotencia; `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /**
+             * @description `idempotency-request-in-progress`: Solicitud en proceso
+             *
+             *     `version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `idempotency-key-mismatch`: Llave de idempotencia reutilizada */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminCountsController_cancel_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID de la hoja de conteo. */
+                countId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CountVersionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminCountsController_capture_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID de la hoja de conteo. */
+                countId: string;
+                /** @description ID de la variante. */
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CountLineInputDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountLineDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `invalid-state-transition`: Acción no permitida en el estado actual; `variant-in-open-count`: Variante en otra hoja de conteo */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminCountsController_recount_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID de la hoja de conteo. */
+                countId: string;
+                /** @description ID de la variante. */
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CountVersionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminStockController_setLocation_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StockLocationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockItemDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     AdminReceiptImportsController_import_v1: {
         parameters: {
             query?: {
@@ -12309,6 +13574,8 @@ export interface operations {
                 page?: number;
                 /** @description Resultados por página, de 1 a 100. */
                 pageSize?: number;
+                /** @description `true`, solo las existencias con ubicación; `false`, solo las que no tienen. */
+                hasLocation?: boolean;
                 /** @description Solo las existencias de esta variante. */
                 variantId?: string;
                 /** @description SKU exacto, sin distinguir mayúsculas; un SKU tiene a lo sumo 64 caracteres. */
@@ -12319,6 +13586,11 @@ export interface operations {
                 q?: string;
                 /** @description A lo sumo esta cantidad disponible, para detectar existencias bajas. */
                 availableMax?: number;
+                /**
+                 * @description Ubicación exacta, sin distinguir mayúsculas, o con `*` al final las que empiezan así (ADR-0173); hasta 20
+                 *     caracteres antes del `*`.
+                 */
+                location?: string;
                 /** @description `sku`, `available` o `updatedAt`, con `-` para orden descendente; por defecto `sku`. */
                 sort?: string;
             };
@@ -13388,6 +14660,70 @@ export interface operations {
             };
             /** @description `idempotency-key-mismatch`: Llave de idempotencia reutilizada */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminOrdersController_countClassSuggestions_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountClassSuggestionListDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -43,8 +43,14 @@ export interface ProductListParams {
   brandId?: string
   categoryId?: string
   storeOnly?: string
+  countClass?: string
+  hasCountClass?: string
   sort?: string
 }
 
 /** Carga masiva de productos (API_SPEC §11.11, ADR-0164). */
 export type ProductImportSummary = Schemas['ProductImportSummaryDto']
+
+/** La clase de conteo de varios productos a la vez (`PUT /v1/admin/catalog/count-classes`). */
+export type CountClassItem = Schemas['CountClassItemDto']
+export type CountClassesResult = Schemas['CountClassesResultDto']

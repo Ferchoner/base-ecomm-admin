@@ -40,6 +40,8 @@ export const productSchema = z.object({
   brandId: z.string().nullable(),
   categoryIds: z.array(z.string()).max(10, 'Hasta 10 categorías.'),
   storeOnly: z.boolean(),
+  /** Cada cuánto se cuenta (ADR-0173 de base-shop); sin clase cuenta como C. */
+  countClass: z.enum(['A', 'B', 'C']).nullable().default(null),
 })
 export type ProductForm = z.input<typeof productSchema>
 

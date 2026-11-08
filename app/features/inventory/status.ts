@@ -1,6 +1,9 @@
 import type { StatusStyle } from '~/components/StatusBadge.vue'
 import type {
   AdjustmentReason,
+  CountFilter,
+  CountOutcome,
+  CountStatus,
   MovementType,
   StockMovement,
   Transfer,
@@ -112,3 +115,73 @@ export const STOCK_SORT_OPTIONS = [
   { value: '-available', label: 'Más disponibles primero' },
   { value: '-updatedAt', label: 'Movidos recientemente' },
 ]
+
+/** Estado de una hoja de conteo (ADR-0173). */
+export const COUNT_STATUS: Record<CountStatus, StatusStyle> = {
+  OPEN: { label: 'Abierta', color: 'info' },
+  APPLIED: { label: 'Aplicada', color: 'success' },
+  CANCELLED: { label: 'Cancelada', color: 'neutral' },
+}
+
+/** Lo que hizo aplicar la hoja con cada línea. */
+export const COUNT_OUTCOME: Record<CountOutcome, StatusStyle> = {
+  ADJUSTED: { label: 'Ajustada', color: 'warning' },
+  NO_DIFFERENCE: { label: 'Sin diferencia', color: 'success' },
+  NOT_COUNTED: { label: 'Sin contar', color: 'neutral' },
+  SKIPPED_RESERVED: { label: 'No aplicada: apartadas', color: 'error' },
+}
+
+/** Clases para contar (ADR-0173): A cada semana, B cada mes, C cada trimestre; sin clase cuenta como C. */
+export { COUNT_CLASS_OPTIONS } from '~/shared/status/count-class'
+
+/** Con qué se abrió una hoja, en palabras. */
+export function countFilterLabel(
+  filter: CountFilter,
+  categoryName: (id: string) => string = (id) => id,
+): string {
+  if (filter.variantIds)
+    return `${filter.variantIds.length} ${filter.variantIds.length === 1 ? 'variante elegida' : 'variantes elegidas'}`
+  return [
+    filter.location &&
+      (filter.location.endsWith('*')
+        ? `Ubicaciones ${filter.location.slice(0, -1)}…`
+        : `Ubicación ${filter.location}`),
+    filter.categoryId && `Categoría ${categoryName(filter.categoryId)}`,
+    filter.countClass && `Clase ${filter.countClass}`,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+/** La ubicación como la guarda la API (ADR-0173): sin espacios de sobra y en mayúsculas. */
+export function normalizeLocation(text: string): string {
+  return text.trim().replace(/\s+/g, ' ').toUpperCase()
+}
+
+/** Parte una lista en grupos de `size`, como las hojas carta de etiquetas. */
+export function chunkList<T>(list: readonly T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size))
+  return out
+}
+
+/**
+ * Las ubicaciones para etiquetas de estante, una por renglón o separadas por comas: normalizadas,
+ * sin repetir ni vacías, de 1 a 20 caracteres, y en orden.
+ */
+export function parseLocations(text: string): { valid: string[]; invalid: string[] } {
+  const all = [
+    ...new Set(
+      text
+        .split(/[\n,]/)
+        .map(normalizeLocation)
+        .filter((l) => l !== ''),
+    ),
+  ]
+  return {
+    valid: all
+      .filter((l) => l.length <= 20)
+      .sort((a, b) => a.localeCompare(b, 'es', { numeric: true })),
+    invalid: all.filter((l) => l.length > 20),
+  }
+}

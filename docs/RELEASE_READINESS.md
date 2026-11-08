@@ -37,7 +37,6 @@ No se declara production-ready: no hay evidencia de un ambiente publicado con HT
 | Probar el lector y la impresora térmica reales en la tienda                                         | RECOMMENDED              | Usuario              | G-25, G-26                   |
 | Fijar `NUXT_PUBLIC_PRIVACY_NOTICE_VERSION` para vender a invitados                                  | REQUIRED para invitados  | Usuario              | G-19, DEPLOYMENT.md          |
 | Exponer la versión vigente del aviso de privacidad                                                  | RECOMMENDED              | Backend              | G-19                         |
-| Transferencia atómica entre almacenes                                                               | OPTIONAL                 | Backend              | G-20                         |
 | Margen de gracia para el refresh token recién rotado                                                | RECOMMENDED              | Backend              | G-18, FTR-16                 |
 | Cantidades ya reintegradas por línea en `AdminOrder`                                                | OPTIONAL                 | Backend              | G-17                         |
 | Definir hosting, dominios, URLs de la API y pipeline de despliegue                                  | REQUIRED para producción | Usuario              | G-07, DEPLOYMENT.md          |
@@ -57,6 +56,6 @@ No se declara production-ready: no hay evidencia de un ambiente publicado con HT
 | -------------------------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | Renovación interrumpida por recargar o cerrar la pestaña | La sesión se revoca y todas las pestañas vuelven al login | Ventana de milisegundos con el TTL por defecto; G-18 pide un margen de gracia al backend |
 | Pago manual apagado                                      | No se puede registrar el cobro en tienda                  | "Registrar pago" avisa antes de abrir; un superadministrador lo activa en Pago en tienda |
-| Transferencia a medias entre almacenes                   | Unidades que salieron del origen sin entrar al destino    | El diálogo lo explica y ofrece repetir solo la entrada (G-20)                            |
+| Préstamo para mostrar sin cerrar                         | Existencias de cada local que no cuadran                  | Inicio cuenta los vencidos y el corte avisa de los abiertos (D-102)                      |
 | XSS en un ambiente sin CSP                               | Robo del refresh token                                    | Sin `v-html`, sin terceros; CSP pendiente del hosting                                    |
 | Vulnerabilidades en herramientas de build                | Máquinas de desarrollo o CI                               | No llegan al bundle; revisión por release                                                |

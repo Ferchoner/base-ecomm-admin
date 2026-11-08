@@ -37,6 +37,7 @@ Todas las pantallas con datos tienen estados de carga (skeleton), vacío, error 
 | Precios     | `/precios`              | `ProductPicker` (catálogo), `VariantPriceSlideover`, `PriceImportCard`    | Buscar producto y ver el precio vigente por variante; por variante: precio desde ahora o programado, precio "antes", historial, cancelar programados; importación CSV con "Revisar archivo" antes de "Importar" y errores por línea. Sin `catalog.read`, solo CSV (G-12) | pricing-inventory |
 | Existencias | `/inventario/stock`     | `InventoryTabs`, `StockEntryModal`, `MovementsSlideover`, `ProductPicker` | Búsqueda, "Disponibles hasta N", atajo "Stock bajo (≤ N)" con el umbral del usuario, orden; entrada y ajuste con vista previa; movimientos por cursor; movimiento de una variante sin existencias                                                                        | pricing-inventory |
 | Almacenes   | `/inventario/almacenes` | `InventoryTabs`, `WarehouseFormModal`                                     | Lista por prioridad; crear, editar (nombre, prioridad, dirección del INEGI) y desactivar para siempre                                                                                                                                                                    | pricing-inventory |
+| Traslados   | `/inventario/traslados` | `InventoryTabs`, `CloseLoanModal`                                         | Préstamos abiertos al abrir; vencidos, todos, solo traslados y todos los préstamos; filtro por almacén y estado; cancelar en 10 minutos y cerrar el préstamo con lo que regresó. Se registran desde Existencias (`TransferStockModal`)                                   | pricing-inventory |
 
 ## Ventas
 
@@ -94,3 +95,13 @@ En Vender en tienda, Productos, Pedidos y "Registrar movimiento" el lector de c�
 | Corte de caja    | `/caja`          | `CashDayFigures`, `CloseCashForm`, `CashClosingCard` | Local y día; ventas, cobrado, reembolsado y efectivo esperado; por método y por quien registró; artículos a precio libre; cerrar con lo contado, la diferencia y la nota; lo que llegó después del cierre; cierres anteriores |
 | Mi cuenta        | `/cuenta`        | `DeviceWarehouseCard`                                | Local de este equipo, con confirmación al cambiarlo                                                                                                                                                                           |
 | Vender en tienda | `/pedidos/nuevo` | `StoreOrderForm`                                     | Empieza en el local del equipo y avisa si se vende desde otro; "Artículo sin registrar" con precio y qué se vendió                                                                                                            |
+
+## API 1.11: traslados entre locales (2026-11-08)
+
+| Pantalla         | Ruta                    | Componentes                    | Qué hace                                                                                                            |
+| ---------------- | ----------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| Existencias      | `/inventario/stock`     | `TransferStockModal`           | "Trasladar a otro almacén" y "Prestar para mostrar" en cada existencia con unidades disponibles (D-100)             |
+| Traslados        | `/inventario/traslados` | `CloseLoanModal`               | Préstamos abiertos, vencidos y traslados; cancelar en 10 minutos; cerrar el préstamo (D-100)                        |
+| Vender en tienda | `/pedidos/nuevo`        | `BringStockFromOtherWarehouse` | "Traer N de Local 206" en una línea que no alcanza aquí; escanear lo que aquí no hay lo agrega para traerlo (D-101) |
+| Corte de caja    | `/caja`                 | —                              | Aviso de préstamos abiertos del local, sin impedir el cierre (D-102)                                                |
+| Inicio           | `/`                     | `CountCard`                    | Conteo de préstamos vencidos (D-102)                                                                                |

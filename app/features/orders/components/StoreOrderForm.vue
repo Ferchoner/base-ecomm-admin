@@ -32,6 +32,7 @@ import {
   toStaffOrderLine,
 } from '../schemas'
 import { couponProblemMessage } from '../status'
+import BringStockFromOtherWarehouse from './BringStockFromOtherWarehouse.vue'
 import type { StoreOrderForm } from '../schemas'
 import type { BuyerCustomer, OpenPriceVariant, SellableStock, StaffQuoteInput } from '../types'
 
@@ -57,6 +58,8 @@ const canSearchCustomers = computed(() => session.can('customers.read'))
 const canScan = computed(() => canSearchStock.value && session.can('catalog.read'))
 /** Vender lo que aún no está en el catálogo (ADR-0171 de base-shop, D-098). */
 const canOpenPrice = computed(() => session.can('orders.open-price'))
+/** Traer de otro local lo que aquí no alcanza (`inventory.transfer`, ADR-0172 de base-shop). */
+const canBring = computed(() => canSearchStock.value && session.can('inventory.transfer'))
 /** Versión del aviso de privacidad para invitados (GAPS G-19); vacía, no se aceptan invitados. */
 const privacyNoticeVersion = String(useRuntimeConfig().public.privacyNoticeVersion ?? '').trim()
 
@@ -94,6 +97,9 @@ watch(
     if (!state.warehouseId) state.warehouseId = device.initial(list.map((w) => w.id))
   },
   { immediate: true },
+)
+const warehouseNames = computed(() =>
+  Object.fromEntries((warehouses.data.value ?? []).map((w) => [w.id, w.name])),
 )
 const deviceWarehouseName = computed(() => {
   const w = activeWarehouses.value.find((x) => x.id === device.warehouseId.value)
@@ -163,15 +169,21 @@ const scan = useVariantScan({
     const item = await stockInWarehouse(v.id, state.warehouseId).catch(() => undefined)
     if (item === undefined)
       return { tone: 'error', text: 'No se pudo consultar la existencia. Intenta de nuevo.' }
-    if (item === null || item.available <= 0)
+    const none = item === null || item.available <= 0
+    if (none && !canBring.value)
       return { tone: 'warning', text: `No hay existencias de ${v.sku} en este almacén.` }
     const existing = state.lines.find((l) => l.variantId === v.id)
     if (existing && (existing.quantity ?? 0) >= MAX_UNITS)
       return { tone: 'warning', text: `${v.sku} ya tiene el máximo de ${MAX_UNITS} unidades.` }
     if (!existing && state.lines.length >= MAX_LINES)
       return { tone: 'warning', text: `La venta ya tiene ${MAX_LINES} productos.` }
-    addLine(item)
+    addLine(item ?? { variantId: v.id, sku: v.sku, productTitle: v.product.title })
     const quantity = state.lines.find((l) => l.variantId === v.id)?.quantity ?? 1
+    if (none)
+      return {
+        tone: 'warning',
+        text: `No hay ${v.sku} en este almacén: tráelo de otro local desde la línea.`,
+      }
     return {
       tone: 'success',
       text: `${v.sku} · ${v.product.title}: ${quantity} ${quantity === 1 ? 'unidad' : 'unidades'}.`,
@@ -547,6 +559,19 @@ async function onSubmit(event: FormSubmitEvent<StoreOrderForm>) {
                   >
                     No alcanza en este almacén junto con lo demás.
                   </p>
+                  <BringStockFromOtherWarehouse
+                    v-if="
+                      canBring &&
+                      !line.openPrice &&
+                      quoteLine(line.variantId)?.sellable &&
+                      !quoteLine(line.variantId)!.canFulfill
+                    "
+                    :variant-id="line.variantId"
+                    :sku="line.sku"
+                    :quantity="line.quantity ?? 1"
+                    :warehouse-id="state.warehouseId"
+                    :warehouse-names="warehouseNames"
+                  />
                   <div v-if="line.openPrice" class="mt-2 grid gap-2 sm:grid-cols-3">
                     <UFormField :name="`lines.${i}.unitPrice`" label="Precio con IVA" required>
                       <UInput

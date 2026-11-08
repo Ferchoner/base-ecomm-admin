@@ -168,3 +168,16 @@ Se listan solo las operaciones que usa el backoffice (96 de 133). Las rutas de t
 | §15.9    | `GET /v1/admin/cash-closings/{closingId}`       | —                                                       | `useCashClosing` (sin pantalla propia)                                              | DONE (consulta)         |
 
 Pruebas: `tests/unit/shared/device-warehouse.spec.ts`, `tests/unit/sales/sales.spec.ts`, `tests/unit/shared/utils.spec.ts`, `tests/e2e/cash-closings.spec.ts` y `tests/e2e/sales.spec.ts`.
+
+## API 1.11 (contrato de `main` de base-shop, `a57d27c`, 2026-11-08)
+
+| API_SPEC | Caso de uso                                               | Pantalla                         | Código                                                                                             | Estado                         |
+| -------- | --------------------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------ |
+| §13      | UC-INV-13 `POST /v1/admin/inventory/transfers` (traslado) | Existencias, Vender en tienda    | `TransferStockModal.vue`, `useCreateTransfer`, `BringStockFromOtherWarehouse.vue`, `useBringStock` | DONE                           |
+| §13      | UC-INV-15 `POST /v1/admin/inventory/transfers` (préstamo) | Existencias                      | `TransferStockModal.vue`                                                                           | DONE                           |
+| §13      | `GET /v1/admin/inventory/transfers`                       | Traslados, Corte de caja, Inicio | `useTransfers`, `pages/inventario/traslados.vue`                                                   | DONE                           |
+| §13      | UC-INV-14 `POST …/transfers/{transferId}/cancel`          | Traslados                        | `useCancelTransfer`                                                                                | DONE                           |
+| §13      | UC-INV-16 `POST …/transfers/{transferId}/close`           | Traslados                        | `CloseLoanModal.vue`, `useCloseLoan`                                                               | DONE                           |
+| §13      | `GET …/transfers/{transferId}`                            | —                                | —                                                                                                  | NOT_PLANNED (el listado basta) |
+
+Pruebas: `tests/unit/inventory/inventory.spec.ts`, `tests/e2e/pricing-inventory.spec.ts`, `tests/e2e/sales.spec.ts`, `tests/e2e/cash-closings.spec.ts` y `tests/e2e/a11y.spec.ts`.

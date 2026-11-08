@@ -22,6 +22,7 @@ definePageMeta({ title: 'Inventario', permission: 'inventory.read' })
 
 const session = useSessionStore()
 const canWrite = computed(() => session.can('inventory.write'))
+const canTransfer = computed(() => session.can('inventory.transfer'))
 const canBrowseCatalog = computed(() => session.can('catalog.read'))
 const list = useListParams({ filters: ['q', 'warehouseId', 'availableMax', 'sort'] })
 const filters = list.filters
@@ -93,8 +94,10 @@ function openEntry(item: StockItem, mode: 'receipt' | 'adjustment') {
 
 const transferOpen = ref(false)
 const transferItem = ref<StockItem | null>(null)
-function openTransfer(item: StockItem) {
+const transferKind = ref<'TRANSFER' | 'LOAN'>('TRANSFER')
+function openTransfer(item: StockItem, kind: 'TRANSFER' | 'LOAN') {
   transferItem.value = item
+  transferKind.value = kind
   transferOpen.value = true
 }
 
@@ -200,12 +203,19 @@ function rowActions(item: StockItem): DropdownMenuItem[] {
           },
         ]
       : []),
-    ...(canWrite.value && activeWarehouses.value.some((w) => w.id !== item.warehouseId)
+    ...(canTransfer.value &&
+    item.available > 0 &&
+    activeWarehouses.value.some((w) => w.id !== item.warehouseId)
       ? [
           {
-            label: 'Transferir a otro almacén',
+            label: 'Trasladar a otro almacén',
             icon: 'i-lucide-arrow-right-left',
-            onSelect: () => openTransfer(item),
+            onSelect: () => openTransfer(item, 'TRANSFER'),
+          },
+          {
+            label: 'Prestar para mostrar',
+            icon: 'i-lucide-hand-helping',
+            onSelect: () => openTransfer(item, 'LOAN'),
           },
         ]
       : []),
@@ -450,6 +460,7 @@ function clearFilters() {
       v-if="transferItem"
       v-model:open="transferOpen"
       :item="transferItem"
+      :kind="transferKind"
       :from-name="warehouseName(transferItem.warehouseId)"
       :destinations="activeWarehouses.filter((w) => w.id !== transferItem?.warehouseId)"
     />

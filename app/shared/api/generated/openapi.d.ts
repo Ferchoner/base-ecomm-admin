@@ -1032,6 +1032,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/inventory/transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar los traslados
+         * @description Del más reciente al más antiguo, con sus líneas. Por tipo, almacén, de origen o de destino, variante, motivo, estado, fechas y préstamos vencidos (`overdue`).
+         */
+        get: operations["AdminTransfersController_list_v1"];
+        put?: never;
+        /**
+         * Trasladar o prestar existencias a otro almacén
+         * @description ADR-0172. Exige `Idempotency-Key`. Con `kind: LOAN` es un préstamo para mostrar (T-164): folio `P-`, motivo `SHOW` y `returnBy` de 5 minutos a 24 horas después (400 `loanRange`); queda `OPEN` hasta que se cierra. Un motivo que no va con el tipo es 400 `reasonKind`, y `returnBy` en un traslado, 400 `isEmpty`. Cada línea sale del origen y entra al destino en una sola transacción, o no pasa nada; el historial de existencias de los dos almacenes la registra como `TRANSFER`. Solo se trasladan unidades disponibles (`onHand − reserved`): si alguna línea no alcanza, 409 `insufficient-stock` con esas líneas. El destino debe ser un almacén activo y distinto del origen (400 `differentWarehouse` en `toWarehouseId`); el origen, cualquiera. Una variante va una vez por traslado (400 `duplicateVariant`). Un almacén o una variante que no existe, o un destino inactivo, es 404. Se audita como `inventory.transfer`.
+         */
+        post: operations["AdminTransfersController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/inventory/transfers/{transferId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar un traslado
+         * @description Con sus líneas y hasta cuándo se puede cancelar.
+         */
+        get: operations["AdminTransfersController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/inventory/transfers/{transferId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancelar un traslado
+         * @description ADR-0172. Un traslado, o un préstamo abierto, solo en los 10 minutos que siguen a su registro (`cancellableUntil`); después, si ya se canceló, si es un préstamo cerrado o el regreso de uno, 409 `invalid-state-transition`, con `reason: cancel-window-passed` en el primer caso. Regresa las unidades al origen con movimientos `TRANSFER` contrarios, porque el historial de existencias nunca se borra. Si el destino ya no tiene esas unidades disponibles, 409 `insufficient-stock`. Exige la `version` leída. Se audita como `inventory.transfer-cancel`.
+         */
+        post: operations["AdminTransfersController_cancel_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/inventory/transfers/{transferId}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cerrar un préstamo
+         * @description T-164, ADR-0172. Con la `version` leída y lo que regresó de cada línea del préstamo, todas una vez (400 `loanLines`), de 0 a lo prestado (400 `range` en `lines[i].returned`). Lo que regresó vuelve al origen con un traslado `LOAN_RETURN` ligado al préstamo (`returnTransferId`), que no se cancela, aunque el origen esté inactivo; lo demás se queda en el destino. Si el destino ya no tiene esas unidades disponibles, 409 `insufficient-stock`. Un préstamo que no está abierto, o un traslado, es 409 `invalid-state-transition`. Se audita como `inventory.loan-close`.
+         */
+        post: operations["AdminTransfersController_close_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/inventory/warehouses": {
         parameters: {
             query?: never;
@@ -2736,7 +2820,7 @@ export interface components {
             /** @description Staff con contraseña temporal, que solo puede cambiarla. */
             mustChangePassword: boolean;
             /** @description Permisos de los roles del staff; vacío en un cliente. */
-            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "orders.open-price" | "cash-closings.read" | "cash-closings.manage" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
+            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "inventory.transfer" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "orders.open-price" | "cash-closings.read" | "cash-closings.manage" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
             /** @description Roles del staff; vacío en un cliente. */
             roles: components["schemas"]["StaffRoleDto"][];
             /**
@@ -3894,6 +3978,10 @@ export interface components {
             /** @description Versión leída (bloqueo optimista). */
             version: number;
         };
+        CancelTransferDto: {
+            /** @description Versión leída del traslado (bloqueo optimista). */
+            version: number;
+        };
         CartDto: {
             /**
              * Format: uuid
@@ -4230,6 +4318,12 @@ export interface components {
              */
             warehouseId: string;
         };
+        CloseLoanDto: {
+            /** @description Cada línea del préstamo, una vez, con lo que regresó. */
+            lines: components["schemas"]["ReturnedLineInputDto"][];
+            /** @description Versión leída del préstamo (bloqueo optimista). */
+            version: number;
+        };
         ConfirmEmailDto: {
             /**
              * @description El token del parámetro `token` del enlace: 43 caracteres en base64url.
@@ -4417,7 +4511,7 @@ export interface components {
              *       "orders.read"
              *     ]
              */
-            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "orders.open-price" | "cash-closings.read" | "cash-closings.manage" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
+            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "inventory.transfer" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "orders.open-price" | "cash-closings.read" | "cash-closings.manage" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
         };
         CreateStaffDto: {
             /**
@@ -4438,6 +4532,42 @@ export interface components {
             lastNames: string;
             /** @description De 1 a 50 roles. */
             roleIds: string[];
+        };
+        CreateTransferDto: {
+            /**
+             * Format: uuid
+             * @description El almacén de donde salen las unidades, en cualquier estado.
+             */
+            fromWarehouseId: string;
+            /**
+             * @description `TRANSFER`, un traslado definitivo, o `LOAN`, un préstamo para mostrar, con `returnBy` (T-164).
+             * @default TRANSFER
+             * @enum {string}
+             */
+            kind: "TRANSFER" | "LOAN";
+            /** @description De 1 a 100 líneas, cada variante una vez. */
+            lines: components["schemas"]["TransferLineInputDto"][];
+            /**
+             * @description Hasta 500 caracteres; obligatoria con `OTHER`.
+             * @example Para enseñarlo a un cliente
+             */
+            note?: string | null;
+            /**
+             * @description En un traslado, `SALE` para venderlo en el destino, `RESTOCK` para surtirlo u `OTHER` con `note` obligatoria; en un préstamo, `SHOW`.
+             * @enum {string}
+             */
+            reason: "SALE" | "RESTOCK" | "OTHER" | "SHOW";
+            /**
+             * Format: date-time
+             * @description Solo en un préstamo, y obligatoria: cuándo debe regresar, de 5 minutos a 24 horas después de registrarlo.
+             * @example 2026-11-08T19:00:00.000Z
+             */
+            returnBy?: string;
+            /**
+             * Format: uuid
+             * @description El almacén al que llegan: activo y distinto del origen.
+             */
+            toWarehouseId: string;
         };
         CreateVariantDto: {
             /**
@@ -6193,6 +6323,18 @@ export interface components {
             /** @description Versión leída (bloqueo optimista). */
             version: number;
         };
+        ReturnedLineInputDto: {
+            /**
+             * @description Unidades que regresaron, de 0 a las prestadas.
+             * @example 1
+             */
+            returned: number;
+            /**
+             * Format: uuid
+             * @description Una línea del préstamo, una vez.
+             */
+            variantId: string;
+        };
         RoleDto: {
             /** Format: date-time */
             createdAt: string;
@@ -6211,7 +6353,7 @@ export interface components {
              *       "orders.read"
              *     ]
              */
-            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "orders.open-price" | "cash-closings.read" | "cash-closings.manage" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
+            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "inventory.transfer" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "orders.open-price" | "cash-closings.read" | "cash-closings.manage" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
             /** Format: date-time */
             updatedAt: string;
             /** @description Staff con este rol. */
@@ -6566,10 +6708,15 @@ export interface components {
              */
             reasonCode: "PHYSICAL_COUNT" | "DAMAGED" | "LOSS_OR_THEFT" | "INTERNAL_USE" | "DATA_ENTRY_ERROR" | "OTHER" | "WAREHOUSE_TRANSFER" | "ORDER_CANCELLED" | "SHIPMENT_RETURNED" | null;
             /**
-             * @description `RECEIPT`, `ADJUSTMENT`, `SALE` o `RESTOCK`.
+             * Format: uuid
+             * @description El traslado de un movimiento `TRANSFER` (ADR-0172); `null` en los demás.
+             */
+            transferId: string | null;
+            /**
+             * @description `RECEIPT`, `ADJUSTMENT`, `SALE`, `RESTOCK` o `TRANSFER`, uno de los lados de un traslado (ADR-0172).
              * @enum {string}
              */
-            type: "RECEIPT" | "ADJUSTMENT" | "SALE" | "RESTOCK";
+            type: "RECEIPT" | "ADJUSTMENT" | "SALE" | "RESTOCK" | "TRANSFER";
         };
         StockMovementListDto: {
             /** @description Del más reciente al más antiguo. */
@@ -6643,6 +6790,112 @@ export interface components {
             price: components["schemas"]["MoneyDto"];
             /** @example CAM-LIN-AZ-M */
             sku: string;
+        };
+        TransferDto: {
+            /**
+             * Format: date-time
+             * @description Hasta cuándo se puede cancelar: 10 minutos después de registrarse; `null` si ya no se puede por su estado (cancelado, préstamo cerrado o regreso de un préstamo).
+             */
+            cancellableUntil: string | null;
+            /** Format: date-time */
+            cancelledAt: string | null;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que lo canceló; `null` si no se canceló.
+             */
+            cancelledBy: string | null;
+            /** Format: date-time */
+            closedAt: string | null;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que cerró el préstamo; `null` si no se ha cerrado.
+             */
+            closedBy: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que lo registró.
+             */
+            createdBy: string;
+            /**
+             * @description El folio, consecutivo: `T-` en un traslado y `P-` en un préstamo.
+             * @example T-000123
+             */
+            folio: string;
+            /** Format: uuid */
+            fromWarehouseId: string;
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "TRANSFER" | "LOAN";
+            /** @description Por variante. */
+            lines: components["schemas"]["TransferLineDto"][];
+            /**
+             * Format: uuid
+             * @description En el regreso de un préstamo (`LOAN_RETURN`), el préstamo.
+             */
+            loanId: string | null;
+            /** @description Nota del staff; `null` sin ella. */
+            note: string | null;
+            /** @description Un préstamo abierto cuya hora de regreso ya pasó. */
+            overdue: boolean;
+            /** @enum {string} */
+            reason: "SALE" | "RESTOCK" | "OTHER" | "SHOW" | "LOAN_RETURN";
+            /**
+             * Format: date-time
+             * @description En un préstamo, cuándo debe regresar; `null` en un traslado.
+             */
+            returnBy: string | null;
+            /**
+             * Format: uuid
+             * @description En un préstamo cerrado, el traslado que regresó sus unidades; `null` si no regresó ninguna o no se ha cerrado.
+             */
+            returnTransferId: string | null;
+            /**
+             * @description Un traslado está `COMPLETED` al registrarse; un préstamo, `OPEN` hasta que se cierra (`CLOSED`). `CANCELLED` si se canceló en sus primeros 10 minutos.
+             * @enum {string}
+             */
+            status: "COMPLETED" | "CANCELLED" | "OPEN" | "CLOSED";
+            /** Format: uuid */
+            toWarehouseId: string;
+            /**
+             * @description Versión para cancelarlo o cerrarlo (bloqueo optimista).
+             * @example 1
+             */
+            version: number;
+        };
+        TransferLineDto: {
+            /** @example The Legend of Zelda */
+            productTitle: string;
+            /**
+             * @description Unidades trasladadas.
+             * @example 2
+             */
+            quantity: number;
+            /** @description En un préstamo cerrado, las unidades que regresaron; `null` mientras está abierto, y siempre en un traslado. */
+            returned: number | null;
+            /** @example JUE-ZELDA-SW */
+            sku: string;
+            /** Format: uuid */
+            variantId: string;
+        };
+        TransferLineInputDto: {
+            /**
+             * @description De 1 a 100,000 unidades disponibles en el origen.
+             * @example 2
+             */
+            quantity: number;
+            /**
+             * Format: uuid
+             * @description La variante que se traslada, en cualquier estado; una vez por traslado.
+             */
+            variantId: string;
+        };
+        TransferListDto: {
+            /** @description Del más reciente al más antiguo. */
+            data: components["schemas"]["TransferDto"][];
+            meta: components["schemas"]["PageMetaDto"];
         };
         UpdateAccountDto: {
             /**
@@ -6782,7 +7035,7 @@ export interface components {
             /** @description Nombre único, de 1 a 50 caracteres. */
             name?: string;
             /** @description Reemplaza el conjunto. El rol superadministrador no cambia sus permisos. */
-            permissions?: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "orders.open-price" | "cash-closings.read" | "cash-closings.manage" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
+            permissions?: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "inventory.transfer" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "orders.open-price" | "cash-closings.read" | "cash-closings.manage" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
             /** @description Versión leída (bloqueo optimista). */
             version: number;
         };
@@ -12135,7 +12388,7 @@ export interface operations {
             query?: {
                 /** @description Resultados por página, de 1 a 100. */
                 limit?: number;
-                /** @description Uno o más tipos separados por comas: `RECEIPT`, `ADJUSTMENT`, `SALE`, `RESTOCK`. */
+                /** @description Uno o más tipos separados por comas: `RECEIPT`, `ADJUSTMENT`, `SALE`, `RESTOCK`, `TRANSFER`. */
                 type?: string;
                 /** @description Fecha o fecha y hora ISO 8601; incluida. */
                 from?: string;
@@ -12190,6 +12443,447 @@ export interface operations {
             };
             /** @description `not-found`: No encontrado */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminTransfersController_list_v1: {
+        parameters: {
+            query?: {
+                /** @description Página, de 1 a 1,000,000. */
+                page?: number;
+                /** @description Resultados por página, de 1 a 100. */
+                pageSize?: number;
+                /** @description Solo los traslados o solo los préstamos. */
+                kind?: "TRANSFER" | "LOAN";
+                /** @description `true`, solo los préstamos abiertos cuya hora de regreso ya pasó; `false`, todos los demás. */
+                overdue?: boolean;
+                /** @description Los traslados con este motivo. */
+                reason?: "SALE" | "RESTOCK" | "OTHER" | "SHOW" | "LOAN_RETURN";
+                /** @description Los traslados en este estado. */
+                status?: "COMPLETED" | "CANCELLED" | "OPEN" | "CLOSED";
+                /** @description Los que salen de este almacén o llegan a él. */
+                warehouseId?: string;
+                /** @description Los que tienen una línea de esta variante. */
+                variantId?: string;
+                /** @description Fecha o fecha y hora ISO 8601; incluida. */
+                from?: string;
+                /** @description Fecha o fecha y hora ISO 8601; incluida (una fecha sola incluye todo el día). */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferListDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminTransfersController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Llave de idempotencia de 1 a 255 caracteres; se recomienda un UUID (API_SPEC.md, sección 4). */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTransferDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferDto"];
+                };
+            };
+            /** @description `idempotency-key-missing`: Falta la llave de idempotencia; `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /**
+             * @description `idempotency-request-in-progress`: Solicitud en proceso
+             *
+             *     `insufficient-stock`: Stock insuficiente
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `idempotency-key-mismatch`: Llave de idempotencia reutilizada */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminTransfersController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID del traslado entre almacenes. */
+                transferId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminTransfersController_cancel_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID del traslado entre almacenes. */
+                transferId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelTransferDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual; `insufficient-stock`: Stock insuficiente */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminTransfersController_close_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID del traslado entre almacenes. */
+                transferId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CloseLoanDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual; `insufficient-stock`: Stock insuficiente */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

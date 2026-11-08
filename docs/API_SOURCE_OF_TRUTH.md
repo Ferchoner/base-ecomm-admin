@@ -1,18 +1,24 @@
 # API_SOURCE_OF_TRUTH
 
-Fuente de verdad del backend para el backoffice. Fecha de lectura: 2026-10-05; actualizada el 2026-10-06 a `ff10406`, el 2026-10-17 a `7af0f1d` (v1.7.0) y el 2026-11-08 a `3af8641` (API 1.10, en `main`).
+Fuente de verdad del backend para el backoffice. Fecha de lectura: 2026-10-05; actualizada el 2026-10-06 a `ff10406`, el 2026-10-17 a `7af0f1d` (v1.7.0), el 2026-11-08 a `3af8641` (API 1.10, en `main`) y el mismo día a `a57d27c` (API 1.11, en `main`).
 
 ## Fuentes localizadas
 
 | Prioridad | Fuente                                | Ubicación                                                                                        | Versión fijada                |
 | --------- | ------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------- |
-| 1         | Documentación oficial de la API       | `docs/API_SPEC.md` del repo `Ferchoner/base-shop` (estado: aprobado, ADR-0071)                   | commit `3af8641` (2026-11-08) |
-| 2         | OpenAPI 3.0 generado desde NestJS     | `docs/openapi/v1.json` del mismo repo (158 operaciones, 214 esquemas)                            | commit `3af8641`              |
-| —         | Contexto complementario (no contrato) | `docs/BUSINESS_RULES.md`, `REQUIREMENTS.md`, `SECURITY.md`, `DECISIONS.md` (ADRs) del mismo repo | commit `3af8641`              |
+| 1         | Documentación oficial de la API       | `docs/API_SPEC.md` del repo `Ferchoner/base-shop` (estado: aprobado, ADR-0071)                   | commit `a57d27c` (2026-11-08) |
+| 2         | OpenAPI 3.0 generado desde NestJS     | `docs/openapi/v1.json` del mismo repo (163 operaciones, 222 esquemas)                            | commit `a57d27c`              |
+| —         | Contexto complementario (no contrato) | `docs/BUSINESS_RULES.md`, `REQUIREMENTS.md`, `SECURITY.md`, `DECISIONS.md` (ADRs) del mismo repo | commit `a57d27c`              |
 
 La carpeta de contexto "docs" del proyecto solo contiene los prompts de gobierno (00–08); no contiene documentación de API. La documentación se encontró en el repositorio del backend.
 
 Relación entre fuentes: `API_SPEC.md` declara que el OpenAPI versionado debe coincidir con la especificación y que una prueba de contrato lo verifica en cada CI (ADR-0155). No se detectaron contradicciones (DOCUMENTATION CONFLICT) entre ambas en lo revisado. La única diferencia es esperada: `POST /v1/admin/payments/{paymentId}/refunds/retry` figura en la especificación como **pendiente (T-192)** y no existe en el OpenAPI → se trata como NO DISPONIBLE.
+
+## Cambios desde `3af8641` (2026-11-08)
+
+Copia de `openapi/v1.json` tomada de `main` de base-shop en `a57d27c` (2026-11-08), con los PR #147 (T-163) y #148 (T-164) fusionados; se vuelve a fijar al tag `v1.11.0` cuando se publique. Sin operaciones eliminadas ni campos quitados.
+
+- **1.11 (ADR-0172):** `GET`/`POST /v1/admin/inventory/transfers`, `GET …/transfers/{transferId}`, `POST …/{transferId}/cancel` y `POST …/{transferId}/close`; tipo de movimiento `TRANSFER` y `transferId` en los movimientos; permiso `inventory.transfer` (Vendedor y Administrador). El ajuste `WAREHOUSE_TRANSFER` sigue en el contrato, pero el backoffice ya no lo envía.
 
 ## Cambios desde `7af0f1d` (2026-11-07)
 

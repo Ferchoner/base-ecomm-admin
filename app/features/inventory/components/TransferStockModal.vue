@@ -3,31 +3,48 @@ import type { FormSubmitEvent } from '@nuxt/ui'
 import { notifySuccess } from '~/shared/api/feedback'
 import type { ApiProblem } from '~/shared/api/problem'
 import { problemFieldErrors } from '~/shared/utils/form-errors'
-import { useTransferStock } from '../api'
-import type { TransferError } from '../api'
+import { useCreateTransfer } from '../api'
 import { transferSchema } from '../schemas'
 import type { TransferForm } from '../schemas'
-import type { StockItem, Warehouse } from '../types'
+import { LOAN_DURATION_OPTIONS, LOAN_MINUTES, TRANSFER_REASON_OPTIONS } from '../status'
+import type { StockItem, TransferKind, Warehouse } from '../types'
 
 /**
- * Mover unidades de una variante a otro almacén activo: un ajuste negativo en el origen y uno
- * positivo en el destino, con el motivo `WAREHOUSE_TRANSFER` (API_SPEC §13, ADR-0160, D-068).
+ * Trasladar unidades de una variante a otro almacén activo, o prestarlas para mostrarlas con una hora
+ * de regreso, en un solo paso (API_SPEC §13, ADR-0172). Un traslado equivocado se cancela en sus
+ * primeros 10 minutos desde Traslados.
  */
-const props = defineProps<{ item: StockItem; fromName: string; destinations: Warehouse[] }>()
+const props = defineProps<{
+  item: StockItem
+  fromName: string
+  destinations: Warehouse[]
+  kind?: TransferKind
+}>()
 const open = defineModel<boolean>('open', { required: true })
 
 const state = reactive<{
+  kind: TransferKind
+  reason: 'SALE' | 'RESTOCK' | 'OTHER'
+  loanMinutes: number
   fromWarehouseId: string
   toWarehouseId: string | undefined
   quantity: number | undefined
   note: string
-}>({ fromWarehouseId: '', toWarehouseId: undefined, quantity: undefined, note: '' })
+}>({
+  kind: 'TRANSFER',
+  reason: 'SALE',
+  loanMinutes: LOAN_MINUTES.default,
+  fromWarehouseId: '',
+  toWarehouseId: undefined,
+  quantity: undefined,
+  note: '',
+})
 const form = useTemplateRef('form')
 const problem = ref<ApiProblem | null>(null)
-/** La salida ya quedó registrada y la entrada falló (GAPS G-20). */
-const halfDone = ref(false)
-const transfer = useTransferStock()
+const transfer = useCreateTransfer()
 const toast = useToast()
+// Una llave por intento: si se reintenta tras un error de red, la API no mueve dos veces.
+let idempotencyKey = crypto.randomUUID()
 
 // El modal se monta ya abierto desde la fila, así que se inicializa también al montarse.
 watch(
@@ -35,17 +52,28 @@ watch(
   (isOpen) => {
     if (!isOpen) return
     Object.assign(state, {
+      kind: props.kind ?? 'TRANSFER',
+      reason: 'SALE',
+      loanMinutes: LOAN_MINUTES.default,
       fromWarehouseId: props.item.warehouseId,
       toWarehouseId: props.destinations.length === 1 ? props.destinations[0]!.id : undefined,
       quantity: undefined,
       note: '',
     })
     problem.value = null
-    halfDone.value = false
+    idempotencyKey = crypto.randomUUID()
   },
   { immediate: true },
 )
+watch(
+  () => ({ ...state }),
+  () => (idempotencyKey = crypto.randomUUID()),
+)
 
+const KIND_OPTIONS = [
+  { value: 'TRANSFER', label: 'Trasladar' },
+  { value: 'LOAN', label: 'Prestar para mostrar' },
+]
 const options = computed(() =>
   props.destinations.map((w) => ({ value: w.id, label: `${w.name} (${w.code})` })),
 )
@@ -53,53 +81,45 @@ const destinationName = computed(() => {
   const w = props.destinations.find((d) => d.id === state.toWarehouseId)
   return w ? `${w.name} (${w.code})` : 'el destino'
 })
+const isLoan = computed(() => state.kind === 'LOAN')
 
-async function run(d: TransferForm, inboundOnly: boolean) {
+async function onSubmit(event: FormSubmitEvent<TransferForm>) {
+  const d = event.data
   problem.value = null
   try {
-    await transfer.mutateAsync({
-      variantId: props.item.variantId,
-      fromWarehouseId: d.fromWarehouseId,
-      toWarehouseId: d.toWarehouseId,
-      quantity: d.quantity,
-      note: d.note || null,
-      inboundOnly,
+    const done = await transfer.mutateAsync({
+      idempotencyKey,
+      input: {
+        kind: d.kind,
+        reason: d.kind === 'LOAN' ? 'SHOW' : d.reason,
+        fromWarehouseId: d.fromWarehouseId,
+        toWarehouseId: d.toWarehouseId,
+        lines: [{ variantId: props.item.variantId, quantity: d.quantity }],
+        ...(d.note && { note: d.note }),
+        ...(d.kind === 'LOAN' && {
+          returnBy: new Date(Date.now() + d.loanMinutes * 60_000).toISOString(),
+        }),
+      },
     })
     notifySuccess(
       toast,
-      'Transferencia registrada',
-      `${d.quantity} unidades de ${props.item.sku} a ${destinationName.value}.`,
+      d.kind === 'LOAN' ? `Préstamo ${done.folio} registrado` : `Traslado ${done.folio} registrado`,
+      `${d.quantity} ${d.quantity === 1 ? 'unidad' : 'unidades'} de ${props.item.sku} a ${destinationName.value}. Se puede cancelar en los próximos 10 minutos.`,
     )
     open.value = false
   } catch (e) {
-    const { problem: p, applied } = e as TransferError
-    halfDone.value = halfDone.value || applied
+    const p = e as ApiProblem
     const { fieldErrors, otherMessages } = problemFieldErrors(p, ['quantity', 'note'])
-    if (!halfDone.value) form.value?.setErrors(fieldErrors)
-    if (halfDone.value || fieldErrors.length === 0 || otherMessages.length > 0) problem.value = p
+    form.value?.setErrors(fieldErrors)
+    if (fieldErrors.length === 0 || otherMessages.length > 0) problem.value = p
   }
-}
-
-const onSubmit = (event: FormSubmitEvent<TransferForm>) => run(event.data, false)
-
-/** Repite solo la entrada al destino; la salida ya quedó registrada. */
-function retryInbound() {
-  void run(
-    {
-      fromWarehouseId: state.fromWarehouseId,
-      toWarehouseId: state.toWarehouseId ?? '',
-      quantity: state.quantity ?? 0,
-      note: state.note,
-    },
-    true,
-  )
 }
 </script>
 
 <template>
   <UModal
     v-model:open="open"
-    title="Transferir a otro almacén"
+    :title="isLoan ? 'Prestar para mostrar' : 'Trasladar a otro almacén'"
     :description="`${item.sku} · ${item.productTitle}`"
   >
     <template #body>
@@ -109,19 +129,16 @@ function retryInbound() {
         :schema="transferSchema"
         :state="state"
         :validate-on="['input', 'change']"
-        :disabled="halfDone"
         class="space-y-4"
         @submit="onSubmit"
       >
-        <UAlert
-          v-if="halfDone"
-          color="error"
-          variant="subtle"
-          icon="i-lucide-triangle-alert"
-          title="La transferencia quedó a medias"
-          :description="`Las ${state.quantity} unidades ya salieron de ${fromName}, pero no entraron a ${destinationName}. Vuelve a registrar la entrada; la salida no se repite.`"
-        />
         <ProblemAlert v-if="problem" :problem="problem" />
+        <URadioGroup
+          v-model="state.kind"
+          :items="KIND_OPTIONS"
+          orientation="horizontal"
+          aria-label="Tipo"
+        />
         <p class="text-sm">
           Desde <strong>{{ fromName }}</strong
           >: {{ item.available }} disponibles de {{ item.onHand }} físicas.
@@ -134,7 +151,12 @@ function retryInbound() {
             class="w-full"
           />
         </UFormField>
-        <UFormField label="Cantidad" name="quantity" required help="De 1 a 100,000 unidades.">
+        <UFormField
+          label="Cantidad"
+          name="quantity"
+          required
+          help="Solo las disponibles; las apartadas para un pedido no se mueven."
+        >
           <UInputNumber
             v-model="state.quantity"
             :min="1"
@@ -142,25 +164,34 @@ function retryInbound() {
             class="w-full"
           />
         </UFormField>
-        <UFormField label="Nota" name="note" help="Opcional. Queda en los dos movimientos.">
+        <UFormField v-if="!isLoan" label="Motivo" name="reason" required>
+          <USelect v-model="state.reason" :items="TRANSFER_REASON_OPTIONS" class="w-full" />
+        </UFormField>
+        <UFormField
+          v-else
+          label="Debe regresar en"
+          name="loanMinutes"
+          required
+          help="Pasada esa hora, el préstamo sale como vencido hasta que se cierre."
+        >
+          <USelect v-model="state.loanMinutes" :items="LOAN_DURATION_OPTIONS" class="w-full" />
+        </UFormField>
+        <UFormField
+          label="Nota"
+          name="note"
+          :required="!isLoan && state.reason === 'OTHER'"
+          help="Queda en el folio y en los dos movimientos."
+        >
           <UTextarea v-model="state.note" :maxlength="500" autoresize class="w-full" />
         </UFormField>
-        <p class="text-sm text-muted">
-          Se registran dos ajustes: la salida del origen y la entrada al destino.
-        </p>
       </UForm>
     </template>
     <template #footer>
       <div class="flex w-full justify-end gap-2">
-        <UButton color="neutral" variant="ghost" @click="open = false">{{
-          halfDone ? 'Cerrar' : 'Cancelar'
+        <UButton color="neutral" variant="ghost" @click="open = false">Cancelar</UButton>
+        <UButton type="submit" form="transfer-form" :loading="transfer.isPending.value">{{
+          isLoan ? 'Prestar' : 'Trasladar'
         }}</UButton>
-        <UButton v-if="halfDone" :loading="transfer.isPending.value" @click="retryInbound"
-          >Registrar la entrada en el destino</UButton
-        >
-        <UButton v-else type="submit" form="transfer-form" :loading="transfer.isPending.value"
-          >Transferir</UButton
-        >
       </div>
     </template>
   </UModal>

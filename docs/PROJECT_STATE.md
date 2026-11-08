@@ -162,3 +162,10 @@ Gaps nuevos: G-22 a G-27. El técnico se elige de la lista de staff solo con `st
 - Corte de caja en `/caja` (D-099), en el menú de Ventas con `cash-closings.read`.
 - Contrato fijado a `main` de base-shop (`3af8641`), con sus PR #142 y #143 fusionados.
 - Calidad: lint, formato, tipos, 126 pruebas unitarias, build y 264 E2E en escritorio y móvil.
+
+## API 1.11, traslados entre locales — en PR (2026-11-08)
+
+- Traslado de un paso y préstamo para mostrar desde Existencias; pestaña Traslados con cancelación en 10 minutos y cierre de préstamos (D-100). G-20 resuelto: ya no hay transferencias a medias.
+- "Traer del otro local" en Vender en tienda (D-101); aviso de préstamos abiertos en el corte y conteo de vencidos en Inicio (D-102).
+- Contrato fijado a `main` de base-shop (`a57d27c`), con sus PR #147 (T-163) y #148 (T-164) fusionados; se vuelve a fijar al tag `v1.11.0` cuando se publique.
+- Calidad: lint, formato, tipos, 129 pruebas unitarias, build y 275 E2E en escritorio y móvil.

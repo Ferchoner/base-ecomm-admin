@@ -15,6 +15,8 @@ import type {
   RestockResult,
   WarehouseOption,
   ManualPaymentSettings,
+  BringStockInput,
+  BroughtStock,
   BuyerCustomer,
   SellableStock,
   StaffOrderInput,
@@ -244,6 +246,49 @@ export function useStockInWarehouse() {
         ).data[0] ?? null,
       staleTime: 0,
     })
+}
+
+/**
+ * Existencias de una variante en todos los almacenes, para traerla de otro local cuando aquí no
+ * alcanza (`inventory.read`). Se consulta al momento: lo disponible cambia con cada venta.
+ */
+export function useVariantStockEverywhere(variantId: MaybeRefOrGetter<string | null>) {
+  const api = useApi()
+  return useQuery<SellableStock[], ApiProblem>({
+    queryKey: computed(() => [QUERY_ROOT.inventory, 'stock', 'everywhere', toValue(variantId)]),
+    queryFn: async ({ signal }) =>
+      (
+        await api<Page<SellableStock>>('/v1/admin/inventory/stock-items', {
+          query: { variantId: toValue(variantId)!, pageSize: 100 },
+          signal,
+        })
+      ).data,
+    enabled: computed(() => !!toValue(variantId)),
+    staleTime: 0,
+  })
+}
+
+/**
+ * Trae unidades de otro almacén a este, para venderlas aquí y que el cobro quede en el corte de este
+ * local (`POST /v1/admin/inventory/transfers`, `inventory.transfer`, ADR-0172 de base-shop). Lleva
+ * `Idempotency-Key`; al terminar se vuelven a consultar las existencias y la cotización.
+ */
+export function useBringStock() {
+  const api = useApi()
+  const qc = useQueryClient()
+  return useMutation<BroughtStock, ApiProblem, { input: BringStockInput; idempotencyKey: string }>({
+    mutationFn: ({ input, idempotencyKey }) =>
+      api<BroughtStock>('/v1/admin/inventory/transfers', {
+        method: 'POST',
+        body: { ...input },
+        idempotencyKey,
+      }),
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: [QUERY_ROOT.inventory] }),
+        qc.invalidateQueries({ queryKey: [...orderKeys.all, 'quote'] }),
+      ]),
+  })
 }
 
 /**

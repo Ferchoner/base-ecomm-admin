@@ -155,10 +155,10 @@ Plan aprobado en PLAN_API_1.7.md (D-082). Seis PR apilados que se fusionan en or
 
 Gaps nuevos: G-22 a G-27. El técnico se elige de la lista de staff solo con `staff.manage`; sin él, "Asignármela" (D-085, G-23).
 
-## API 1.10, operación diaria de la tienda física — en PR (2026-11-07)
+## API 1.10, operación diaria de la tienda física — fusionado (PR #28, 2026-11-08)
 
 - Local de cada equipo en Mi cuenta (D-097): Vender en tienda, "Registrar movimiento" y el corte empiezan con él.
 - Artículo sin registrar a precio libre en Vender en tienda (D-098).
 - Corte de caja en `/caja` (D-099), en el menú de Ventas con `cash-closings.read`.
-- Contrato en la rama de T-183 de base-shop (`edad780`); se vuelve a fijar cuando se fusionen sus PR #142 y #143.
+- Contrato fijado a `main` de base-shop (`3af8641`), con sus PR #142 y #143 fusionados.
 - Calidad: lint, formato, tipos, 126 pruebas unitarias, build y 264 E2E en escritorio y móvil.

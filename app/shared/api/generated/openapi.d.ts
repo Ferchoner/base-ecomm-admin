@@ -7463,6 +7463,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description ID del cierre de caja. */
                 closingId: string;
             };
             cookie?: never;

@@ -182,7 +182,7 @@ Pruebas: `tests/unit/shared/device-warehouse.spec.ts`, `tests/unit/sales/sales.s
 
 Pruebas: `tests/unit/inventory/inventory.spec.ts`, `tests/e2e/pricing-inventory.spec.ts`, `tests/e2e/sales.spec.ts`, `tests/e2e/cash-closings.spec.ts` y `tests/e2e/a11y.spec.ts`.
 
-## API 1.12 (contrato de la rama de T-166 de base-shop, `4fdf545`, 2026-11-08)
+## API 1.12 (contrato de `main` de base-shop, `e8985fa`, 2026-11-08)
 
 | API_SPEC | Caso de uso                                                         | Pantalla                                             | Código                                                                         | Estado |
 | -------- | ------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------ | ------ |

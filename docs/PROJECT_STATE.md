@@ -176,5 +176,5 @@ Gaps nuevos: G-22 a G-27. El técnico se elige de la lista de staff solo con `st
 - Pestaña Conteos: abrir hojas por ubicación, categoría o clase; contar a ciegas con el lector; revisar, recontar, aplicar o cancelar (D-104, D-105).
 - Hoja de conteo impresa sin cantidades y etiquetas de estante (D-106).
 - Clase de conteo en el producto, filtro y clases sugeridas por las ventas de 90 días; Inicio cuenta hojas abiertas y variantes sin ubicación (D-107).
-- Contrato fijado a la rama de T-166 de base-shop (`4fdf545`), con sus PR #151 y #152 abiertos; se vuelve a fijar a `main` al fusionarlos y al tag `v1.12.0` cuando se publique.
+- Contrato fijado a `main` de base-shop (`e8985fa`), con sus PR #151 (paso 0 y T-165) y #152 (T-166) fusionados; se vuelve a fijar al tag `v1.12.0` cuando se publique.
 - Calidad: lint, formato, tipos, 138 pruebas unitarias, build y 299 E2E en escritorio y móvil (35 se omiten a propósito: el tema oscuro solo en escritorio).

@@ -155,7 +155,7 @@ Se listan solo las operaciones que usa el backoffice (96 de 133). Las rutas de t
 | §25.9            | UC-WRK-06 Nota de servicio         | Nota de servicio                                  | `ServiceNoteDocument.vue`, `pages/imprimir/nota-servicio` | F   |
 | §25.11, §25.12   | Datos bloqueados y anonimizar      | Orden de trabajo                                  | `WorkOrderBlockedDataModal.vue`, `ReasonDialog`           | F   |
 
-## API 1.10 (contrato de la rama de T-183 de base-shop, `edad780`, 2026-11-07)
+## API 1.10 (contrato de `main` de base-shop, `3af8641`, 2026-11-08)
 
 | API_SPEC | Caso de uso                                     | Pantalla                                                | Código                                                                              | Estado                  |
 | -------- | ----------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------- |

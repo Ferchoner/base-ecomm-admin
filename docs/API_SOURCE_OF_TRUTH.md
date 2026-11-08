@@ -1,14 +1,14 @@
 # API_SOURCE_OF_TRUTH
 
-Fuente de verdad del backend para el backoffice. Fecha de lectura: 2026-10-05; actualizada el 2026-10-06 a `ff10406` y el 2026-10-17 a `7af0f1d` (v1.7.0).
+Fuente de verdad del backend para el backoffice. Fecha de lectura: 2026-10-05; actualizada el 2026-10-06 a `ff10406`, el 2026-10-17 a `7af0f1d` (v1.7.0) y el 2026-11-08 a `3af8641` (API 1.10, en `main`).
 
 ## Fuentes localizadas
 
 | Prioridad | Fuente                                | Ubicación                                                                                        | Versión fijada                |
 | --------- | ------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------- |
-| 1         | Documentación oficial de la API       | `docs/API_SPEC.md` del repo `Ferchoner/base-shop` (estado: aprobado, ADR-0071)                   | commit `7af0f1d` (2026-10-17) |
-| 2         | OpenAPI 3.0 generado desde NestJS     | `docs/openapi/v1.json` del mismo repo (152 operaciones, 202 esquemas)                            | commit `7af0f1d`              |
-| —         | Contexto complementario (no contrato) | `docs/BUSINESS_RULES.md`, `REQUIREMENTS.md`, `SECURITY.md`, `DECISIONS.md` (ADRs) del mismo repo | commit `7af0f1d`              |
+| 1         | Documentación oficial de la API       | `docs/API_SPEC.md` del repo `Ferchoner/base-shop` (estado: aprobado, ADR-0071)                   | commit `3af8641` (2026-11-08) |
+| 2         | OpenAPI 3.0 generado desde NestJS     | `docs/openapi/v1.json` del mismo repo (158 operaciones, 214 esquemas)                            | commit `3af8641`              |
+| —         | Contexto complementario (no contrato) | `docs/BUSINESS_RULES.md`, `REQUIREMENTS.md`, `SECURITY.md`, `DECISIONS.md` (ADRs) del mismo repo | commit `3af8641`              |
 
 La carpeta de contexto "docs" del proyecto solo contiene los prompts de gobierno (00–08); no contiene documentación de API. La documentación se encontró en el repositorio del backend.
 
@@ -16,7 +16,7 @@ Relación entre fuentes: `API_SPEC.md` declara que el OpenAPI versionado debe co
 
 ## Cambios desde `7af0f1d` (2026-11-07)
 
-Copia de `openapi/v1.json` tomada de la rama `feat/T-183-cash-closings` de base-shop (`edad780`, PR #143 sobre el #142), aún sin fusionar: al fusionarse se vuelve a fijar al commit de `main` o al tag `v1.10.0`. Sin operaciones eliminadas ni campos quitados.
+Copia de `openapi/v1.json` tomada de `main` de base-shop en `3af8641` (2026-11-08), con los PR #142 (T-182) y #143 (T-183) fusionados; se vuelve a fijar al tag `v1.10.0` cuando se publique. Sin operaciones eliminadas ni campos quitados.
 
 - **1.8.0 (ADR-0169):** solo variables de los correos; nada cambia para el backoffice.
 - **1.9.0 (ADR-0170):** `POST /v1/admin/catalog/products/{productId}/description-draft`; sin pantalla por ahora (GAPS G-30).

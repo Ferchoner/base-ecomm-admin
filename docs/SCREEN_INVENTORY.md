@@ -105,3 +105,17 @@ En Vender en tienda, Productos, Pedidos y "Registrar movimiento" el lector de c�
 | Vender en tienda | `/pedidos/nuevo`        | `BringStockFromOtherWarehouse` | "Traer N de Local 206" en una línea que no alcanza aquí; escanear lo que aquí no hay lo agrega para traerlo (D-101) |
 | Corte de caja    | `/caja`                 | —                              | Aviso de préstamos abiertos del local, sin impedir el cierre (D-102)                                                |
 | Inicio           | `/`                     | `CountCard`                    | Conteo de préstamos vencidos (D-102)                                                                                |
+
+## API 1.12: ubicación de productos y conteo (2026-11-08)
+
+| Pantalla             | Ruta                            | Componentes                       | Qué hace                                                                                                                   |
+| -------------------- | ------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Existencias          | `/inventario/stock`             | `LocationModal`                   | Columna y filtros de ubicación; poner o cambiar la ubicación con `inventory.count` (D-103)                                 |
+| Conteos              | `/inventario/conteos`           | `InventoryTabs`, `OpenCountModal` | Hojas abiertas por omisión; abrir una por ubicación, categoría o clase (D-104)                                             |
+| Hoja de conteo       | `/inventario/conteos/[id]`      | `CountedInput`, `ScanResult`      | Contar con el lector o escribiendo el total, a ciegas sin `inventory.write`; revisar, recontar, aplicar y cancelar (D-105) |
+| Hoja impresa         | `/imprimir/conteo/[id]`         | `CountSheetDocument`              | Ubicación, SKU, producto y recuadro vacío; carta u 80 mm (D-106)                                                           |
+| Etiquetas de estante | `/inventario/etiquetas-estante` | `ShelfLabelSheet`                 | La ubicación en grande y el almacén (D-106)                                                                                |
+| Etiquetas            | `/catalogo/etiquetas`           | `LabelSheet`                      | Ubicación en el almacén elegido (D-103)                                                                                    |
+| Producto, Productos  | `/catalogo/productos/**`        | `ProductForm`                     | Clase de conteo en el producto y filtro en el listado (D-107)                                                              |
+| Clases de conteo     | `/catalogo/productos/clases`    | —                                 | Lo vendido en 90 días, la clase sugerida y aplicarla a los elegidos (D-107)                                                |
+| Inicio               | `/`                             | `CountCard`                       | Hojas abiertas y variantes sin ubicación (D-107)                                                                           |

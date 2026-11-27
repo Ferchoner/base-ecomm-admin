@@ -42,11 +42,11 @@ Del lado del backend, en cada ambiente:
 
 ## Ejecución local (el único ambiente del MVP)
 
-| Modo           | Comando                                     | URL                     |
-| -------------- | ------------------------------------------- | ----------------------- |
-| Desarrollo     | `npm run dev -- --port 3001`                | `http://localhost:3001` |
-| Build local    | `npm run build && npm run preview`          | la que indique Nuxt     |
-| Build como E2E | `npm run build && node tests/e2e/serve.mjs` | `http://localhost:4173` |
+| Modo           | Comando                                     | URL                      |
+| -------------- | ------------------------------------------- | ------------------------ |
+| Desarrollo     | `npm run dev`                               | `https://localhost:3003` |
+| Build local    | `npm run build && npm run preview`          | la que indique Nuxt      |
+| Build como E2E | `npm run build && node tests/e2e/serve.mjs` | `http://localhost:4173`  |
 
 `localhost` cuenta como origen seguro: el service worker funciona sin HTTPS. Recuerda poner el origen elegido en `CORS_ALLOWED_ORIGINS` del backend (DEVELOPER_ONBOARDING.md).
 

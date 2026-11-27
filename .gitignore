@@ -15,3 +15,6 @@ logs
 coverage
 test-results
 playwright-report
+
+# Certificados locales de desarrollo (mkcert)
+*.pem

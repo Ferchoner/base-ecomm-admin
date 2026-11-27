@@ -19,8 +19,8 @@ En el repo `Ferchoner/base-shop` (ver su README):
 ```bash
 cp .env.example .env
 # En .env del backend:
-#   CORS_ALLOWED_ORIGINS=http://localhost:3001     # origen del backoffice
-#   FRONTEND_BASE_URL=http://localhost:3001        # enlaces de recuperación al backoffice (G-01)
+#   CORS_ALLOWED_ORIGINS=https://localhost:3003    # origen del backoffice
+#   FRONTEND_BASE_URL=https://localhost:3003       # enlaces de recuperación al backoffice (G-01)
 docker compose up --build
 docker compose exec api npm run db:migrate:deploy
 docker compose exec api node dist/scripts/import-geo-catalog.js data/inegi/municipios-2026-06.csv
@@ -35,10 +35,12 @@ El último comando muestra una contraseña temporal una sola vez. La API queda e
 ```bash
 npm install
 cp .env.example .env          # NUXT_PUBLIC_API_BASE_URL=http://localhost:3000
-npm run dev -- --port 3001
+npm run dev
 ```
 
-Abre `http://localhost:3001`, entra con el superadministrador y cambia la contraseña temporal. Para dar acceso a otras personas, crea staff en **Staff**.
+`npm run dev` sirve con HTTPS en el puerto 3003 y en la red local (`--host`). Si en la raíz existen `localhost+2-key.pem` y `localhost+2.pem` (por ejemplo, `mkcert localhost 127.0.0.1 <IP-local>`), los usa; si no, Nuxt genera un certificado autofirmado. Los `.pem` no se versionan. Si abres el backoffice desde otra IP, añade ese origen a `CORS_ALLOWED_ORIGINS` del backend.
+
+Abre `https://localhost:3003`, entra con el superadministrador y cambia la contraseña temporal. Para dar acceso a otras personas, crea staff en **Staff**.
 
 ## 4. Scripts
 

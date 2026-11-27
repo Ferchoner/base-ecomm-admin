@@ -5,7 +5,7 @@ Backoffice del e-commerce [base-shop](https://github.com/Ferchoner/base-shop): S
 ## Requisitos
 
 - Node.js 22 (`.nvmrc`)
-- La API de base-shop en ejecución (ver su README; por defecto en `http://localhost:3000`) con el origen del backoffice en `CORS_ALLOWED_ORIGINS` (por ejemplo, `http://localhost:3001`).
+- La API de base-shop en ejecución (ver su README; por defecto en `http://localhost:3000`) con el origen del backoffice en `CORS_ALLOWED_ORIGINS` (por ejemplo, `https://localhost:3003`).
 - Una cuenta de staff (el primer superadministrador se crea con el script del backend).
 
 ## Puesta en marcha
@@ -13,14 +13,14 @@ Backoffice del e-commerce [base-shop](https://github.com/Ferchoner/base-shop): S
 ```bash
 npm install
 cp .env.example .env        # ajusta NUXT_PUBLIC_API_BASE_URL si la API no está en localhost:3000
-npm run dev -- --port 3001
+npm run dev                 # https://localhost:3003, también expuesto en la red local
 ```
 
 ## Scripts
 
 | Script                            | Uso                                                                            |
 | --------------------------------- | ------------------------------------------------------------------------------ |
-| `npm run dev`                     | Servidor de desarrollo                                                         |
+| `npm run dev`                     | Servidor de desarrollo con HTTPS en el puerto 3003                             |
 | `npm run build`                   | Build estático en `.output/public`                                             |
 | `npm run typecheck`               | `vue-tsc` en modo estricto                                                     |
 | `npm run lint` / `npm run format` | ESLint / Prettier                                                              |

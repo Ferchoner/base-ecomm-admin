@@ -13,6 +13,7 @@ import { useListParams } from '~/shared/api/use-list-params'
 import { isScanCode } from '~/shared/api/variant-lookup'
 import { useVariantScan } from '~/shared/scanner/use-variant-scan'
 import { useSessionStore } from '~/shared/auth/session.store'
+import { COUNT_CLASS_OPTIONS } from '~/shared/status/count-class'
 import { formatDateTime } from '~/shared/utils/dates'
 import { useDebounced } from '~/shared/utils/debounce'
 
@@ -21,9 +22,10 @@ definePageMeta({ title: 'Productos', permission: 'catalog.read' })
 const session = useSessionStore()
 const canWrite = computed(() => session.can('catalog.write'))
 const list = useListParams({
-  filters: ['q', 'status', 'brandId', 'categoryId', 'storeOnly', 'sort'],
+  filters: ['q', 'status', 'brandId', 'categoryId', 'storeOnly', 'countClass', 'sort'],
 })
 const filters = list.filters
+const NO_CLASS = 'none'
 
 const search = ref(filters.value.q ?? '')
 const debouncedSearch = useDebounced(search)
@@ -59,6 +61,9 @@ const { data, isPending, error, refetch, isFetching } = useProducts(() => ({
   brandId: filters.value.brandId,
   categoryId: filters.value.categoryId,
   storeOnly: filters.value.storeOnly,
+  ...(filters.value.countClass === NO_CLASS
+    ? { hasCountClass: 'false' }
+    : { countClass: filters.value.countClass }),
   sort: filters.value.sort ?? '-updatedAt',
 }))
 
@@ -89,7 +94,8 @@ const hasFilters = computed(
       filters.value.status ||
       filters.value.brandId ||
       filters.value.categoryId ||
-      filters.value.storeOnly
+      filters.value.storeOnly ||
+      filters.value.countClass
     ),
 )
 function clearFilters() {
@@ -103,6 +109,13 @@ const STORE_ONLY_OPTIONS = [
   { value: 'false', label: 'También en línea' },
 ]
 
+/** Filtros `countClass` y `hasCountClass` (ADR-0173 de base-shop). */
+const CLASS_FILTER_OPTIONS = [
+  ...COUNT_CLASS_OPTIONS.map((o) => ({ value: o.value as string, label: `Clase ${o.label}` })),
+  { value: 'none', label: 'Sin clase' },
+]
+const canSuggest = computed(() => session.can('orders.read'))
+
 const columns: TableColumn<Product>[] = [
   { id: 'image', header: '' },
   { accessorKey: 'title', header: 'Producto' },
@@ -110,6 +123,7 @@ const columns: TableColumn<Product>[] = [
   { accessorKey: 'status', header: 'Estado' },
   { accessorKey: 'storeVisibility', header: 'Tienda' },
   { id: 'variants', header: 'Variantes' },
+  { accessorKey: 'countClass', header: 'Clase' },
   { accessorKey: 'updatedAt', header: 'Modificado' },
 ]
 
@@ -173,6 +187,14 @@ function openRow(_: Event, row: TableRow<Product>) {
         @update:model-value="(v) => list.setFilter('storeOnly', v as string)"
       />
       <USelect
+        :model-value="filters.countClass"
+        :items="CLASS_FILTER_OPTIONS"
+        placeholder="Cualquier clase de conteo"
+        aria-label="Filtrar por clase de conteo"
+        class="w-full sm:w-52"
+        @update:model-value="(v) => list.setFilter('countClass', v as string)"
+      />
+      <USelect
         :model-value="filters.sort ?? '-updatedAt'"
         :items="PRODUCT_SORT_OPTIONS"
         aria-label="Ordenar"
@@ -190,6 +212,14 @@ function openRow(_: Event, row: TableRow<Product>) {
         >Limpiar</UButton
       >
       <div class="flex-1" />
+      <UButton
+        v-if="canSuggest"
+        icon="i-lucide-chart-column"
+        color="neutral"
+        variant="outline"
+        to="/catalogo/productos/clases"
+        >Clases de conteo</UButton
+      >
       <UButton
         v-if="canWrite"
         icon="i-lucide-file-up"
@@ -255,6 +285,12 @@ function openRow(_: Event, row: TableRow<Product>) {
           <StatusBadge :value="row.original.storeVisibility" :styles="STORE_VISIBILITY" />
         </template>
         <template #variants-cell="{ row }">{{ row.original.variants.length }}</template>
+        <template #countClass-cell="{ row }">
+          <span v-if="row.original.countClass" class="font-medium">{{
+            row.original.countClass
+          }}</span>
+          <span v-else class="text-muted">—</span>
+        </template>
         <template #updatedAt-cell="{ row }">{{ formatDateTime(row.original.updatedAt) }}</template>
       </UTable>
       <ListPagination class="mt-3" :meta="data?.meta" @update:page="list.setPage" />

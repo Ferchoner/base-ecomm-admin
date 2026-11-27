@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   adjustmentSchema,
+  closeLoanSchema,
   receiptSchema,
   transferSchema,
   warehouseSchema,
 } from '~/features/inventory/schemas'
+import { canCancelNow, transferStatusStyle } from '~/features/inventory/status'
 
 const empty = {
   recipientName: '',
@@ -73,9 +75,60 @@ describe('inventario', () => {
   })
 
   it('transferencia: destino distinto del origen', () => {
-    const base = { fromWarehouseId: 'a', toWarehouseId: 'b', quantity: 3, note: '' }
+    const base = {
+      kind: 'TRANSFER',
+      reason: 'SALE',
+      loanMinutes: 60,
+      fromWarehouseId: 'a',
+      toWarehouseId: 'b',
+      quantity: 3,
+      note: '',
+    }
     expect(transferSchema.safeParse(base).success).toBe(true)
     expect(transferSchema.safeParse({ ...base, toWarehouseId: 'a' }).success).toBe(false)
     expect(transferSchema.safeParse({ ...base, quantity: 0 }).success).toBe(false)
+  })
+
+  it('transferencia: "Otro" exige nota, y el préstamo dura de 5 minutos a 24 horas', () => {
+    const base = {
+      kind: 'TRANSFER',
+      reason: 'OTHER',
+      loanMinutes: 60,
+      fromWarehouseId: 'a',
+      toWarehouseId: 'b',
+      quantity: 1,
+      note: '',
+    }
+    expect(transferSchema.safeParse(base).success).toBe(false)
+    expect(transferSchema.safeParse({ ...base, note: 'Para la exhibición' }).success).toBe(true)
+    // En un préstamo el motivo es siempre SHOW: el del traslado no cuenta.
+    expect(transferSchema.safeParse({ ...base, kind: 'LOAN' }).success).toBe(true)
+    expect(transferSchema.safeParse({ ...base, kind: 'LOAN', loanMinutes: 4 }).success).toBe(false)
+    expect(transferSchema.safeParse({ ...base, kind: 'LOAN', loanMinutes: 1441 }).success).toBe(
+      false,
+    )
+  })
+
+  it('cierre de préstamo: de 0 a lo prestado en cada línea', () => {
+    const schema = closeLoanSchema([
+      { variantId: 'v1', quantity: 2 },
+      { variantId: 'v2', quantity: 1 },
+    ])
+    expect(schema.safeParse({ returned: { v1: 2, v2: 0 } }).success).toBe(true)
+    const tooMany = schema.safeParse({ returned: { v1: 3, v2: 1 } })
+    expect(tooMany.success).toBe(false)
+    expect(tooMany.error?.issues[0]?.path).toEqual(['returned', 'v1'])
+    expect(schema.safeParse({ returned: { v1: 1 } }).success).toBe(false)
+    expect(schema.safeParse({ returned: { v1: -1, v2: 0 } }).success).toBe(false)
+  })
+
+  it('traslados: se cancelan hasta cancellableUntil, y el préstamo vencido se ve como tal', () => {
+    const now = Date.parse('2026-11-08T12:00:00Z')
+    expect(canCancelNow({ cancellableUntil: '2026-11-08T12:05:00Z' }, now)).toBe(true)
+    expect(canCancelNow({ cancellableUntil: '2026-11-08T11:59:59Z' }, now)).toBe(false)
+    expect(canCancelNow({ cancellableUntil: null }, now)).toBe(false)
+    expect(transferStatusStyle({ status: 'OPEN', overdue: true }).label).toBe('Vencido')
+    expect(transferStatusStyle({ status: 'OPEN', overdue: false }).label).toBe('Prestado')
+    expect(transferStatusStyle({ status: 'COMPLETED', overdue: false }).label).toBe('Hecho')
   })
 })

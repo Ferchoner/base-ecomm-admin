@@ -48,6 +48,7 @@ interface Stock {
   onHand: number
   reserved: number
   warehouseId: string
+  location: string | null
 }
 
 export const SECOND_WAREHOUSE_ID = '0192a3b4-0000-7000-8000-00000000b002'
@@ -66,11 +67,22 @@ export interface PricingInventorySeed {
     onHand: number
     reserved?: number
     warehouseId?: string
+    /** Ubicación en su almacén (ADR-0173 de base-shop). */
+    location?: string | null
   }>
+  /** Las hojas responden a ciegas, como a quien solo cuenta (sin `inventory.write`). */
+  blindCounts?: boolean
+  /** Hojas ya abiertas en el almacén principal, por ubicación. */
+  openCounts?: Array<{ location: string }>
+  /** Una hoja abierta que ya tiene estas variantes: abrir otra con ellas es 409. */
+  busyVariants?: Array<{ variantId: string; countId: string; folio: string }>
   /** Almacenes además del principal (ADR-0160). */
   warehouses?: Array<{ id?: string; code: string; name: string; priority: number; status?: string }>
-  /** Hace fallar los ajustes positivos con 500, para probar una transferencia a medias. */
-  failPositiveAdjustments?: boolean
+  /**
+   * Préstamos para mostrar ya registrados (ADR-0172 de base-shop), por SKU, del almacén principal al
+   * primero de `warehouses`; `minutesLeft` negativo, vencido.
+   */
+  loans?: Array<{ sku: string; quantity: number; minutesLeft: number }>
   /** Movimientos de cada stock item por SKU, para probar la paginación por cursor. */
   movements?: Record<string, number>
   /** Respuesta de la importación de precios: `ok` o errores por fila. */
@@ -91,6 +103,7 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
     id: uuid(),
     reserved: 0,
     warehouseId: WAREHOUSE_ID,
+    location: null,
     ...s,
   }))
   const movements = new Map<string, Array<Record<string, unknown>>>()
@@ -161,6 +174,388 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
       return json(route, 200, { data: [{ code: '16', name: 'Michoacán de Ocampo' }] })
     return json(route, 200, { data: [{ code: '16053', name: 'Morelia' }] })
   })
+
+  // ── Traslados y préstamos (API_SPEC §13, ADR-0172 de base-shop), con la hora real del navegador ──
+  const transfers: Array<Record<string, unknown> & { lines: Array<Record<string, unknown>> }> = []
+  let folio = 0
+  const stockAt = (variantId: string, warehouseId: string) => {
+    let item = stock.find((s) => s.variantId === variantId && s.warehouseId === warehouseId)
+    if (!item) {
+      const same = stock.find((s) => s.variantId === variantId)!
+      item = { ...same, id: uuid(), onHand: 0, reserved: 0, warehouseId, location: null }
+      stock.push(item)
+      movements.set(item.id, [])
+    }
+    return item
+  }
+  const move = (
+    t: Record<string, unknown>,
+    lines: Array<{ variantId: string; quantity: number }>,
+  ) => {
+    for (const l of lines) {
+      stockAt(l.variantId, t.fromWarehouseId as string).onHand -= l.quantity
+      stockAt(l.variantId, t.toWarehouseId as string).onHand += l.quantity
+    }
+  }
+  const newTransfer = (input: {
+    kind: string
+    reason: string
+    fromWarehouseId: string
+    toWarehouseId: string
+    lines: Array<{ variantId: string; quantity: number }>
+    note?: string | null
+    returnBy?: string | null
+    loanId?: string | null
+    createdAt?: Date
+  }) => {
+    const created = input.createdAt ?? new Date()
+    const t = {
+      id: uuid(),
+      folio: `${input.kind === 'LOAN' ? 'P' : 'T'}-${String(++folio).padStart(6, '0')}`,
+      kind: input.kind,
+      reason: input.reason,
+      status: input.kind === 'LOAN' ? 'OPEN' : 'COMPLETED',
+      fromWarehouseId: input.fromWarehouseId,
+      toWarehouseId: input.toWarehouseId,
+      note: input.note ?? null,
+      lines: input.lines.map((l) => {
+        const s = stock.find((x) => x.variantId === l.variantId)!
+        return {
+          variantId: l.variantId,
+          sku: s.sku,
+          productTitle: s.productTitle,
+          quantity: l.quantity,
+          returned: null as number | null,
+        }
+      }),
+      createdBy: '0192a3b4-0000-7000-8000-000000000001',
+      createdAt: created.toISOString(),
+      cancellableUntil: input.loanId
+        ? null
+        : new Date(created.getTime() + 10 * 60_000).toISOString(),
+      cancelledAt: null,
+      cancelledBy: null,
+      returnBy: input.returnBy ?? null,
+      closedBy: null,
+      closedAt: null,
+      loanId: input.loanId ?? null,
+      returnTransferId: null,
+      version: 1,
+    }
+    transfers.unshift(t)
+    return t
+  }
+  const transferDto = (t: Record<string, unknown>) => {
+    const now = Date.now()
+    return {
+      ...t,
+      cancellableUntil:
+        ['COMPLETED', 'OPEN'].includes(t.status as string) &&
+        t.cancellableUntil &&
+        Date.parse(t.cancellableUntil as string) >= now
+          ? t.cancellableUntil
+          : null,
+      overdue: t.status === 'OPEN' && Date.parse(t.returnBy as string) < now,
+    }
+  }
+  for (const loan of seed.loans ?? []) {
+    const s = stock.find((x) => x.sku === loan.sku)!
+    const createdAt = new Date(Date.now() - 2 * 3600_000)
+    const t = newTransfer({
+      kind: 'LOAN',
+      reason: 'SHOW',
+      fromWarehouseId: WAREHOUSE_ID,
+      toWarehouseId: warehouses[1]!.id as string,
+      lines: [{ variantId: s.variantId, quantity: loan.quantity }],
+      returnBy: new Date(Date.now() + loan.minutesLeft * 60_000).toISOString(),
+      createdAt,
+    })
+    move(t, [{ variantId: s.variantId, quantity: loan.quantity }])
+  }
+  const idempotentTransfers = new Map<string, Record<string, unknown>>()
+  function transfersRoute(
+    route: Route,
+    method: string,
+    seg: string[],
+    url: URL,
+    body: Record<string, unknown> | null,
+  ) {
+    if (method === 'GET' && seg.length === 2) {
+      const q = url.searchParams
+      const items = transfers
+        .map(transferDto)
+        .filter((t) => !q.get('kind') || t.kind === q.get('kind'))
+        .filter((t) => !q.get('status') || t.status === q.get('status'))
+        .filter(
+          (t) =>
+            !q.get('warehouseId') ||
+            t.fromWarehouseId === q.get('warehouseId') ||
+            t.toWarehouseId === q.get('warehouseId'),
+        )
+        .filter((t) => q.get('overdue') === null || String(t.overdue) === q.get('overdue'))
+      return json(route, 200, {
+        data: items,
+        meta: { page: 1, pageSize: 20, totalItems: items.length, totalPages: items.length ? 1 : 0 },
+      })
+    }
+    if (method === 'POST' && seg.length === 2) {
+      const key = route.request().headers()['idempotency-key']
+      if (!key) return problem(route, 400, 'validation-error', 'Falta Idempotency-Key')
+      if (idempotentTransfers.has(key)) return json(route, 201, idempotentTransfers.get(key))
+      const lines = body!.lines as Array<{ variantId: string; quantity: number }>
+      for (const l of lines) {
+        const from = stockAt(l.variantId, body!.fromWarehouseId as string)
+        if (from.onHand - from.reserved < l.quantity)
+          return problem(route, 409, 'insufficient-stock', 'Existencias insuficientes', {
+            lines: [{ variantId: l.variantId, canFulfill: false }],
+          })
+      }
+      const t = newTransfer(body as Parameters<typeof newTransfer>[0])
+      move(t, lines)
+      const dto = transferDto(t)
+      idempotentTransfers.set(key, dto)
+      return json(route, 201, dto)
+    }
+    const t = transfers.find((x) => x.id === seg[2])
+    if (!t) return problem(route, 404, 'not-found', 'No encontrado')
+    if (body?.version !== t.version)
+      return problem(route, 409, 'version-conflict', 'El recurso cambió')
+    if (seg[3] === 'cancel') {
+      if (!transferDto(t).cancellableUntil)
+        return problem(route, 409, 'invalid-state-transition', 'Transición no permitida', {
+          reason: 'cancel-window-closed',
+        })
+      move({ fromWarehouseId: t.toWarehouseId, toWarehouseId: t.fromWarehouseId }, t.lines as never)
+      Object.assign(t, {
+        status: 'CANCELLED',
+        cancelledAt: new Date().toISOString(),
+        cancelledBy: '0192a3b4-0000-7000-8000-000000000001',
+        version: (t.version as number) + 1,
+      })
+      return json(route, 200, transferDto(t))
+    }
+    if (seg[3] === 'close') {
+      const returned = body.lines as Array<{ variantId: string; returned: number }>
+      const back = returned
+        .filter((r) => r.returned > 0)
+        .map((r) => ({ variantId: r.variantId, quantity: r.returned }))
+      for (const line of t.lines)
+        line.returned = returned.find((r) => r.variantId === line.variantId)?.returned ?? 0
+      let returnTransferId: string | null = null
+      if (back.length) {
+        const r = newTransfer({
+          kind: 'TRANSFER',
+          reason: 'LOAN_RETURN',
+          fromWarehouseId: t.toWarehouseId as string,
+          toWarehouseId: t.fromWarehouseId as string,
+          lines: back,
+          loanId: t.id as string,
+        })
+        move(r, back)
+        returnTransferId = r.id
+      }
+      Object.assign(t, {
+        status: 'CLOSED',
+        closedAt: new Date().toISOString(),
+        closedBy: '0192a3b4-0000-7000-8000-000000000001',
+        returnTransferId,
+        version: (t.version as number) + 1,
+      })
+      return json(route, 200, transferDto(t))
+    }
+    return problem(route, 404, 'not-found', 'No encontrado')
+  }
+
+  // ── Hojas de conteo (API_SPEC §13, ADR-0173 de base-shop) ──
+  const counts: Array<Record<string, unknown> & { lines: Array<Record<string, unknown>> }> = []
+  const matches = (pattern: string, location: string | null) =>
+    location !== null &&
+    (pattern.endsWith('*') ? location.startsWith(pattern.slice(0, -1)) : location === pattern)
+  const countDto = (c: (typeof counts)[number]) => {
+    const blind = !!seed.blindCounts
+    const lines = c.lines.map((l) => ({
+      ...l,
+      expected: blind ? null : l.expected,
+      difference:
+        blind || l.counted === null ? null : (l.counted as number) - (l.expected as number),
+    }))
+    return {
+      ...c,
+      blind,
+      lines,
+      lineCount: lines.length,
+      countedCount: lines.filter((l) => l.counted !== null).length,
+    }
+  }
+  const openCount = (body: Record<string, unknown> | null) => {
+    const location = body?.location as string | undefined
+    const taken = stock
+      .filter((s) => s.warehouseId === body?.warehouseId)
+      .filter((s) => !location || matches(location, s.location))
+      .sort(
+        (a, b) =>
+          (a.location ?? '\uffff').localeCompare(b.location ?? '\uffff') ||
+          a.sku.localeCompare(b.sku),
+      )
+    const busy = (seed.busyVariants ?? []).filter((b) =>
+      taken.some((s) => s.variantId === b.variantId),
+    )
+    if (busy.length)
+      return { status: 409, type: 'variant-in-open-count', extra: { lines: busy } } as const
+    if (taken.length === 0)
+      return {
+        status: 400,
+        type: 'validation-error',
+        extra: { errors: [{ field: 'location', code: 'noLines', message: 'Ninguna variante.' }] },
+      } as const
+    const filter = Object.fromEntries(
+      ['location', 'categoryId', 'countClass']
+        .filter((k) => body?.[k] !== undefined)
+        .map((k) => [k, body![k]]),
+    )
+    const created = {
+      id: uuid(),
+      folio: `C-${String(counts.length + 1).padStart(6, '0')}`,
+      warehouseId: body?.warehouseId,
+      status: 'OPEN',
+      filter,
+      note: body?.note ?? null,
+      version: 1,
+      createdAt: NOW.toISOString(),
+      createdBy: '0192a3b4-0000-7000-8000-000000000001',
+      closedAt: null,
+      closedBy: null,
+      lines: taken.map((s, i) => ({
+        variantId: s.variantId,
+        sku: s.sku,
+        productTitle: s.productTitle,
+        position: i + 1,
+        location: s.location,
+        counted: null,
+        countedBy: null,
+        countedAt: null,
+        recount: false,
+        expected: null,
+        outcome: null,
+        movementId: null,
+      })),
+    }
+    counts.unshift(created)
+    return created
+  }
+  const countsRoute = (
+    route: Route,
+    method: string,
+    seg: string[],
+    url: URL,
+    body: Record<string, unknown> | null,
+  ) => {
+    if (seg.length === 2 && method === 'GET') {
+      const status = url.searchParams.get('status')
+      const warehouseId = url.searchParams.get('warehouseId')
+      const data = counts
+        .filter(
+          (c) =>
+            (!status || c.status === status) && (!warehouseId || c.warehouseId === warehouseId),
+        )
+        .map((c) => {
+          const { lines: _lines, blind: _blind, ...summary } = countDto(c)
+          return summary
+        })
+      return json(route, 200, {
+        data,
+        meta: { page: 1, pageSize: 20, totalItems: data.length, totalPages: data.length ? 1 : 0 },
+      })
+    }
+    if (seg.length === 2 && method === 'POST') {
+      const created = openCount(body)
+      if ('type' in created)
+        return problem(route, created.status, created.type, 'No se pudo abrir', created.extra)
+      return json(route, 201, countDto(created))
+    }
+    const count = counts.find((c) => c.id === seg[2])
+    if (!count) return problem(route, 404, 'not-found', 'No encontrado')
+    if (seg.length === 3) return json(route, 200, countDto(count))
+    const open = count.status === 'OPEN'
+    if (!open) return problem(route, 409, 'invalid-state-transition', 'Transición no permitida')
+    const versioned = seg[3] !== 'lines' || seg[5] === 'recount'
+    if (versioned && body?.version !== count.version)
+      return problem(route, 409, 'version-conflict', 'Otro usuario lo cambió')
+    count.version = (count.version as number) + 1
+    if (seg[3] === 'lines' && method === 'PUT') {
+      let line = count.lines.find((l) => l.variantId === seg[4])
+      const item = stock.find((s) => s.variantId === seg[4] && s.warehouseId === count.warehouseId)
+      if (!line) {
+        const same = stock.find((s) => s.variantId === seg[4])
+        line = {
+          variantId: seg[4],
+          sku: same?.sku ?? 'NUEVO',
+          productTitle: same?.productTitle ?? 'Producto',
+          position: count.lines.length + 1,
+          location: item?.location ?? null,
+          recount: false,
+          outcome: null,
+          movementId: null,
+        }
+        count.lines.push(line)
+      }
+      Object.assign(line, {
+        counted: body?.counted,
+        expected: item?.onHand ?? 0,
+        countedBy: '0192a3b4-0000-7000-8000-000000000001',
+        countedAt: NOW.toISOString(),
+        recount: false,
+      })
+      return json(
+        route,
+        200,
+        countDto(count).lines.find((l) => l.variantId === seg[4]),
+      )
+    }
+    if (seg[5] === 'recount') {
+      const line = count.lines.find((l) => l.variantId === seg[4])!
+      Object.assign(line, {
+        counted: null,
+        expected: null,
+        countedBy: null,
+        countedAt: null,
+        recount: true,
+      })
+      return json(route, 200, countDto(count))
+    }
+    if (seg[3] === 'apply') {
+      if (!route.request().headers()['idempotency-key'])
+        return problem(route, 400, 'validation-error', 'Falta Idempotency-Key')
+      for (const line of count.lines) {
+        if (line.counted === null) {
+          line.outcome = 'NOT_COUNTED'
+          continue
+        }
+        const item = stock.find(
+          (s) => s.variantId === line.variantId && s.warehouseId === count.warehouseId,
+        )!
+        const difference = (line.counted as number) - (line.expected as number)
+        if (difference === 0) line.outcome = 'NO_DIFFERENCE'
+        else if (item.onHand + difference < item.reserved) line.outcome = 'SKIPPED_RESERVED'
+        else {
+          item.onHand += difference
+          line.outcome = 'ADJUSTED'
+          line.movementId = uuid()
+        }
+      }
+      Object.assign(count, { status: 'APPLIED', closedAt: NOW.toISOString() })
+      return json(route, 200, countDto(count))
+    }
+    if (seg[3] === 'cancel') {
+      for (const line of count.lines) line.outcome = 'NOT_COUNTED'
+      Object.assign(count, { status: 'CANCELLED', closedAt: NOW.toISOString() })
+      return json(route, 200, countDto(count))
+    }
+    return problem(route, 404, 'not-found', 'No encontrado')
+  }
+
+  for (const c of seed.openCounts ?? [])
+    openCount({ warehouseId: WAREHOUSE_ID, location: c.location })
 
   await page.route(new RegExp(`^${API}/v1/admin/(pricing|inventory)/`), async (route) => {
     const request = route.request()
@@ -307,8 +702,12 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
         const max = url.searchParams.get('availableMax')
         const variantId = url.searchParams.get('variantId')
         const warehouseId = url.searchParams.get('warehouseId')
+        const location = url.searchParams.get('location')
+        const hasLocation = url.searchParams.get('hasLocation')
         const items = stock
           .filter((s) => !warehouseId || s.warehouseId === warehouseId)
+          .filter((s) => !location || matches(location, s.location))
+          .filter((s) => hasLocation === null || (s.location !== null) === (hasLocation === 'true'))
           .filter(
             (s) =>
               !q || s.sku.toLowerCase().includes(q) || s.productTitle.toLowerCase().includes(q),
@@ -348,8 +747,6 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
           return problem(route, 404, 'not-found', 'No encontrado')
         let item = stock.find((s) => s.variantId === body.variantId && s.warehouseId === target.id)
         const quantity = body.quantity as number
-        if (seg[1] === 'adjustments' && seed.failPositiveAdjustments && quantity > 0)
-          return problem(route, 500, 'internal-error', 'Error interno')
         if (seg[1] === 'adjustments' && !item && quantity < 0)
           return problem(route, 409, 'insufficient-stock', 'Existencias insuficientes', {
             lines: [{ variantId: body.variantId, canFulfill: false }],
@@ -368,6 +765,7 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
             onHand: 0,
             reserved: 0,
             warehouseId: target.id as string,
+            location: null,
           }
           stock.push(item)
           movements.set(item.id, [])
@@ -388,9 +786,17 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
         movements.get(item.id)!.unshift(movement)
         return json(route, 201, { stockItem: stockDto(item), movement })
       }
+      if (seg[1] === 'transfers') return transfersRoute(route, method, seg, url, body)
+      if (seg[1] === 'counts') return countsRoute(route, method, seg, url, body)
+      if (seg[1] === 'locations' && method === 'PUT') {
+        const item = stockAt(body?.variantId as string, body?.warehouseId as string)
+        const text = body?.location as string | null
+        item.location = text === null ? null : text.trim().replace(/\s+/g, ' ').toUpperCase()
+        return json(route, 200, stockDto(item))
+      }
     }
     return problem(route, 404, 'not-found', 'No encontrado')
   })
 
-  return { calls, periods, stock, warehouse, warehouses }
+  return { calls, periods, stock, warehouse, warehouses, transfers, counts }
 }

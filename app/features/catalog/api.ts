@@ -10,6 +10,8 @@ import type {
   Category,
   CategoryInput,
   CategoryNode,
+  CountClassesResult,
+  CountClassItem,
   ImageUpdateInput,
   Product,
   ProductCreateInput,
@@ -77,10 +79,14 @@ export function useBrandAction() {
 
 // ── Categorías ─────────────────────────────────────────────────────────────────
 
-export function useCategoryTree(status?: MaybeRefOrGetter<string | undefined>) {
+export function useCategoryTree(
+  status?: MaybeRefOrGetter<string | undefined>,
+  options: { enabled?: MaybeRefOrGetter<boolean> } = {},
+) {
   const api = useApi()
   return useQuery<CategoryNode[], ApiProblem>({
     queryKey: computed(() => catalogKeys.categoryTree(toValue(status))),
+    enabled: computed(() => toValue(options.enabled ?? true)),
     queryFn: async ({ signal }) =>
       (
         await api<{ data: CategoryNode[] }>(`${BASE}/categories`, {
@@ -300,5 +306,22 @@ export function useImportProducts() {
     onSuccess: (summary) => {
       if (!summary.dryRun) return qc.invalidateQueries({ queryKey: catalogKeys.products() })
     },
+  })
+}
+
+/** Máximo de productos por cambio de clase (CountClassesDto). */
+export const MAX_COUNT_CLASS_ITEMS = 500
+
+/**
+ * Cambia la clase de conteo de hasta 500 productos, todo o nada (ADR-0173 de base-shop,
+ * `catalog.write`). No lleva `version`: solo toca la clase.
+ */
+export function useSetCountClasses() {
+  const api = useApi()
+  const qc = useQueryClient()
+  return useMutation<CountClassesResult, ApiProblem, CountClassItem[]>({
+    mutationFn: (items) =>
+      api<CountClassesResult>(`${BASE}/count-classes`, { method: 'PUT', body: { items } }),
+    onSettled: () => qc.invalidateQueries({ queryKey: catalogKeys.all }),
   })
 }

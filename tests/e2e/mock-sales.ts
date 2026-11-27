@@ -4,6 +4,7 @@ import { API, json } from './mock-api'
 /** Pedidos, pagos y envíos en memoria con las formas de openapi/v1.json (API_SPEC §15–17). */
 const NOW = '2026-10-05T12:00:00.000Z'
 const WAREHOUSE_ID = '0192a3b4-0000-7000-8000-00000000b001'
+export const OTHER_LOCAL_ID = '0192a3b4-0000-7000-8000-00000000b002'
 const STAFF_ID = '0192a3b4-0000-7000-8000-000000000001'
 let seq = 0
 const uuid = () => `0192a3b4-0000-7000-8000-${String(800000 + ++seq).padStart(12, '0')}`
@@ -73,6 +74,15 @@ export interface SalesOrderSeed {
 
 export interface SalesSeed {
   orders: SalesOrderSeed[]
+  /** Clases de conteo sugeridas por ventas (UC-ORD-18, ADR-0173 de base-shop). */
+  countClassSuggestions?: Array<{
+    productId: string
+    productTitle: string
+    countClass: 'A' | 'B' | 'C' | null
+    suggestedClass: 'A' | 'B' | 'C'
+    sales: number
+    units: number
+  }>
   /** Pago manual deshabilitado (API_SPEC §16.6). */
   manualPaymentsDisabled?: boolean
   /** La configuración leída dice habilitado, pero otro cambio lo deshabilitó antes del registro. */
@@ -81,6 +91,11 @@ export interface SalesSeed {
   storeCatalog?: boolean
   /** El precio sube entre la cotización y la colocación: el primer intento recibe `total-mismatch`. */
   priceChangeOnPlace?: boolean
+  /**
+   * Un segundo local con estas existencias disponibles por SKU, para "Traer del otro local"
+   * (`POST /v1/admin/inventory/transfers`, ADR-0172 de base-shop).
+   */
+  otherLocalStock?: Record<string, number>
 }
 
 interface Line {
@@ -498,7 +513,29 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
       status: 'ACTIVE',
       productStatus: 'PUBLISHED',
     },
-  ]
+    // Precio libre (ADR-0171 de base-shop): sin precio de lista, la línea lleva el suyo.
+    {
+      variantId: uuid(),
+      sku: 'SR-JUEGO',
+      gtin: null as string | null,
+      productTitle: 'Artículo sin registrar',
+      unit: 0,
+      available: 100000,
+      status: 'ACTIVE',
+      productStatus: 'PUBLISHED',
+      openPrice: true,
+    },
+  ] as Array<{
+    variantId: string
+    sku: string
+    gtin: string | null
+    productTitle: string
+    unit: number
+    available: number
+    status: string
+    productStatus: string
+    openPrice?: boolean
+  }>
   let priceBump = 0
   let pendingPriceChange = !!seed.priceChangeOnPlace
   const CUSTOMER = {
@@ -524,6 +561,75 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
     ],
   }
   const idempotency = new Map<string, Order>()
+  const otherLocal: Record<string, number> = { ...seed.otherLocalStock }
+  const transfers = new Map<string, Record<string, unknown>>()
+
+  // "Traer del otro local" (ADR-0172 de base-shop): un traslado de un paso, con Idempotency-Key.
+  if (seed.otherLocalStock)
+    await page.route(`${API}/v1/admin/inventory/transfers`, async (route) => {
+      const request = route.request()
+      if (request.method() === 'OPTIONS') return route.fallback()
+      const body = request.postDataJSON() as {
+        fromWarehouseId: string
+        toWarehouseId: string
+        reason: string
+        kind: string
+        note?: string
+        lines: Array<{ variantId: string; quantity: number }>
+      }
+      const headers = request.headers()
+      calls.push({
+        method: request.method(),
+        path: new URL(request.url()).pathname,
+        body,
+        query: '',
+        headers,
+      })
+      const key = headers['idempotency-key']!
+      if (transfers.has(key)) return json(route, 201, transfers.get(key))
+      const line = body.lines[0]!
+      const v = STOCK.find((x) => x.variantId === line.variantId)!
+      if ((otherLocal[v.sku] ?? 0) < line.quantity)
+        return problem(route, 409, 'insufficient-stock', 'Existencias insuficientes', {
+          lines: [{ variantId: v.variantId, canFulfill: false }],
+        })
+      otherLocal[v.sku]! -= line.quantity
+      v.available += line.quantity
+      const created = new Date()
+      const transfer = {
+        id: uuid(),
+        folio: `T-${String(transfers.size + 1).padStart(6, '0')}`,
+        kind: body.kind,
+        reason: body.reason,
+        status: 'COMPLETED',
+        fromWarehouseId: body.fromWarehouseId,
+        toWarehouseId: body.toWarehouseId,
+        note: body.note ?? null,
+        lines: [
+          {
+            variantId: v.variantId,
+            sku: v.sku,
+            productTitle: v.productTitle,
+            quantity: line.quantity,
+            returned: null,
+          },
+        ],
+        createdBy: STAFF_ID,
+        createdAt: created.toISOString(),
+        cancellableUntil: new Date(created.getTime() + 10 * 60_000).toISOString(),
+        cancelledAt: null,
+        cancelledBy: null,
+        returnBy: null,
+        overdue: false,
+        closedBy: null,
+        closedAt: null,
+        loanId: null,
+        returnTransferId: null,
+        version: 1,
+      }
+      transfers.set(key, transfer)
+      return json(route, 201, transfer)
+    })
 
   if (seed.storeCatalog) {
     await page.route(
@@ -560,6 +666,20 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
                 createdAt: NOW,
                 updatedAt: NOW,
               },
+              ...(seed.otherLocalStock
+                ? [
+                    {
+                      id: OTHER_LOCAL_ID,
+                      code: 'L206',
+                      name: 'Local 206',
+                      priority: 2,
+                      status: 'ACTIVE',
+                      address: null,
+                      createdAt: NOW,
+                      updatedAt: NOW,
+                    },
+                  ]
+                : []),
             ],
           })
         if (url.pathname.endsWith('/variants/lookup')) {
@@ -585,21 +705,29 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
         if (url.pathname.endsWith('/stock-items')) {
           const text = url.searchParams.get('q')?.toLowerCase() ?? ''
           const variantId = url.searchParams.get('variantId')
-          const items = STOCK.filter(
+          const warehouseId = url.searchParams.get('warehouseId')
+          const matching = STOCK.filter(
             (v) =>
               (!variantId || v.variantId === variantId) &&
               (v.sku.toLowerCase().includes(text) || v.productTitle.toLowerCase().includes(text)),
-          ).map((v) => ({
+          )
+          const item = (v: (typeof STOCK)[number], warehouse: string, available: number) => ({
             id: uuid(),
             variantId: v.variantId,
-            warehouseId: WAREHOUSE_ID,
+            warehouseId: warehouse,
             sku: v.sku,
             productTitle: v.productTitle,
-            onHand: v.available,
+            onHand: available,
             reserved: 0,
-            available: v.available,
+            available,
             updatedAt: NOW,
-          }))
+          })
+          const items = [
+            ...matching.map((v) => item(v, WAREHOUSE_ID, v.available)),
+            ...matching
+              .filter((v) => otherLocal[v.sku] !== undefined)
+              .map((v) => item(v, OTHER_LOCAL_ID, otherLocal[v.sku]!)),
+          ].filter((i) => !warehouseId || i.warehouseId === warehouseId)
           return json(route, 200, page1(items))
         }
         const id = url.pathname.split('/')[5]
@@ -613,25 +741,52 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
     )
   }
 
+  // Productos de precio libre del catálogo (ADR-0171 de base-shop), para "Artículo sin registrar".
+  if (seed.storeCatalog)
+    await page.route(`${API}/v1/admin/catalog/products?**`, (route) => {
+      const url = new URL(route.request().url())
+      if (route.request().method() === 'OPTIONS' || url.searchParams.get('openPrice') !== 'true')
+        return route.fallback()
+      return json(
+        route,
+        200,
+        page1(
+          STOCK.filter((v) => v.openPrice).map((v) => ({
+            id: `p-${v.sku}`,
+            title: v.productTitle,
+            slug: v.sku.toLowerCase(),
+            status: 'PUBLISHED',
+            storeOnly: true,
+            openPrice: true,
+            variants: [
+              { id: v.variantId, sku: v.sku, options: { tipo: 'Juego' }, status: 'ACTIVE' },
+            ],
+          })),
+        ),
+      )
+    })
+
   /** El único cupón que aplica en la simulación: 10% de cada línea (API_SPEC §26.8). */
   const COUPON = 'BUENFIN'
   function quote(input: {
-    lines: Array<{ variantId: string; quantity: number }>
+    lines: Array<{ variantId: string; quantity: number; unitPrice?: number; note?: string }>
     fulfillment?: string
     couponCode?: string
   }) {
     const withCoupon = input.couponCode === COUPON
     const lines = input.lines.map((l) => {
       const v = STOCK.find((x) => x.variantId === l.variantId)!
-      const lineTotal = (v.unit + priceBump) * l.quantity
-      const discount = withCoupon ? Math.round(lineTotal / 10) : 0
+      const unit = v.openPrice ? (l.unitPrice ?? 0) : v.unit + priceBump
+      const lineTotal = unit * l.quantity
+      const discount = withCoupon && !v.openPrice ? Math.round(lineTotal / 10) : 0
       return {
         variantId: v.variantId,
         sku: v.sku,
         productTitle: v.productTitle,
         options: { talla: 'M' },
         quantity: l.quantity,
-        unitPrice: money(v.unit + priceBump),
+        unitPrice: money(unit),
+        note: v.openPrice ? (l.note ?? null) : null,
         taxRateBp: 1600,
         taxAmount: money(Math.round((lineTotal * 16) / 116)),
         lineTotal: money(lineTotal),
@@ -735,6 +890,21 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
     const q = url.searchParams
 
     // ── Pedidos ────────────────────────────────────────────────────────────────
+    if (parts[0] === 'orders' && parts[1] === 'count-class-suggestions' && method === 'GET') {
+      const data = (seed.countClassSuggestions ?? []).map((s) => ({
+        ...s,
+        sales: { amount: s.sales, currency: 'MXN' },
+      }))
+      return json(route, 200, {
+        data,
+        meta: {
+          from: '2026-07-08T12:00:00.000Z',
+          to: '2026-10-06T12:00:00.000Z',
+          days: 90,
+          total: { amount: data.reduce((n, s) => n + s.sales.amount, 0), currency: 'MXN' },
+        },
+      })
+    }
     if (parts[0] === 'orders') {
       if (
         (parts[1] === 'quote' || !parts[1]) &&

@@ -4,9 +4,13 @@ import {
   cancelSchema,
   manualCaptureSchema,
   restockSchema,
+  openPriceLineReady,
+  openUnitPriceCents,
   storeOrderSchema,
   toStaffOrderInput,
 } from '~/features/orders/schemas'
+import { closeCashSchema, countedCents, toCloseCashInput } from '~/features/cash-closings/schemas'
+import { collectionMethodLabel, differenceTone, staffLabel } from '~/features/cash-closings/status'
 import { emptyAddress } from '~/shared/address/address-form'
 import { canRun, cancelStartsRefund, restockReason } from '~/features/orders/status'
 import type { AdminOrder } from '~/features/orders/types'
@@ -162,6 +166,39 @@ describe('pedido en la tienda física (ADR-0161)', () => {
     expect(paths({ ...ready, addressMode: 'new' })).toContain('address.phone')
   })
 
+  it('una línea de precio libre lleva su precio con IVA y qué se vendió (ADR-0171 de base-shop)', () => {
+    const open = {
+      variantId: 'v9',
+      sku: 'SR-JUEGO',
+      productTitle: 'Artículo sin registrar',
+      quantity: 1,
+      openPrice: true,
+      unitPrice: '',
+      note: ' ',
+    }
+    const sale = { ...base, lines: [...base.lines, open] }
+    expect(paths(sale)).toEqual(['lines.1.unitPrice', 'lines.1.note'])
+    expect(openPriceLineReady(open)).toBe(false)
+    const ready = {
+      ...sale,
+      lines: [base.lines[0], { ...open, unitPrice: '349.5', note: ' Juego usado ' }],
+    }
+    expect(paths(ready)).toEqual([])
+    expect(toStaffOrderInput(ready, 1000, '').lines).toEqual([
+      { variantId: 'v1', quantity: 2 },
+      { variantId: 'v9', quantity: 1, unitPrice: 34950, note: 'Juego usado' },
+    ])
+  })
+
+  it('el precio libre va de $0.01 a $100,000.00, con hasta dos decimales', () => {
+    expect(openUnitPriceCents('0.01')).toBe(1)
+    expect(openUnitPriceCents('100000')).toBe(10_000_000)
+    expect(openUnitPriceCents('100000.01')).toBeNull()
+    expect(openUnitPriceCents('0')).toBeNull()
+    expect(openUnitPriceCents('12.345')).toBeNull()
+    expect(openUnitPriceCents('-5')).toBeNull()
+  })
+
   it('un invitado necesita email y que se le presente el aviso de privacidad', () => {
     const guest = { ...base, buyer: 'guest' as const }
     expect(paths(guest)).toEqual(expect.arrayContaining(['contactEmail', 'privacyNoticeShown']))
@@ -171,5 +208,44 @@ describe('pedido en la tienda física (ADR-0161)', () => {
       contactEmail: 'ana@example.com',
       privacyNoticeVersion: '2026-09',
     })
+  })
+})
+
+describe('corte de caja (ADR-0171 de base-shop)', () => {
+  const paths = (expected: number, v: unknown) => {
+    const r = closeCashSchema(expected).safeParse(v)
+    return r.success ? [] : r.error.issues.map((i) => i.path.join('.'))
+  }
+
+  it('pide el efectivo contado en pesos y una nota solo si no cuadra', () => {
+    expect(paths(352_500, { counted: '', note: '' })).toEqual(['counted'])
+    expect(paths(352_500, { counted: '3525', note: '' })).toEqual([])
+    expect(paths(352_500, { counted: '3505', note: '' })).toEqual(['note'])
+    expect(paths(352_500, { counted: '3505', note: 'Faltan $20' })).toEqual([])
+    expect(paths(352_500, { counted: '3525', note: 'x'.repeat(501) })).toEqual(['note'])
+  })
+
+  it('arma el cierre en centavos, sin nota vacía', () => {
+    expect(countedCents('3525.5')).toBe(352_550)
+    expect(countedCents('21474836.48')).toBeNull()
+    expect(toCloseCashInput({ counted: '3525', note: '  ' }, 'w1', '2026-11-07')).toEqual({
+      warehouseId: 'w1',
+      date: '2026-11-07',
+      countedCash: 352_500,
+    })
+    expect(
+      toCloseCashInput({ counted: '3505', note: ' Faltan $20 ' }, 'w1', '2026-11-07'),
+    ).toMatchObject({ note: 'Faltan $20' })
+  })
+
+  it('nombra los métodos, las cuentas y la diferencia', () => {
+    expect(collectionMethodLabel('CASH')).toBe('Efectivo')
+    expect(collectionMethodLabel(null)).toBe('Sin método')
+    expect(staffLabel('u1', 'u1')).toBe('Tú')
+    expect(staffLabel('u2', 'u1')).toBe('u2')
+    expect(staffLabel(null, 'u1')).toBe('Sin registrar (proveedor)')
+    expect(differenceTone(0).label).toBe('Cuadra')
+    expect(differenceTone(-2000).label).toBe('Falta efectivo')
+    expect(differenceTone(500).label).toBe('Sobra efectivo')
   })
 })

@@ -25,6 +25,9 @@ export type StaffQuote = Schemas['CheckoutQuoteDto']
 export type StaffQuoteLine = Schemas['CheckoutQuoteLineDto']
 /** Existencias por almacén para elegir variantes (`GET …/inventory/stock-items`, `inventory.read`). */
 export type SellableStock = Schemas['StockItemDto']
+/** "Traer del otro local" antes de vender (ADR-0172 de base-shop): un traslado con motivo `SALE`. */
+export type BringStockInput = Schemas['CreateTransferDto']
+export type BroughtStock = Schemas['TransferDto']
 /** Cliente registrado a nombre de quien se coloca el pedido (`customers.read`). */
 export type BuyerCustomer = Schemas['AdminCustomerDto']
 export type BuyerAddress = Schemas['AddressDto']
@@ -54,3 +57,19 @@ export interface RestockConflictLine {
   restocked: number
   requested: number
 }
+
+/** Un producto de precio libre del catálogo, con sus variantes (ADR-0171 de base-shop). */
+export type OpenPriceProduct = Schemas['AdminProductDto']
+
+/** Una variante de precio libre, lista para agregar a la venta (D-098). */
+export interface OpenPriceVariant {
+  variantId: string
+  sku: string
+  productTitle: string
+  /** Sus opciones (por ejemplo, "Juego"), o el título del producto sin opciones. */
+  label: string
+}
+
+/** La clase de conteo sugerida por las ventas de 90 días (UC-ORD-18, ADR-0173 de base-shop). */
+export type CountClassSuggestion = Schemas['CountClassSuggestionDto']
+export type CountClassSuggestionList = Schemas['CountClassSuggestionListDto']

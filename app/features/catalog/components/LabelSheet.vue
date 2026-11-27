@@ -9,6 +9,7 @@ import type { LabelItem } from '../labels'
  * Etiquetas sin precio (D-083): en rollo térmico de 58 mm (lineal, o compactas 2D de dos en dos),
  * adhesivas de 50 × 25 mm con código lineal o de 25 × 15 mm con código 2D (Data Matrix o QR), y
  * hoja carta de 30. En rollo van una tras otra con una línea para cortar; en adhesivas, una por hoja.
+ * Con un almacén elegido, cada una lleva su ubicación ahí (ADR-0173).
  */
 const props = defineProps<{
   items: LabelItem[]
@@ -39,7 +40,7 @@ const options = (o: Record<string, string>) => Object.values(o).join(' / ')
           class="flex h-[25.4mm] w-[66.7mm] flex-col items-center justify-center overflow-hidden px-[2mm] outline outline-1 outline-dashed outline-gray-300 print:outline-0"
         >
           <p class="w-full truncate text-center text-[8pt] leading-tight">
-            {{ item.title
+            <strong v-if="item.location">{{ item.location }} · </strong>{{ item.title
             }}<template v-if="Object.keys(item.options).length">
               · {{ options(item.options) }}</template
             >
@@ -84,7 +85,7 @@ const options = (o: Record<string, string>) => Object.values(o).join(' / ')
           >
             <template v-if="roll.perRow === 1">
               <p class="w-full truncate text-center text-[7pt] leading-tight">
-                {{ item.title
+                <strong v-if="item.location">{{ item.location }} · </strong>{{ item.title
                 }}<template v-if="Object.keys(item.options).length">
                   · {{ options(item.options) }}</template
                 >
@@ -104,7 +105,10 @@ const options = (o: Record<string, string>) => Object.values(o).join(' / ')
                 :text="compactText(item)"
                 class="size-[12mm] shrink-0"
               />
-              <p class="min-w-0 font-mono text-[5.5pt] leading-tight break-all">{{ item.sku }}</p>
+              <p class="min-w-0 font-mono text-[5.5pt] leading-tight break-all">
+                {{ item.sku
+                }}<strong v-if="item.location" class="block font-sans">{{ item.location }}</strong>
+              </p>
             </template>
           </div>
         </div>
@@ -124,7 +128,7 @@ const options = (o: Record<string, string>) => Object.values(o).join(' / ')
       >
         <template v-if="format === 'label50x25'">
           <p class="w-full truncate text-center text-[7pt] leading-tight">
-            {{ item.title
+            <strong v-if="item.location">{{ item.location }} · </strong>{{ item.title
             }}<template v-if="Object.keys(item.options).length">
               · {{ options(item.options) }}</template
             >
@@ -140,7 +144,10 @@ const options = (o: Record<string, string>) => Object.values(o).join(' / ')
         </template>
         <template v-else>
           <BarcodeSvg :bcid="symbology" :text="compactText(item)" class="size-[12mm] shrink-0" />
-          <p class="min-w-0 font-mono text-[5pt] leading-tight break-all">{{ item.sku }}</p>
+          <p class="min-w-0 font-mono text-[5pt] leading-tight break-all">
+            {{ item.sku
+            }}<strong v-if="item.location" class="block font-sans">{{ item.location }}</strong>
+          </p>
         </template>
       </div>
     </div>

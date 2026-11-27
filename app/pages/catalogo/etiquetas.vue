@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { useProduct } from '~/features/catalog/api'
 import LabelSheet from '~/features/catalog/components/LabelSheet.vue'
+import { useStockLocations, useWarehouses } from '~/features/inventory/api'
 import { MAX_COPIES, MAX_LABELS, expandLabels } from '~/features/catalog/labels'
 import type { LabelItem } from '~/features/catalog/labels'
 import { variantOptionsLabel } from '~/shared/api/variant-lookup'
+import { useSessionStore } from '~/shared/auth/session.store'
+import { useDeviceWarehouse } from '~/shared/device/device-warehouse'
 import { usePreferencesStore } from '~/shared/preferences/preferences.store'
 import {
   COMPACT_SYMBOLOGIES,
@@ -32,6 +35,30 @@ usePrintPage(
   () => (format.value === 'letter30' ? '12.7mm 4.8mm' : '0'),
 )
 const total = computed(() => items.value.reduce((n, i) => n + (i.copies || 0), 0))
+
+// La ubicación de cada variante en un almacén (ADR-0173); por omisión, en el local de este equipo.
+const session = useSessionStore()
+const canSeeStock = computed(() => session.can('inventory.read'))
+const { data: warehouses } = useWarehouses({ enabled: canSeeStock })
+const device = useDeviceWarehouse()
+const NO_LOCATION = 'none'
+const locationWarehouse = ref<string>(device.warehouseId.value ?? NO_LOCATION)
+const locationOptions = computed(() => [
+  { value: NO_LOCATION, label: 'Sin ubicación' },
+  ...(warehouses.value ?? []).map((w) => ({ value: w.id, label: `Ubicación en ${w.name}` })),
+])
+const locations = useStockLocations(
+  () =>
+    canSeeStock.value && locationWarehouse.value !== NO_LOCATION
+      ? locationWarehouse.value
+      : undefined,
+  () => items.value.map((i) => i.variantId),
+)
+const printed = computed<LabelItem[]>(() =>
+  locationWarehouse.value === NO_LOCATION || !locations.data.value
+    ? items.value
+    : items.value.map((i) => ({ ...i, location: locations.data.value!.get(i.variantId) ?? null })),
+)
 
 function add(item: Omit<LabelItem, 'copies'>) {
   const existing = items.value.find((i) => i.variantId === item.variantId)
@@ -85,6 +112,13 @@ const longSkus = computed(() =>
       :formats="FORMATS"
       @update:format="(v) => (format = v as LabelFormat)"
     >
+      <USelect
+        v-if="canSeeStock"
+        v-model="locationWarehouse"
+        :items="locationOptions"
+        aria-label="Ubicación en la etiqueta"
+        class="w-full sm:w-52"
+      />
       <USelect
         v-if="compact"
         v-model="symbology"
@@ -167,7 +201,7 @@ const longSkus = computed(() =>
       <section aria-label="Vista previa" class="overflow-auto print:overflow-visible">
         <LabelSheet
           v-if="items.length"
-          :items="items"
+          :items="printed"
           :format="format"
           :symbology="symbology"
           class="w-fit p-2 print:p-0"

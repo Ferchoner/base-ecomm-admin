@@ -307,67 +307,125 @@ test('almacenes: crear uno y desactivarlo', async ({ page }) => {
   await expect(row).toContainText('Inactivo')
 })
 
-test('inventario: transferir entre almacenes con dos ajustes (G-20)', async ({ page }) => {
-  await mockAuthApi(page, staff(['inventory.read', 'inventory.write']))
-  const api = await mockPricingInventoryApi(page, {
-    warehouses: [{ id: SECOND_WAREHOUSE_ID, code: 'CDMX', name: 'Tienda CDMX', priority: 2 }],
-    stock: [{ variantId: V1, sku: 'CAM-M', productTitle: 'Camisa de lino', onHand: 10 }],
-  })
-  await login(page)
-  await page.goto('/inventario/stock')
-  await page.getByRole('button', { name: 'Acciones de CAM-M' }).click()
-  await page.getByRole('menuitem', { name: 'Transferir a otro almacén' }).click()
-  const dialog = page.getByRole('dialog')
-  await dialog.getByLabel('Cantidad').fill('4')
-  await dialog.getByRole('button', { name: 'Transferir' }).click()
-  await expect(page.getByText('Transferencia registrada', { exact: true })).toBeVisible()
-  const adjustments = api.calls.filter((c) => c.path.endsWith('/adjustments')).map((c) => c.body)
-  expect(adjustments).toEqual([
-    {
-      variantId: V1,
-      warehouseId: '0192a3b4-0000-7000-8000-00000000b001',
-      quantity: -4,
-      reasonCode: 'WAREHOUSE_TRANSFER',
-      note: null,
-    },
-    {
-      variantId: V1,
-      warehouseId: SECOND_WAREHOUSE_ID,
-      quantity: 4,
-      reasonCode: 'WAREHOUSE_TRANSFER',
-      note: null,
-    },
-  ])
-
-  await page.getByLabel('Filtrar por almacén').click()
-  await page.getByRole('option', { name: 'Tienda CDMX (CDMX)' }).click()
-  await expect(page).toHaveURL(/warehouseId=/)
-  await expect(page.getByRole('row', { name: /CAM-M/ })).toHaveCount(1)
-  await expect(page.getByRole('row', { name: /CAM-M/ })).toContainText('Tienda CDMX')
-})
-
-test('inventario: una transferencia a medias se explica y deja repetir solo la entrada', async ({
+test('inventario: trasladar a otro almacén en un solo paso y cancelarlo (G-20)', async ({
   page,
 }) => {
-  await mockAuthApi(page, staff(['inventory.read', 'inventory.write']))
+  await mockAuthApi(page, staff(['inventory.read', 'inventory.transfer']))
   const api = await mockPricingInventoryApi(page, {
-    warehouses: [{ id: SECOND_WAREHOUSE_ID, code: 'CDMX', name: 'Tienda CDMX', priority: 2 }],
+    warehouses: [{ id: SECOND_WAREHOUSE_ID, code: 'L206', name: 'Local 206', priority: 2 }],
     stock: [{ variantId: V1, sku: 'CAM-M', productTitle: 'Camisa de lino', onHand: 10 }],
-    failPositiveAdjustments: true,
   })
   await login(page)
   await page.goto('/inventario/stock')
   await page.getByRole('button', { name: 'Acciones de CAM-M' }).click()
-  await page.getByRole('menuitem', { name: 'Transferir a otro almacén' }).click()
+  await page.getByRole('menuitem', { name: 'Trasladar a otro almacén' }).click()
   const dialog = page.getByRole('dialog')
-  await dialog.getByLabel('Cantidad').fill('3')
-  await dialog.getByRole('button', { name: 'Transferir' }).click()
-  await expect(dialog.getByText('La transferencia quedó a medias')).toBeVisible()
-  await dialog.getByRole('button', { name: 'Registrar la entrada en el destino' }).click()
-  await expect(dialog.getByText('La transferencia quedó a medias')).toBeVisible()
-  const adjustments = api.calls.filter((c) => c.path.endsWith('/adjustments'))
-  // La salida se envió una sola vez; la entrada, dos (la original y la que pidió el usuario).
-  expect(adjustments.map((c) => (c.body as { quantity: number }).quantity)).toEqual([-3, 3, 3])
+  await dialog.getByLabel('Cantidad').fill('4')
+  await dialog.getByRole('button', { name: 'Trasladar' }).click()
+  await expect(page.getByText('Traslado T-000001 registrado', { exact: true })).toBeVisible()
+  const created = api.calls.filter((c) => c.method === 'POST' && c.path.endsWith('/transfers'))
+  expect(created.map((c) => c.body)).toEqual([
+    {
+      kind: 'TRANSFER',
+      reason: 'SALE',
+      fromWarehouseId: '0192a3b4-0000-7000-8000-00000000b001',
+      toWarehouseId: SECOND_WAREHOUSE_ID,
+      lines: [{ variantId: V1, quantity: 4 }],
+    },
+  ])
+  // Ya no se registra con dos ajustes.
+  expect(api.calls.some((c) => c.path.endsWith('/adjustments'))).toBe(false)
+  await expect(page.getByRole('row', { name: /CAM-M/ })).toHaveCount(2)
+
+  // Equivocado: se cancela desde Traslados en sus primeros 10 minutos.
+  await page.getByRole('link', { name: 'Traslados' }).click()
+  await page.getByLabel('Qué mostrar').click()
+  await page.getByRole('option', { name: 'Todos', exact: true }).click()
+  const row = page.getByRole('row', { name: /T-000001/ })
+  await expect(row).toContainText('Almacén principal → Local 206')
+  await expect(row).toContainText('4 × CAM-M')
+  await expect(row).toContainText('Hecho')
+  await row.getByRole('button', { name: 'Acciones de T-000001' }).click()
+  await page.getByRole('menuitem', { name: 'Cancelar' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancelar el traslado' }).click()
+  await expect(page.getByText('T-000001 cancelado', { exact: true })).toBeVisible()
+  await expect(row).toContainText('Cancelado')
+  const cancel = api.calls.find((c) => c.path.endsWith('/cancel'))
+  expect(cancel?.body).toEqual({ version: 1 })
+  expect(api.stock.find((s) => s.warehouseId === SECOND_WAREHOUSE_ID)?.onHand).toBe(0)
+})
+
+test('inventario: prestar para mostrar y cerrar el préstamo con lo que regresó', async ({
+  page,
+}) => {
+  await mockAuthApi(page, staff(['inventory.read', 'inventory.transfer']))
+  const api = await mockPricingInventoryApi(page, {
+    warehouses: [{ id: SECOND_WAREHOUSE_ID, code: 'L206', name: 'Local 206', priority: 2 }],
+    stock: [{ variantId: V1, sku: 'CAM-M', productTitle: 'Camisa de lino', onHand: 10 }],
+  })
+  await login(page)
+  await page.goto('/inventario/stock')
+  await page.getByRole('button', { name: 'Acciones de CAM-M' }).click()
+  await page.getByRole('menuitem', { name: 'Prestar para mostrar' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Prestar para mostrar' })
+  await dialog.getByLabel('Cantidad').fill('2')
+  await dialog.getByRole('button', { name: 'Prestar' }).click()
+  await expect(page.getByText('Préstamo P-000001 registrado', { exact: true })).toBeVisible()
+  const loan = api.calls.find((c) => c.method === 'POST' && c.path.endsWith('/transfers'))!
+  const body = loan.body as { returnBy: string }
+  expect(body).toMatchObject({ kind: 'LOAN', reason: 'SHOW', lines: [{ quantity: 2 }] })
+  // Una hora por defecto.
+  const minutes = (Date.parse(body.returnBy) - Date.now()) / 60_000
+  expect(minutes).toBeGreaterThan(55)
+  expect(minutes).toBeLessThanOrEqual(60)
+
+  // Los préstamos abiertos son la vista inicial de Traslados.
+  await page.goto('/inventario/traslados')
+  const row = page.getByRole('row', { name: /P-000001/ })
+  await expect(row).toContainText('Prestado')
+  await expect(row).toContainText('Regresa')
+  await row.getByRole('button', { name: 'Acciones de P-000001' }).click()
+  await page.getByRole('menuitem', { name: 'Cerrar el préstamo' }).click()
+  const close = page.getByRole('dialog', { name: 'Cerrar el préstamo P-000001' })
+  await expect(close.getByLabel('Regresaron de CAM-M')).toHaveValue('2')
+  await close.getByLabel('Regresaron de CAM-M').fill('1')
+  await close.getByRole('button', { name: 'Cerrar el préstamo' }).click()
+  await expect(page.getByText('Préstamo P-000001 cerrado', { exact: true })).toBeVisible()
+  await expect(page.getByText('1 unidad se queda en Local 206.', { exact: true })).toBeVisible()
+  expect(api.calls.find((c) => c.path.endsWith('/close'))?.body).toEqual({
+    version: 1,
+    lines: [{ variantId: V1, returned: 1 }],
+  })
+  await expect(page.getByText('Sin préstamos')).toBeVisible()
+})
+
+test('inventario: los préstamos vencidos se cuentan en Inicio y ya no se cancelan', async ({
+  page,
+}) => {
+  await mockAuthApi(page, staff(['inventory.read', 'inventory.transfer']))
+  await mockPricingInventoryApi(page, {
+    warehouses: [{ id: SECOND_WAREHOUSE_ID, code: 'L206', name: 'Local 206', priority: 2 }],
+    stock: [
+      { variantId: V1, sku: 'CAM-M', productTitle: 'Camisa de lino', onHand: 10 },
+      { variantId: V2, sku: 'CAM-L', productTitle: 'Camisa de lino', onHand: 5 },
+    ],
+    loans: [
+      { sku: 'CAM-M', quantity: 1, minutesLeft: -30 },
+      { sku: 'CAM-L', quantity: 1, minutesLeft: 30 },
+    ],
+  })
+  await login(page)
+  await page.goto('/')
+  const card = page.getByRole('link', { name: /Préstamos vencidos/ })
+  await expect(card).toContainText('1')
+  await card.click()
+  await expect(page).toHaveURL(/\/inventario\/traslados\?view=overdue/)
+  await expect(page.getByRole('row', { name: /P-0000/ })).toHaveCount(1)
+  await expect(page.getByRole('row', { name: /CAM-M/ })).toContainText('Vencido')
+  // Pasados los 10 minutos ya no se cancela; se cierra.
+  await page.getByRole('button', { name: /^Acciones de P-/ }).click()
+  await expect(page.getByRole('menuitem', { name: 'Cerrar el préstamo' })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: 'Cancelar' })).toHaveCount(0)
 })
 
 test('inventario: carga masiva de entradas con revisión previa', async ({ page }) => {

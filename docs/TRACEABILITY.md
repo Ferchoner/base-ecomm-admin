@@ -154,3 +154,46 @@ Se listan solo las operaciones que usa el backoffice (96 de 133). Las rutas de t
 | §25.7, §25.8     | UC-WRK-05 Ligar y desligar ventas  | Orden de trabajo, Vender en tienda                | `WorkOrderSales.vue`, `StoreOrderForm` (`returnTo`)       | F   |
 | §25.9            | UC-WRK-06 Nota de servicio         | Nota de servicio                                  | `ServiceNoteDocument.vue`, `pages/imprimir/nota-servicio` | F   |
 | §25.11, §25.12   | Datos bloqueados y anonimizar      | Orden de trabajo                                  | `WorkOrderBlockedDataModal.vue`, `ReasonDialog`           | F   |
+
+## API 1.10 (contrato de `main` de base-shop, `3af8641`, 2026-11-08)
+
+| API_SPEC | Caso de uso                                     | Pantalla                                                | Código                                                                              | Estado                  |
+| -------- | ----------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------- |
+| —        | Local del equipo (D-097)                        | Mi cuenta, Vender en tienda, Existencias, Corte de caja | `shared/device/device-warehouse.ts`, `inventory/components/DeviceWarehouseCard.vue` | DONE                    |
+| §15.7    | Línea de precio libre (UC-ORD-12 y 13)          | Vender en tienda                                        | `orders/components/StoreOrderForm.vue`, `orders/schemas.ts`, `useOpenPriceVariants` | DONE                    |
+| §15.7    | `GET /v1/admin/orders/open-price-lines`         | —                                                       | —                                                                                   | NOT_PLANNED (por ahora) |
+| §15.9    | UC-ORD-16 `GET /v1/admin/cash-closings/summary` | Corte de caja                                           | `features/cash-closings`, `pages/caja/index.vue`                                    | DONE                    |
+| §15.9    | UC-ORD-17 `POST /v1/admin/cash-closings`        | Corte de caja                                           | `CloseCashForm.vue`, `schemas.ts`                                                   | DONE                    |
+| §15.9    | `GET /v1/admin/cash-closings`                   | Corte de caja (cierres anteriores)                      | `useCashClosings`                                                                   | DONE                    |
+| §15.9    | `GET /v1/admin/cash-closings/{closingId}`       | —                                                       | `useCashClosing` (sin pantalla propia)                                              | DONE (consulta)         |
+
+Pruebas: `tests/unit/shared/device-warehouse.spec.ts`, `tests/unit/sales/sales.spec.ts`, `tests/unit/shared/utils.spec.ts`, `tests/e2e/cash-closings.spec.ts` y `tests/e2e/sales.spec.ts`.
+
+## API 1.11 (contrato de `main` de base-shop, `a57d27c`, 2026-11-08)
+
+| API_SPEC | Caso de uso                                               | Pantalla                         | Código                                                                                             | Estado                         |
+| -------- | --------------------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------ |
+| §13      | UC-INV-13 `POST /v1/admin/inventory/transfers` (traslado) | Existencias, Vender en tienda    | `TransferStockModal.vue`, `useCreateTransfer`, `BringStockFromOtherWarehouse.vue`, `useBringStock` | DONE                           |
+| §13      | UC-INV-15 `POST /v1/admin/inventory/transfers` (préstamo) | Existencias                      | `TransferStockModal.vue`                                                                           | DONE                           |
+| §13      | `GET /v1/admin/inventory/transfers`                       | Traslados, Corte de caja, Inicio | `useTransfers`, `pages/inventario/traslados.vue`                                                   | DONE                           |
+| §13      | UC-INV-14 `POST …/transfers/{transferId}/cancel`          | Traslados                        | `useCancelTransfer`                                                                                | DONE                           |
+| §13      | UC-INV-16 `POST …/transfers/{transferId}/close`           | Traslados                        | `CloseLoanModal.vue`, `useCloseLoan`                                                               | DONE                           |
+| §13      | `GET …/transfers/{transferId}`                            | —                                | —                                                                                                  | NOT_PLANNED (el listado basta) |
+
+Pruebas: `tests/unit/inventory/inventory.spec.ts`, `tests/e2e/pricing-inventory.spec.ts`, `tests/e2e/sales.spec.ts`, `tests/e2e/cash-closings.spec.ts` y `tests/e2e/a11y.spec.ts`.
+
+## API 1.12 (contrato de `main` de base-shop, `e8985fa`, 2026-11-08)
+
+| API_SPEC | Caso de uso                                                         | Pantalla                                             | Código                                                                         | Estado |
+| -------- | ------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------ | ------ |
+| §13      | UC-INV-17 `PUT /v1/admin/inventory/locations`                       | Existencias                                          | `LocationModal.vue`, `useSetLocation`                                          | DONE   |
+| §13      | Filtros `location` y `hasLocation` de `GET …/stock-items`           | Existencias, Inicio, Etiquetas, Etiquetas de estante | `pages/inventario/stock.vue`, `useStockLocations`                              | DONE   |
+| §13      | UC-INV-18 `POST /v1/admin/inventory/counts`                         | Conteos                                              | `OpenCountModal.vue`, `useOpenCount`                                           | DONE   |
+| §13      | `GET /v1/admin/inventory/counts`                                    | Conteos, Inicio                                      | `pages/inventario/conteos/index.vue`, `useCounts`                              | DONE   |
+| §13      | `GET …/counts/{countId}`                                            | Hoja de conteo, hoja impresa                         | `pages/inventario/conteos/[id].vue`, `CountSheetDocument.vue`                  | DONE   |
+| §13      | UC-INV-19 `PUT …/counts/{countId}/lines/{variantId}`                | Hoja de conteo                                       | `CountedInput.vue`, `useCaptureCount`, `withLine`                              | DONE   |
+| §13      | UC-INV-20 `POST …/lines/{variantId}/recount`, `…/apply`, `…/cancel` | Hoja de conteo                                       | `useRecountLine`, `useApplyCount`, `useCancelCount`                            | DONE   |
+| §11.6    | UC-CAT-19 `countClass` en productos y `PUT …/catalog/count-classes` | Producto, Productos, Clases de conteo                | `ProductForm.vue`, `useSetCountClasses`, `pages/catalogo/productos/clases.vue` | DONE   |
+| §15.7    | UC-ORD-18 `GET /v1/admin/orders/count-class-suggestions`            | Clases de conteo                                     | `useCountClassSuggestions`                                                     | DONE   |
+
+Pruebas: `tests/unit/inventory/counts.spec.ts`, `tests/e2e/counts.spec.ts` y `tests/e2e/a11y.spec.ts`.

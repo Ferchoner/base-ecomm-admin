@@ -79,6 +79,7 @@ interface Product {
   categoryIds: string[]
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
   storeOnly: boolean
+  countClass: 'A' | 'B' | 'C' | null
   variants: Variant[]
   images: Image[]
   publishedAt: string | null
@@ -135,6 +136,7 @@ export async function mockCatalogApi(page: Page, seed: CatalogSeed = {}) {
     categoryIds: [],
     status: 'DRAFT',
     storeOnly: false,
+    countClass: null,
     variants: [],
     images: [],
     publishedAt: null,
@@ -160,6 +162,7 @@ export async function mockCatalogApi(page: Page, seed: CatalogSeed = {}) {
     categories: p.categoryIds.map((id) => named(categories, id)).filter(Boolean),
     status: p.status,
     storeOnly: p.storeOnly,
+    countClass: p.countClass,
     storeVisibility: p.status === 'PUBLISHED' ? 'HIDDEN_NO_PRICE' : 'NOT_PUBLISHED',
     variants: p.variants.map((v) => ({
       gtin: null,
@@ -338,6 +341,22 @@ export async function mockCatalogApi(page: Page, seed: CatalogSeed = {}) {
         return json(route, 200, Object.assign(category, { status: 'ACTIVE' }))
     }
 
+    // ── Clase de conteo de varios productos (ADR-0173 de base-shop) ──
+    if (seg[0] === 'count-classes' && method === 'PUT') {
+      const items = body?.items as Array<{ productId: string; countClass: Product['countClass'] }>
+      let updated = 0
+      for (const item of items) {
+        const product = products.find((p) => p.id === item.productId)
+        if (!product) return problem(route, 404, 'not-found', 'No encontrado')
+        if (product.countClass !== item.countClass) {
+          product.countClass = item.countClass
+          product.version += 1
+          updated++
+        }
+      }
+      return json(route, 200, { updated })
+    }
+
     // ── Productos ──
     if (seg[0] === 'products') {
       if (seg.length === 1 && method === 'GET') {
@@ -355,6 +374,12 @@ export async function mockCatalogApi(page: Page, seed: CatalogSeed = {}) {
             (p) =>
               !url.searchParams.get('brandId') || p.brandId === url.searchParams.get('brandId'),
           )
+          .filter(
+            (p) =>
+              !url.searchParams.get('countClass') ||
+              p.countClass === url.searchParams.get('countClass'),
+          )
+          .filter((p) => url.searchParams.get('hasCountClass') !== 'false' || p.countClass === null)
         return json(route, 200, {
           ...page_(items, url),
           data: page_(items, url).data.map((p) => adminProduct(p, false)),
@@ -370,6 +395,7 @@ export async function mockCatalogApi(page: Page, seed: CatalogSeed = {}) {
           categoryIds: (body?.categoryIds as string[]) ?? [],
           status: 'DRAFT',
           storeOnly: (body?.storeOnly as boolean) ?? false,
+          countClass: (body?.countClass as Product['countClass']) ?? null,
           variants: [],
           images: [],
           publishedAt: null,

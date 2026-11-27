@@ -15,12 +15,17 @@ import type {
   RestockResult,
   WarehouseOption,
   ManualPaymentSettings,
+  BringStockInput,
+  BroughtStock,
   BuyerCustomer,
+  CountClassSuggestionList,
   SellableStock,
   StaffOrderInput,
   StaffQuote,
   StaffQuoteInput,
   StoreProfile,
+  OpenPriceProduct,
+  OpenPriceVariant,
 } from './types'
 import type { Page } from '~/shared/api/types'
 
@@ -69,7 +74,7 @@ function useOrderMutation<V>(
       qc.setQueryData(orderKeys.detail(order.id), order)
       invalidateRoots(
         qc,
-        [QUERY_ROOT.orders, QUERY_ROOT.payments, QUERY_ROOT.shipping],
+        [QUERY_ROOT.orders, QUERY_ROOT.payments, QUERY_ROOT.shipping, QUERY_ROOT.cashClosings],
         options.background ? [QUERY_ROOT.orders, QUERY_ROOT.shipping] : [],
       )
     },
@@ -190,7 +195,7 @@ export function usePlaceStaffOrder() {
       api<AdminOrder>(BASE, { method: 'POST', body: { ...input }, idempotencyKey }),
     onSuccess: (order) => {
       qc.setQueryData(orderKeys.detail(order.id), order)
-      invalidateRoots(qc, [QUERY_ROOT.orders, QUERY_ROOT.inventory])
+      invalidateRoots(qc, [QUERY_ROOT.orders, QUERY_ROOT.inventory, QUERY_ROOT.cashClosings])
     },
   })
 }
@@ -245,6 +250,49 @@ export function useStockInWarehouse() {
 }
 
 /**
+ * Existencias de una variante en todos los almacenes, para traerla de otro local cuando aquí no
+ * alcanza (`inventory.read`). Se consulta al momento: lo disponible cambia con cada venta.
+ */
+export function useVariantStockEverywhere(variantId: MaybeRefOrGetter<string | null>) {
+  const api = useApi()
+  return useQuery<SellableStock[], ApiProblem>({
+    queryKey: computed(() => [QUERY_ROOT.inventory, 'stock', 'everywhere', toValue(variantId)]),
+    queryFn: async ({ signal }) =>
+      (
+        await api<Page<SellableStock>>('/v1/admin/inventory/stock-items', {
+          query: { variantId: toValue(variantId)!, pageSize: 100 },
+          signal,
+        })
+      ).data,
+    enabled: computed(() => !!toValue(variantId)),
+    staleTime: 0,
+  })
+}
+
+/**
+ * Trae unidades de otro almacén a este, para venderlas aquí y que el cobro quede en el corte de este
+ * local (`POST /v1/admin/inventory/transfers`, `inventory.transfer`, ADR-0172 de base-shop). Lleva
+ * `Idempotency-Key`; al terminar se vuelven a consultar las existencias y la cotización.
+ */
+export function useBringStock() {
+  const api = useApi()
+  const qc = useQueryClient()
+  return useMutation<BroughtStock, ApiProblem, { input: BringStockInput; idempotencyKey: string }>({
+    mutationFn: ({ input, idempotencyKey }) =>
+      api<BroughtStock>('/v1/admin/inventory/transfers', {
+        method: 'POST',
+        body: { ...input },
+        idempotencyKey,
+      }),
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: [QUERY_ROOT.inventory] }),
+        qc.invalidateQueries({ queryKey: [...orderKeys.all, 'quote'] }),
+      ]),
+  })
+}
+
+/**
  * Datos de la tienda para el ticket (`GET /v1/admin/store-profile`, `orders.read`, API_SPEC §15.8).
  * Salen de la configuración de la API y solo cambian al reiniciarla.
  */
@@ -295,5 +343,50 @@ export function useBlockedData(id: MaybeRefOrGetter<string>) {
         method: 'POST',
         body: { reason },
       }),
+  })
+}
+
+/**
+ * Las variantes de precio libre (ADR-0171 de base-shop, D-098): de los productos publicados con
+ * `openPrice`, que solo se venden en la tienda. Se leen del catálogo (`catalog.read`) para ofrecer
+ * "Artículo sin registrar" en la venta; son pocas (una por tipo de artículo), así que basta una página.
+ */
+export function useOpenPriceVariants(enabled: MaybeRefOrGetter<boolean>) {
+  const api = useApi()
+  return useQuery<OpenPriceVariant[], ApiProblem>({
+    queryKey: [QUERY_ROOT.orders, 'open-price-variants'],
+    queryFn: async ({ signal }) => {
+      const page = await api<Page<OpenPriceProduct>>('/v1/admin/catalog/products', {
+        query: { openPrice: true, status: 'PUBLISHED', pageSize: 100 },
+        signal,
+      })
+      return page.data.flatMap((product) =>
+        product.variants
+          .filter((v) => v.status === 'ACTIVE')
+          .map((v) => ({
+            variantId: v.id,
+            sku: v.sku,
+            productTitle: product.title,
+            label: Object.values(v.options).join(' / ') || product.title,
+          })),
+      )
+    },
+    enabled: computed(() => toValue(enabled)),
+    staleTime: 5 * 60_000,
+  })
+}
+
+/**
+ * La clase de conteo sugerida de cada producto por lo vendido en los últimos 90 días
+ * (`GET /v1/admin/orders/count-class-suggestions`, `orders.read`, ADR-0173 de base-shop). Se aplica
+ * en Catálogo: Catálogo no depende de las ventas.
+ */
+export function useCountClassSuggestions(enabled: MaybeRefOrGetter<boolean> = true) {
+  const api = useApi()
+  return useQuery<CountClassSuggestionList, ApiProblem>({
+    queryKey: [...orderKeys.all, 'count-class-suggestions'],
+    queryFn: ({ signal }) =>
+      api<CountClassSuggestionList>(`${BASE}/count-class-suggestions`, { signal }),
+    enabled: computed(() => toValue(enabled)),
   })
 }

@@ -9,7 +9,7 @@ import { FOLIO_CODE, ORDER_CODE, fixScannedCode } from '~/shared/scanner/scanned
 import { LABELS_PER_LETTER, chunk, expandLabels } from '~/features/catalog/labels'
 import { toQuery } from '~/shared/api/client'
 import { safeRedirect } from '~/shared/auth/redirect'
-import { formatDateTime } from '~/shared/utils/dates'
+import { formatCalendarDate, formatDateTime, mexicoDate } from '~/shared/utils/dates'
 import { splitFieldErrors } from '~/shared/utils/form-errors'
 import { gtin14, isValidGtin } from '~/shared/utils/gtin'
 import { formatMoney, pesosToCents } from '~/shared/utils/money'
@@ -31,6 +31,12 @@ describe('fechas', () => {
     expect(formatDateTime(null)).toBe('—')
     expect(formatDateTime('no-es-fecha')).toBe('—')
     expect(formatDateTime('2026-09-25T18:30:00.000Z')).toMatch(/2026/)
+  })
+  it('toma el día de la Ciudad de México, UTC−6, para el corte de caja', () => {
+    expect(mexicoDate(new Date('2026-11-08T05:59:00.000Z'))).toBe('2026-11-07')
+    expect(mexicoDate(new Date('2026-11-08T06:00:00.000Z'))).toBe('2026-11-08')
+    expect(formatCalendarDate('2026-11-07')).toMatch(/7.*nov.*2026/)
+    expect(formatCalendarDate('7-11-2026')).toBe('—')
   })
 })
 

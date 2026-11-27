@@ -11,11 +11,23 @@ import { useApi } from '~/shared/api/use-api'
 import type {
   AdjustmentInput,
   ReceiptImportSummary,
+  CloseLoanInput,
+  Count,
+  CountCreateInput,
+  CountLine,
+  CountListParams,
+  CountPage,
   ReceiptInput,
+  StockItem,
+  StockLocationInput,
   StockEntry,
   StockItemPage,
   StockListParams,
   StockMovementPage,
+  Transfer,
+  TransferCreateInput,
+  TransferListParams,
+  TransferPage,
   Warehouse,
   WarehouseCreateInput,
   WarehouseUpdateInput,
@@ -31,6 +43,11 @@ export const inventoryKeys = {
   stockByVariant: (variantId: string) => [...inventoryKeys.stock(), 'variant', variantId] as const,
   movements: (stockItemId: string, filters: MovementFilters) =>
     [...inventoryKeys.all, 'movements', stockItemId, filters] as const,
+  transfers: () => [...inventoryKeys.all, 'transfers'] as const,
+  transferList: (params: TransferListParams) => [...inventoryKeys.transfers(), params] as const,
+  counts: () => [...inventoryKeys.all, 'counts'] as const,
+  countList: (params: CountListParams) => [...inventoryKeys.counts(), 'list', params] as const,
+  count: (id: string) => [...inventoryKeys.counts(), 'detail', id] as const,
 }
 
 export interface MovementFilters {
@@ -114,6 +131,43 @@ export function useStockOfVariant(variantId: MaybeRefOrGetter<string | undefined
   })
 }
 
+/**
+ * Dónde está cada variante en un almacén (ADR-0173), para las etiquetas: un mapa de variante a
+ * ubicación, `null` si no tiene. Una consulta por variante, de cinco en cinco.
+ */
+export function useStockLocations(
+  warehouseId: MaybeRefOrGetter<string | undefined>,
+  variantIds: MaybeRefOrGetter<string[]>,
+) {
+  const api = useApi()
+  const ids = computed(() => [...new Set(toValue(variantIds))].sort())
+  return useQuery<Map<string, string | null>, ApiProblem>({
+    queryKey: computed(() => [
+      ...inventoryKeys.stock(),
+      'locations',
+      toValue(warehouseId),
+      ids.value,
+    ]),
+    queryFn: async ({ signal }) => {
+      const found = new Map<string, string | null>()
+      const pending = [...ids.value]
+      const worker = async () => {
+        for (let variantId = pending.shift(); variantId; variantId = pending.shift()) {
+          const page = await api<StockItemPage>(`${BASE}/stock-items`, {
+            query: { variantId, warehouseId: toValue(warehouseId), pageSize: 1 },
+            signal,
+          })
+          found.set(variantId, page.data[0]?.location ?? null)
+        }
+      }
+      await Promise.all(Array.from({ length: 5 }, worker))
+      return found
+    },
+    enabled: computed(() => !!toValue(warehouseId) && ids.value.length > 0),
+    placeholderData: keepPreviousData,
+  })
+}
+
 /** Movimientos con paginación por cursor (API_SPEC §5.2): `cursor` y `limit`. */
 export function useStockMovements(
   stockItemId: MaybeRefOrGetter<string>,
@@ -156,62 +210,76 @@ function useStockEntry<V extends object>(path: 'receipts' | 'adjustments') {
 export const useCreateReceipt = () => useStockEntry<ReceiptInput>('receipts')
 export const useCreateAdjustment = () => useStockEntry<AdjustmentInput>('adjustments')
 
-export interface TransferInput {
-  variantId: string
-  fromWarehouseId: string
-  toWarehouseId: string
-  quantity: number
-  note: string | null
-  /** Solo la entrada al destino, cuando la salida ya quedó y el usuario la vuelve a pedir. */
-  inboundOnly?: boolean
-}
-
 /**
- * Error de una transferencia: `applied` dice si el primer ajuste (la salida) ya quedó registrado.
+ * Registra un traslado o un préstamo (`POST /v1/admin/inventory/transfers`, ADR-0172): las unidades
+ * salen del origen y entran al destino en un solo paso, o no se mueve nada. Exige `Idempotency-Key`:
+ * quien llama crea una por intento, así que repetir tras un error de red no mueve dos veces.
  */
-export interface TransferError {
-  problem: ApiProblem
-  applied: boolean
-}
-
-/**
- * Transferencia entre almacenes como dos ajustes `WAREHOUSE_TRANSFER`: la salida del origen y luego
- * la entrada al destino (API_SPEC §13, ADR-0160). La API no la hace atómica (GAPS G-20): si la entrada
- * falla, la salida ya quedó y no se reintenta sola.
- */
-export function useTransferStock() {
+export function useCreateTransfer() {
   const api = useApi()
   const qc = useQueryClient()
-  const adjust = (input: AdjustmentInput) =>
-    api<StockEntry>(`${BASE}/adjustments`, { method: 'POST', body: { ...input } })
-  return useMutation<StockEntry, TransferError, TransferInput>({
-    mutationFn: async ({
-      variantId,
-      fromWarehouseId,
-      toWarehouseId,
-      quantity,
-      note,
-      inboundOnly,
-    }) => {
-      const base = { variantId, reasonCode: 'WAREHOUSE_TRANSFER' as const, note }
-      if (!inboundOnly) {
-        try {
-          await adjust({ ...base, warehouseId: fromWarehouseId, quantity: -quantity })
-        } catch (e) {
-          throw { problem: e as ApiProblem, applied: false } satisfies TransferError
-        }
-      }
-      try {
-        return await adjust({ ...base, warehouseId: toWarehouseId, quantity })
-      } catch (e) {
-        throw { problem: e as ApiProblem, applied: true } satisfies TransferError
-      }
-    },
-    onSettled: () =>
-      Promise.all([
-        qc.invalidateQueries({ queryKey: inventoryKeys.stock() }),
-        qc.invalidateQueries({ queryKey: [...inventoryKeys.all, 'movements'] }),
-      ]),
+  return useMutation<Transfer, ApiProblem, { input: TransferCreateInput; idempotencyKey: string }>({
+    mutationFn: ({ input, idempotencyKey }) =>
+      api<Transfer>(`${BASE}/transfers`, {
+        method: 'POST',
+        body: { ...input },
+        idempotencyKey,
+      }),
+    onSuccess: () => invalidateAfterTransfer(qc),
+  })
+}
+
+function invalidateAfterTransfer(qc: ReturnType<typeof useQueryClient>) {
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: inventoryKeys.stock() }),
+    qc.invalidateQueries({ queryKey: [...inventoryKeys.all, 'movements'] }),
+    qc.invalidateQueries({ queryKey: inventoryKeys.transfers() }),
+  ])
+}
+
+/** Traslados y préstamos, del más reciente al más antiguo (`inventory.read`). */
+export function useTransfers(
+  params: MaybeRefOrGetter<TransferListParams>,
+  options: { enabled?: MaybeRefOrGetter<boolean> } = {},
+) {
+  const api = useApi()
+  return useQuery<TransferPage, ApiProblem>({
+    queryKey: computed(() => inventoryKeys.transferList(toValue(params))),
+    queryFn: ({ signal }) =>
+      api<TransferPage>(`${BASE}/transfers`, {
+        query: { ...toValue(params) },
+        signal,
+      }),
+    placeholderData: keepPreviousData,
+    enabled: computed(() => toValue(options.enabled ?? true)),
+  })
+}
+
+/**
+ * Cancela un traslado o un préstamo abierto en sus primeros 10 minutos, con la `version` leída: las
+ * unidades regresan al origen. 409 si ya pasó el plazo o el destino ya no las tiene.
+ */
+export function useCancelTransfer() {
+  const api = useApi()
+  const qc = useQueryClient()
+  return useMutation<Transfer, ApiProblem, Pick<Transfer, 'id' | 'version'>>({
+    mutationFn: ({ id, version }) =>
+      api<Transfer>(`${BASE}/transfers/${id}/cancel`, { method: 'POST', body: { version } }),
+    onSettled: () => invalidateAfterTransfer(qc),
+  })
+}
+
+/**
+ * Cierra un préstamo con lo que regresó de cada línea (T-164): eso vuelve al origen con un traslado de
+ * regreso, y lo demás se queda en el destino.
+ */
+export function useCloseLoan() {
+  const api = useApi()
+  const qc = useQueryClient()
+  return useMutation<Transfer, ApiProblem, { id: string; input: CloseLoanInput }>({
+    mutationFn: ({ id, input }) =>
+      api<Transfer>(`${BASE}/transfers/${id}/close`, { method: 'POST', body: { ...input } }),
+    onSettled: () => invalidateAfterTransfer(qc),
   })
 }
 
@@ -235,5 +303,151 @@ export function useImportReceipts() {
     onSuccess: (summary) => {
       if (!summary.dryRun) return qc.invalidateQueries({ queryKey: inventoryKeys.stock() })
     },
+  })
+}
+
+/**
+ * Registra o quita la ubicación de una variante en un almacén (`PUT …/locations`, ADR-0173), aunque
+ * todavía no tenga unidades ahí. `null` la quita. Responde la existencia.
+ */
+export function useSetLocation() {
+  const api = useApi()
+  const qc = useQueryClient()
+  return useMutation<StockItem, ApiProblem, StockLocationInput>({
+    mutationFn: (input) =>
+      api<StockItem>(`${BASE}/locations`, { method: 'PUT', body: { ...input } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: inventoryKeys.stock() }),
+  })
+}
+
+/** Hojas de conteo, de la más reciente a la más antigua, sin sus líneas (`inventory.read`). */
+export function useCounts(
+  params: MaybeRefOrGetter<CountListParams>,
+  options: { enabled?: MaybeRefOrGetter<boolean> } = {},
+) {
+  const api = useApi()
+  return useQuery<CountPage, ApiProblem>({
+    queryKey: computed(() => inventoryKeys.countList(toValue(params))),
+    queryFn: ({ signal }) =>
+      api<CountPage>(`${BASE}/counts`, { query: { ...toValue(params) }, signal }),
+    placeholderData: keepPreviousData,
+    enabled: computed(() => toValue(options.enabled ?? true)),
+  })
+}
+
+/** Una hoja con sus líneas; a ciegas (`blind`) para quien no tiene `inventory.write`. */
+export function useCount(id: MaybeRefOrGetter<string>) {
+  const api = useApi()
+  return useQuery<Count, ApiProblem>({
+    queryKey: computed(() => inventoryKeys.count(toValue(id))),
+    queryFn: ({ signal }) => api<Count>(`${BASE}/counts/${toValue(id)}`, { signal }),
+    enabled: computed(() => !!toValue(id)),
+  })
+}
+
+/** Abre una hoja con un filtro (UC-INV-18). 409 `variant-in-open-count` si alguna variante ya está en otra. */
+export function useOpenCount() {
+  const api = useApi()
+  const qc = useQueryClient()
+  return useMutation<Count, ApiProblem, CountCreateInput>({
+    mutationFn: (input) => api<Count>(`${BASE}/counts`, { method: 'POST', body: { ...input } }),
+    onSuccess: (count) => {
+      qc.setQueryData(inventoryKeys.count(count.id), count)
+      return qc.invalidateQueries({ queryKey: [...inventoryKeys.counts(), 'list'] })
+    },
+  })
+}
+
+/**
+ * Captura lo contado de una variante (UC-INV-19). Una variante que no está en la hoja se agrega al
+ * final. Sin `version`: varias personas cuentan la misma hoja a la vez.
+ */
+export function useCaptureCount() {
+  const api = useApi()
+  const qc = useQueryClient()
+  return useMutation<CountLine, ApiProblem, { id: string; variantId: string; counted: number }>({
+    mutationFn: ({ id, variantId, counted }) =>
+      api<CountLine>(`${BASE}/counts/${id}/lines/${variantId}`, {
+        method: 'PUT',
+        body: { counted },
+      }),
+    // La línea guardada entra de una vez a la hoja, para que el siguiente escaneo sume sobre ella.
+    onSuccess: (line, { id }) =>
+      qc.setQueryData<Count>(inventoryKeys.count(id), (count) => count && withLine(count, line)),
+    onSettled: (_line, _error, { id }) => invalidateCount(qc, id),
+  })
+}
+
+/** La hoja con una línea guardada: reemplaza la suya o, si es nueva, va al final. */
+export function withLine(count: Count, line: CountLine): Count {
+  const before = count.lines.find((l) => l.variantId === line.variantId)
+  const lines = before
+    ? count.lines.map((l) => (l.variantId === line.variantId ? line : l))
+    : [...count.lines, line]
+  const countedNow = (before?.counted ?? null) === null && line.counted !== null ? 1 : 0
+  return {
+    ...count,
+    lines,
+    lineCount: before ? count.lineCount : count.lineCount + 1,
+    countedCount: count.countedCount + countedNow,
+  }
+}
+
+function invalidateCount(qc: ReturnType<typeof useQueryClient>, id: string) {
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: inventoryKeys.count(id) }),
+    qc.invalidateQueries({ queryKey: [...inventoryKeys.counts(), 'list'] }),
+  ])
+}
+
+/** Pide volver a contar una línea, con la `version` leída de la hoja. */
+export function useRecountLine() {
+  const api = useApi()
+  const qc = useQueryClient()
+  return useMutation<Count, ApiProblem, { id: string; variantId: string; version: number }>({
+    mutationFn: ({ id, variantId, version }) =>
+      api<Count>(`${BASE}/counts/${id}/lines/${variantId}/recount`, {
+        method: 'POST',
+        body: { version },
+      }),
+    onSuccess: (count) => qc.setQueryData(inventoryKeys.count(count.id), count),
+    onSettled: (_count, _error, { id }) => invalidateCount(qc, id),
+  })
+}
+
+/**
+ * Aplica una hoja (UC-INV-20): un ajuste `PHYSICAL_COUNT` por cada línea contada con diferencia. Exige
+ * `Idempotency-Key`: quien llama crea una por intento, así que repetir tras un error de red no ajusta
+ * dos veces.
+ */
+export function useApplyCount() {
+  const api = useApi()
+  const qc = useQueryClient()
+  return useMutation<Count, ApiProblem, { id: string; version: number; idempotencyKey: string }>({
+    mutationFn: ({ id, version, idempotencyKey }) =>
+      api<Count>(`${BASE}/counts/${id}/apply`, {
+        method: 'POST',
+        body: { version },
+        idempotencyKey,
+      }),
+    onSuccess: (count) => qc.setQueryData(inventoryKeys.count(count.id), count),
+    onSettled: (_count, _error, { id }) =>
+      Promise.all([
+        invalidateCount(qc, id),
+        qc.invalidateQueries({ queryKey: inventoryKeys.stock() }),
+        qc.invalidateQueries({ queryKey: [...inventoryKeys.all, 'movements'] }),
+      ]),
+  })
+}
+
+/** Cancela una hoja sin ajustar nada; sus variantes pueden ir en otra. */
+export function useCancelCount() {
+  const api = useApi()
+  const qc = useQueryClient()
+  return useMutation<Count, ApiProblem, { id: string; version: number }>({
+    mutationFn: ({ id, version }) =>
+      api<Count>(`${BASE}/counts/${id}/cancel`, { method: 'POST', body: { version } }),
+    onSuccess: (count) => qc.setQueryData(inventoryKeys.count(count.id), count),
+    onSettled: (_count, _error, { id }) => invalidateCount(qc, id),
   })
 }

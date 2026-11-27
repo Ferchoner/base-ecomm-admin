@@ -24,6 +24,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/cash-closings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar los cierres de caja
+         * @description Del día más reciente al más antiguo, de un almacén o de todos, entre dos días incluidos.
+         */
+        get: operations["AdminCashClosingsController_list_v1"];
+        put?: never;
+        /**
+         * Cerrar la caja de un local
+         * @description Guarda el resumen del día en ese momento, el efectivo esperado, el contado (`countedCash`, en centavos) y la diferencia, contado menos esperado. El día es el de la Ciudad de México, `AAAA-MM-DD`. Cuenta solo las órdenes de la tienda física de ese almacén: las colocadas ese día con su total y las que siguen sin pago, las canceladas ese día, los cobros capturados ese día por método (`CASH`, `CARD_TERMINAL`, `TRANSFER` y sin método), los reembolsos completados ese día, lo que registró cada cuenta de staff y las líneas de precio libre. Un cobro o reembolso cuenta el día en que se registró, aunque la orden sea de otro día. Las órdenes en línea pagadas en la tienda no tienen almacén y no entran. El efectivo esperado es lo cobrado en efectivo menos lo reembolsado de pagos en efectivo. Si el contado no es el esperado, `note` es obligatoria (400 en `note` con `requiredWithDifference`). Hoy o un día anterior: un día por venir es 400 en `date` con `notFuture`. Un cierre por almacén y día, que nunca se edita ni se borra: el segundo es 409 `duplicate-value` en `date`. Lo que se cobre o reembolse después aparece en el resumen como posterior al cierre. Se audita como `cash-closings.close` con los montos, sin la nota.
+         */
+        post: operations["AdminCashClosingsController_close_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cash-closings/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar el corte de caja de un local en un día
+         * @description El día es el de la Ciudad de México, `AAAA-MM-DD`. Cuenta solo las órdenes de la tienda física de ese almacén: las colocadas ese día con su total y las que siguen sin pago, las canceladas ese día, los cobros capturados ese día por método (`CASH`, `CARD_TERMINAL`, `TRANSFER` y sin método), los reembolsos completados ese día, lo que registró cada cuenta de staff y las líneas de precio libre. Un cobro o reembolso cuenta el día en que se registró, aunque la orden sea de otro día. Las órdenes en línea pagadas en la tienda no tienen almacén y no entran. El efectivo esperado es lo cobrado en efectivo menos lo reembolsado de pagos en efectivo. Con el cierre del día si lo tiene, y lo que llegó después de él (`afterClosing`), que ya va en los totales. Un almacén que no existe es 404.
+         */
+        get: operations["AdminCashClosingsController_summary_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/cash-closings/{closingId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar un cierre de caja
+         * @description Con el resumen del día como estaba al cerrar.
+         */
+        get: operations["AdminCashClosingsController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/catalog/brands": {
         parameters: {
             query?: never;
@@ -200,6 +264,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/catalog/count-classes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Cambiar la clase de conteo de varios productos
+         * @description ADR-0173. De 1 a 500 productos, cada uno una vez (400 `duplicateProduct` en `items`), en cualquier estado, también archivados. Todo o nada: un producto que no existe es 404 y no cambia ninguno. Sin `version`: solo cambia la clase, y la versión de cada producto que cambia sube. Cada producto que cambia se audita como `products.update`.
+         */
+        put: operations["AdminCountClassesController_set_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/catalog/product-imports": {
         parameters: {
             query?: never;
@@ -282,6 +366,26 @@ export interface paths {
          * @description Desde borrador o publicado; el slug sigue reservado.
          */
         post: operations["AdminProductsController_archive_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/catalog/products/{productId}/description-draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pedir a la IA un borrador de título y descripción
+         * @description Lo escribe Claude con los datos del producto: título, descripción actual y opciones de las variantes; nunca datos personales. No guarda nada: el borrador se revisa y se guarda con `PATCH`. 503 `ai-unavailable` sin `ANTHROPIC_API_KEY` o si el modelo no responde (ADR-0170).
+         */
+        post: operations["AdminProductsController_descriptionDraft_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -868,6 +972,150 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/inventory/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar las hojas de conteo
+         * @description De la más reciente a la más antigua, sin sus líneas: cuántas tiene y cuántas están contadas. Por almacén y estado.
+         */
+        get: operations["AdminCountsController_list_v1"];
+        put?: never;
+        /**
+         * Abrir una hoja de conteo
+         * @description ADR-0173. Con un almacén y un filtro: `location` (exacta o, con `*` al final, por prefijo), `categoryId` (los productos directamente en ella), `countClass` (`C` incluye a los productos sin clase), varios a la vez; o `variantIds`, solo (400 `variantIdsAlone`). Sin filtro, 400 `countFilter`. Con un filtro toma las variantes con existencia o con ubicación en ese almacén; con `variantIds`, exactamente esas. Ninguna línea es 400 `noLines`, y más de 1,000, 400 `tooManyLines`, en el primer filtro. Las líneas van por ubicación (sin ella al final) y SKU. Una variante va en una sola hoja abierta por almacén: si alguna ya está en otra, 409 `variant-in-open-count` con esas variantes y sus hojas. Un almacén o una variante de la lista que no existe es 404. Se audita como `inventory.count-open`.
+         */
+        post: operations["AdminCountsController_open_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/inventory/counts/{countId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar una hoja de conteo
+         * @description Con sus líneas en orden. Sin `inventory.write` es a ciegas (`blind`): sin `expected` ni `difference`.
+         */
+        get: operations["AdminCountsController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/inventory/counts/{countId}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Aplicar una hoja de conteo
+         * @description ADR-0173. Exige `Idempotency-Key` y la `version` leída. Cada línea contada con diferencia crea un ajuste `PHYSICAL_COUNT` ligado a la hoja (`countId` en el movimiento) por la diferencia, sobre las físicas de ahora; una sin diferencia queda `NO_DIFFERENCE`, y una sin contar, `NOT_COUNTED`, sin tocarse. Una línea que dejaría menos físicas que las apartadas no se aplica (`SKIPPED_RESERVED`) y las demás sí. La hoja queda `APPLIED` y sus variantes pueden ir en otra. Una hoja que no está abierta es 409 `invalid-state-transition`. Se audita como `inventory.count-apply`.
+         */
+        post: operations["AdminCountsController_apply_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/inventory/counts/{countId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancelar una hoja de conteo
+         * @description ADR-0173. Sin ajustar nada; sus variantes pueden ir en otra hoja. Exige la `version` leída. Una hoja que no está abierta es 409 `invalid-state-transition`. Se audita como `inventory.count-cancel`.
+         */
+        post: operations["AdminCountsController_cancel_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/inventory/counts/{countId}/lines/{variantId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Capturar lo contado de una variante
+         * @description ADR-0173. De 0 a 100,000. Guarda también las físicas de ese momento, para comparar, así que lo vendido antes o después no sale como faltante. Una variante que no está en la hoja se agrega al final; si está en otra hoja abierta del almacén, 409 `variant-in-open-count`. Volver a capturar reemplaza lo anterior y quita la petición de recontar. Sin `version`: cada captura cuenta una versión de la hoja. Una hoja que no está abierta es 409 `invalid-state-transition`. Responde la línea, a ciegas sin `inventory.write`. No se audita.
+         */
+        put: operations["AdminCountsController_capture_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/inventory/counts/{countId}/lines/{variantId}/recount": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pedir volver a contar una línea
+         * @description ADR-0173. Quita lo contado y marca la línea con `recount`. Exige la `version` leída. Una línea que no está en la hoja es 404, y una hoja que no está abierta, 409 `invalid-state-transition`.
+         */
+        post: operations["AdminCountsController_recount_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/inventory/locations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Cambiar la ubicación de un producto en un almacén
+         * @description ADR-0173. Por variante y almacén, aunque la variante todavía no tenga unidades ahí: crea su existencia en 0. `null` la quita; quitarla donde no hay existencia es 404. Se guarda sin espacios de sobra y en mayúsculas; vacía o de más de 20 caracteres es 400 `isLength`. La variante puede estar en cualquier estado y el almacén, inactivo. Un traslado no la cambia. Se audita como `inventory.location` cuando cambia.
+         */
+        put: operations["AdminStockController_setLocation_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/inventory/receipt-imports": {
         parameters: {
             query?: never;
@@ -942,6 +1190,90 @@ export interface paths {
         get: operations["AdminStockController_movements_v1"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/inventory/transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar los traslados
+         * @description Del más reciente al más antiguo, con sus líneas. Por tipo, almacén, de origen o de destino, variante, motivo, estado, fechas y préstamos vencidos (`overdue`).
+         */
+        get: operations["AdminTransfersController_list_v1"];
+        put?: never;
+        /**
+         * Trasladar o prestar existencias a otro almacén
+         * @description ADR-0172. Exige `Idempotency-Key`. Con `kind: LOAN` es un préstamo para mostrar (T-164): folio `P-`, motivo `SHOW` y `returnBy` de 5 minutos a 24 horas después (400 `loanRange`); queda `OPEN` hasta que se cierra. Un motivo que no va con el tipo es 400 `reasonKind`, y `returnBy` en un traslado, 400 `isEmpty`. Cada línea sale del origen y entra al destino en una sola transacción, o no pasa nada; el historial de existencias de los dos almacenes la registra como `TRANSFER`. Solo se trasladan unidades disponibles (`onHand − reserved`): si alguna línea no alcanza, 409 `insufficient-stock` con esas líneas. El destino debe ser un almacén activo y distinto del origen (400 `differentWarehouse` en `toWarehouseId`); el origen, cualquiera. Una variante va una vez por traslado (400 `duplicateVariant`). Un almacén o una variante que no existe, o un destino inactivo, es 404. Se audita como `inventory.transfer`.
+         */
+        post: operations["AdminTransfersController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/inventory/transfers/{transferId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar un traslado
+         * @description Con sus líneas y hasta cuándo se puede cancelar.
+         */
+        get: operations["AdminTransfersController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/inventory/transfers/{transferId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancelar un traslado
+         * @description ADR-0172. Un traslado, o un préstamo abierto, solo en los 10 minutos que siguen a su registro (`cancellableUntil`); después, si ya se canceló, si es un préstamo cerrado o el regreso de uno, 409 `invalid-state-transition`, con `reason: cancel-window-passed` en el primer caso. Regresa las unidades al origen con movimientos `TRANSFER` contrarios, porque el historial de existencias nunca se borra. Si el destino ya no tiene esas unidades disponibles, 409 `insufficient-stock`. Exige la `version` leída. Se audita como `inventory.transfer-cancel`.
+         */
+        post: operations["AdminTransfersController_cancel_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/inventory/transfers/{transferId}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cerrar un préstamo
+         * @description T-164, ADR-0172. Con la `version` leída y lo que regresó de cada línea del préstamo, todas una vez (400 `loanLines`), de 0 a lo prestado (400 `range` en `lines[i].returned`). Lo que regresó vuelve al origen con un traslado `LOAN_RETURN` ligado al préstamo (`returnTransferId`), que no se cancela, aunque el origen esté inactivo; lo demás se queda en el destino. Si el destino ya no tiene esas unidades disponibles, 409 `insufficient-stock`. Un préstamo que no está abierto, o un traslado, es 409 `invalid-state-transition`. Se audita como `inventory.loan-close`.
+         */
+        post: operations["AdminTransfersController_close_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1027,9 +1359,49 @@ export interface paths {
         put?: never;
         /**
          * Colocar un pedido en la tienda física a nombre de un cliente
-         * @description UC-ORD-13 (ADR-0161). Exige `Idempotency-Key`. Para un cliente registrado y activo, con el email verificado, cuyo contacto es el email de su cuenta; o para un invitado, con `contactEmail` y la versión del aviso de privacidad que el staff le presentó. Exactamente uno de `customerId` y `contactEmail`, y uno de `addressId` y `shippingAddress`; `addressId` solo con `customerId`. Recalcula todo sin cache; si el total difiere de `expectedTotal` responde 409 `total-mismatch` con `currentTotal`. Reserva todo el stock en el almacén `warehouseId` o nada, y crea la orden `STORE` en `PENDING_PAYMENT`, en una sola transacción; sin carrito, una orden vencida no regresa a ninguno. Con `couponCode`, el cupón se revisa y cuenta su uso en la misma transacción; si no aplica, 409 `coupon-not-applicable` con `reason`, y hasta 10 códigos que nadie tiene por IP cada 15 minutos. Si el almacén no existe o está inactivo, 404. Hasta 30 órdenes por cuenta de staff cada 10 minutos. Se audita como `orders.place`.
+         * @description UC-ORD-13 (ADR-0161). Exige `Idempotency-Key`. Para un cliente registrado y activo, con el email verificado, cuyo contacto es el email de su cuenta; o para un invitado, con `contactEmail` y la versión del aviso de privacidad que el staff le presentó. Exactamente uno de `customerId` y `contactEmail`, y uno de `addressId` y `shippingAddress`; `addressId` solo con `customerId`. Recalcula todo sin cache; si el total difiere de `expectedTotal` responde 409 `total-mismatch` con `currentTotal`. Reserva todo el stock en el almacén `warehouseId` o nada, y crea la orden `STORE` en `PENDING_PAYMENT`, en una sola transacción; sin carrito, una orden vencida no regresa a ninguno. Con `couponCode`, el cupón se revisa y cuenta su uso en la misma transacción; si no aplica, 409 `coupon-not-applicable` con `reason`, y hasta 10 códigos que nadie tiene por IP cada 15 minutos. Si el almacén no existe o está inactivo, 404. Hasta 30 órdenes por cuenta de staff cada 10 minutos. Una línea de una variante de precio libre (ADR-0171) lleva `unitPrice` y `note`, y las demás no: si no, 400 en `lines[i].unitPrice` o `lines[i].note`. Esa línea se cobra al precio escrito, guarda la nota y no recibe promociones ni cupones, ni cuenta para su mínimo. Vender una variante de precio libre exige `orders.open-price`: sin él, 403. Se audita como `orders.place`.
          */
         post: operations["AdminOrdersController_place_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/orders/count-class-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sugerir la clase de conteo de cada producto por sus ventas
+         * @description ADR-0173. Lo vendido por producto en los últimos 90 días, en línea y en la tienda física: las líneas de las órdenes colocadas en ese tiempo que se pagaron y no se cancelaron, vencieron ni reembolsaron, cada una por su total menos su descuento. `A` para los productos que suman el primer 80 % de lo vendido (el que pasa del 80 % todavía es `A`), `B` para el siguiente 15 % y `C` para el resto; un empate va por ID del producto. Los productos que no vendieron nada no aparecen: son `C`. Sin paginación. La clase se aplica en Catálogo con `PUT /v1/admin/catalog/count-classes`.
+         */
+        get: operations["AdminOrdersController_countClassSuggestions_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/orders/open-price-lines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar las líneas vendidas a precio libre
+         * @description Las líneas de las ventas de la tienda física cobradas a precio libre (ADR-0171), con su nota y su orden, la más reciente primero y por número de línea, en cualquier estado de la orden: lo que se vende sin estar en el catálogo, para saber qué dar de alta primero. Por almacén y por fecha de la orden.
+         */
+        get: operations["AdminOrdersController_openPriceLines_v1"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1047,7 +1419,7 @@ export interface paths {
         put?: never;
         /**
          * Cotizar un pedido en la tienda física
-         * @description UC-ORD-12 (ADR-0161). Sin efectos secundarios y sin cache: precios, IVA, envío y disponibilidad de ahora. Las líneas no vendibles o no surtibles no son un error: se marcan y `readyToPlace` queda en `false`. Los totales suman solo las líneas vendibles. Con `couponCode`, el cupón reemplaza a la promoción automática; si no aplica, 409 `coupon-not-applicable` con `reason`, y hasta 10 códigos que nadie tiene por IP cada 15 minutos. Las líneas vienen en la solicitud, sin carrito, y la disponibilidad es la del almacén `warehouseId`. Si el almacén no existe o está inactivo, o una variante no existe, 404.
+         * @description UC-ORD-12 (ADR-0161). Sin efectos secundarios y sin cache: precios, IVA, envío y disponibilidad de ahora. Las líneas no vendibles o no surtibles no son un error: se marcan y `readyToPlace` queda en `false`. Los totales suman solo las líneas vendibles. Con `couponCode`, el cupón reemplaza a la promoción automática; si no aplica, 409 `coupon-not-applicable` con `reason`, y hasta 10 códigos que nadie tiene por IP cada 15 minutos. Las líneas vienen en la solicitud, sin carrito, y la disponibilidad es la del almacén `warehouseId`. Si el almacén no existe o está inactivo, o una variante no existe, 404. Una línea de una variante de precio libre (ADR-0171) lleva `unitPrice` y `note`, y las demás no: si no, 400 en `lines[i].unitPrice` o `lines[i].note`. Esa línea se cobra al precio escrito, guarda la nota y no recibe promociones ni cupones, ni cuenta para su mínimo. Vender una variante de precio libre exige `orders.open-price`: sin él, 403.
          */
         post: operations["AdminOrdersController_quote_v1"];
         delete?: never;
@@ -2632,7 +3004,7 @@ export interface components {
             /** @description Staff con contraseña temporal, que solo puede cambiarla. */
             mustChangePassword: boolean;
             /** @description Permisos de los roles del staff; vacío en un cliente. */
-            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
+            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "inventory.transfer" | "inventory.count" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "orders.open-price" | "cash-closings.read" | "cash-closings.manage" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
             /** @description Roles del staff; vacío en un cliente. */
             roles: components["schemas"]["StaffRoleDto"][];
             /**
@@ -3120,6 +3492,8 @@ export interface components {
             lineNumber: number;
             /** @description Precio por cantidad, con IVA, antes del descuento. */
             lineTotal: components["schemas"]["MoneyDto"];
+            /** @description Qué se vendió, en una línea de precio libre de la tienda física (ADR-0171); `null` en las demás. */
+            note: string | null;
             /**
              * @description El nombre del producto al colocar la orden.
              * @example Camisa de lino
@@ -3412,6 +3786,11 @@ export interface components {
             /** @description `null` sin marca. */
             brand: components["schemas"]["NamedReferenceDto"] | null;
             categories: components["schemas"]["NamedReferenceDto"][];
+            /**
+             * @description Cada cuándo se cuenta (ADR-0173): `A` cada semana, `B` cada mes, `C` cada trimestre; `null` sin clase, que se cuenta como `C`.
+             * @enum {string|null}
+             */
+            countClass: "A" | "B" | "C" | null;
             /** Format: date-time */
             createdAt: string;
             /** @description Solo en el detalle; el listado no la incluye. */
@@ -3425,6 +3804,11 @@ export interface components {
             /** Format: uuid */
             id: string;
             images: components["schemas"]["ImageDto"][];
+            /**
+             * @description Si se vende a precio libre: el staff escribe el precio y qué se vendió en cada línea de la venta de mostrador, en
+             *     lugar de la lista de precios (ADR-0171). Solo un producto `storeOnly`.
+             */
+            openPrice: boolean;
             /**
              * Format: date-time
              * @description Desde cuándo está publicado; `null` si no lo está.
@@ -3568,6 +3952,24 @@ export interface components {
             weightGrams: number | null;
             /** @description Centímetros, un decimal; `null` si no se dio. */
             widthCm: number | null;
+        };
+        AfterClosingDto: {
+            /** @description De ellos, en efectivo. */
+            cashAmount: components["schemas"]["MoneyDto"];
+            /** @description De ellos, de pagos en efectivo. */
+            cashRefundAmount: components["schemas"]["MoneyDto"];
+            paymentAmount: components["schemas"]["MoneyDto"];
+            /**
+             * @description Cobros posteriores al cierre.
+             * @example 1
+             */
+            paymentCount: number;
+            refundAmount: components["schemas"]["MoneyDto"];
+            /**
+             * @description Reembolsos posteriores al cierre.
+             * @example 0
+             */
+            refundCount: number;
         };
         AnonymizeCustomerDto: {
             /**
@@ -3765,6 +4167,10 @@ export interface components {
             /** @description Versión leída (bloqueo optimista). */
             version: number;
         };
+        CancelTransferDto: {
+            /** @description Versión leída del traslado (bloqueo optimista). */
+            version: number;
+        };
         CartDto: {
             /**
              * Format: uuid
@@ -3836,6 +4242,142 @@ export interface components {
             slug: string;
             /** @example Camisa de lino */
             title: string;
+        };
+        CashClosingDto: {
+            /** Format: date-time */
+            closedAt: string;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que cerró.
+             */
+            closedBy: string;
+            /** @description El efectivo que contó el staff. */
+            countedCash: components["schemas"]["MoneyDto"];
+            /**
+             * @description El día de la Ciudad de México que cierra.
+             * @example 2026-11-07
+             */
+            date: string;
+            /** @description Contado menos esperado: negativo si falta efectivo. */
+            difference: components["schemas"]["MoneyDto"];
+            /** @description El efectivo esperado al cerrar. Puede ser negativo. */
+            expectedCash: components["schemas"]["MoneyDto"];
+            /** Format: uuid */
+            id: string;
+            /** @description Por qué hay diferencia; siempre la hay si `difference` no es 0. */
+            note: string | null;
+            /** @description El resumen del día al cerrar. */
+            summary: components["schemas"]["CashDayDto"];
+            /** Format: uuid */
+            warehouseId: string;
+        };
+        CashClosingListDto: {
+            data: components["schemas"]["CashClosingDto"][];
+            meta: components["schemas"]["PageMetaDto"];
+        };
+        CashDayDto: {
+            /** @description Por quien registró cada cobro o reembolso; los que no registró nadie, al final. */
+            byStaff: components["schemas"]["StaffTotalDto"][];
+            /**
+             * @description Órdenes de la tienda física canceladas ese día, cuando sea que se colocaron.
+             * @example 0
+             */
+            cancelledCount: number;
+            /** @description Lo reembolsado de pagos cobrados en efectivo. */
+            cashRefundAmount: components["schemas"]["MoneyDto"];
+            /** @description El efectivo esperado en la caja: lo cobrado en efectivo menos lo reembolsado de pagos en efectivo. Puede ser negativo. */
+            expectedCash: components["schemas"]["MoneyDto"];
+            /** @description El total de esas líneas. */
+            openPriceAmount: components["schemas"]["MoneyDto"];
+            /**
+             * @description Líneas de precio libre de las órdenes colocadas ese día, sin las canceladas, reembolsadas o vencidas (ADR-0171).
+             * @example 3
+             */
+            openPriceLineCount: number;
+            /** @description Todo lo cobrado ese día. */
+            paymentAmount: components["schemas"]["MoneyDto"];
+            /** @description Lo cobrado ese día por método: `CASH`, `CARD_TERMINAL`, `TRANSFER` y sin método, siempre los cuatro y en ese orden. */
+            payments: components["schemas"]["MethodTotalDto"][];
+            /**
+             * @description De esas, las que siguen esperando su pago: vendidas sin cobrar.
+             * @example 1
+             */
+            pendingPaymentCount: number;
+            /** @description El total de esas órdenes. */
+            placedAmount: components["schemas"]["MoneyDto"];
+            /**
+             * @description Órdenes de la tienda física colocadas ese día en el almacén.
+             * @example 18
+             */
+            placedCount: number;
+            /** @description Lo reembolsado ese día. */
+            refundAmount: components["schemas"]["MoneyDto"];
+            /**
+             * @description Reembolsos completados ese día.
+             * @example 0
+             */
+            refundCount: number;
+        };
+        CashSummaryDto: {
+            /** @description Lo que llegó después del cierre, que ya va en los totales del día; `null` sin cierre. */
+            afterClosing: components["schemas"]["AfterClosingDto"] | null;
+            /** @description Por quien registró cada cobro o reembolso; los que no registró nadie, al final. */
+            byStaff: components["schemas"]["StaffTotalDto"][];
+            /**
+             * @description Órdenes de la tienda física canceladas ese día, cuando sea que se colocaron.
+             * @example 0
+             */
+            cancelledCount: number;
+            /** @description Lo reembolsado de pagos cobrados en efectivo. */
+            cashRefundAmount: components["schemas"]["MoneyDto"];
+            /** @description El cierre del día; `null` mientras no lo tenga. */
+            closing: components["schemas"]["CashClosingDto"] | null;
+            /** @example 2026-11-07 */
+            date: string;
+            /** @description El efectivo esperado en la caja: lo cobrado en efectivo menos lo reembolsado de pagos en efectivo. Puede ser negativo. */
+            expectedCash: components["schemas"]["MoneyDto"];
+            /**
+             * Format: date-time
+             * @description Cuándo empieza el día en la Ciudad de México.
+             */
+            from: string;
+            /** @description El total de esas líneas. */
+            openPriceAmount: components["schemas"]["MoneyDto"];
+            /**
+             * @description Líneas de precio libre de las órdenes colocadas ese día, sin las canceladas, reembolsadas o vencidas (ADR-0171).
+             * @example 3
+             */
+            openPriceLineCount: number;
+            /** @description Todo lo cobrado ese día. */
+            paymentAmount: components["schemas"]["MoneyDto"];
+            /** @description Lo cobrado ese día por método: `CASH`, `CARD_TERMINAL`, `TRANSFER` y sin método, siempre los cuatro y en ese orden. */
+            payments: components["schemas"]["MethodTotalDto"][];
+            /**
+             * @description De esas, las que siguen esperando su pago: vendidas sin cobrar.
+             * @example 1
+             */
+            pendingPaymentCount: number;
+            /** @description El total de esas órdenes. */
+            placedAmount: components["schemas"]["MoneyDto"];
+            /**
+             * @description Órdenes de la tienda física colocadas ese día en el almacén.
+             * @example 18
+             */
+            placedCount: number;
+            /** @description Lo reembolsado ese día. */
+            refundAmount: components["schemas"]["MoneyDto"];
+            /**
+             * @description Reembolsos completados ese día.
+             * @example 0
+             */
+            refundCount: number;
+            /**
+             * Format: date-time
+             * @description Cuándo termina, sin incluirlo.
+             */
+            to: string;
+            /** Format: uuid */
+            warehouseId: string;
         };
         ChangeCartLineDto: {
             /**
@@ -3912,6 +4454,8 @@ export interface components {
             discountAmount: components["schemas"]["MoneyDto"] | null;
             /** @description Precio por cantidad, antes del descuento; `null` si la línea no es vendible, y entonces no suma. */
             lineTotal: components["schemas"]["MoneyDto"] | null;
+            /** @description Qué se vende, en una línea de precio libre de la tienda física (ADR-0171): `unitPrice` es entonces el que escribió el staff. `null` en las demás. */
+            note: string | null;
             /**
              * @description Los valores de las opciones de la variante, por nombre.
              * @example {
@@ -3941,12 +4485,281 @@ export interface components {
             /** Format: uuid */
             variantId: string;
         };
+        CloseCashDto: {
+            /**
+             * @description El efectivo contado en la caja, en centavos.
+             * @example 352500
+             */
+            countedCash: number;
+            /**
+             * @description El día de la Ciudad de México, `AAAA-MM-DD`.
+             * @example 2026-11-07
+             */
+            date: string;
+            /**
+             * @description Hasta 500 caracteres; obligatoria si el contado no es el esperado.
+             * @example Faltan $20 de un cambio mal dado.
+             */
+            note?: string;
+            /**
+             * Format: uuid
+             * @description El almacén del local.
+             */
+            warehouseId: string;
+        };
+        CloseLoanDto: {
+            /** @description Cada línea del préstamo, una vez, con lo que regresó. */
+            lines: components["schemas"]["ReturnedLineInputDto"][];
+            /** @description Versión leída del préstamo (bloqueo optimista). */
+            version: number;
+        };
         ConfirmEmailDto: {
             /**
              * @description El token del parámetro `token` del enlace: 43 caracteres en base64url.
              * @example q8Xz3Lr0VbN7kT2mWc9YhD4sFj6Ae1Pu5Gi8Ko0RnSv
              */
             token: string;
+        };
+        CountClassItemDto: {
+            /**
+             * @description `null` le quita la clase.
+             * @enum {string|null}
+             */
+            countClass: "A" | "B" | "C" | null;
+            /**
+             * Format: uuid
+             * @description El producto, en cualquier estado; una vez por solicitud.
+             */
+            productId: string;
+        };
+        CountClassSuggestionDto: {
+            /**
+             * @description La clase que tiene hoy; `null` sin clase.
+             * @enum {string|null}
+             */
+            countClass: "A" | "B" | "C" | null;
+            /** Format: uuid */
+            productId: string;
+            /**
+             * @description El título del producto hoy.
+             * @example Zelda: Tears of the Kingdom
+             */
+            productTitle: string;
+            /** @description Lo vendido: el total de sus líneas menos sus descuentos. */
+            sales: components["schemas"]["MoneyDto"];
+            /**
+             * @description La clase por sus ventas: `A`, los productos que suman el primer 80 % de lo vendido; `B`, el siguiente 15 %; `C`, el resto.
+             * @enum {string}
+             */
+            suggestedClass: "A" | "B" | "C";
+            /**
+             * @description Unidades vendidas.
+             * @example 14
+             */
+            units: number;
+        };
+        CountClassSuggestionListDto: {
+            /** @description Del producto que más vendió al que menos; los que no vendieron nada no aparecen y son `C`. */
+            data: components["schemas"]["CountClassSuggestionDto"][];
+            meta: components["schemas"]["CountClassSuggestionsMetaDto"];
+        };
+        CountClassSuggestionsMetaDto: {
+            /**
+             * @description Días de ventas que cuenta.
+             * @example 90
+             */
+            days: number;
+            /** Format: date-time */
+            from: string;
+            /**
+             * Format: date-time
+             * @description Sin incluirlo: el momento de la consulta.
+             */
+            to: string;
+            /** @description Lo vendido en total. */
+            total: components["schemas"]["MoneyDto"];
+        };
+        CountClassesDto: {
+            /** @description De 1 a 500 productos, cada uno una vez. */
+            items: components["schemas"]["CountClassItemDto"][];
+        };
+        CountClassesResultDto: {
+            /**
+             * @description Productos cuya clase cambió; los que ya la tenían no cuentan.
+             * @example 12
+             */
+            updated: number;
+        };
+        CountDto: {
+            /** @description Sin `expected` ni `difference`: quien no tiene `inventory.write` cuenta a ciegas. */
+            blind: boolean;
+            /** Format: date-time */
+            closedAt: string | null;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que la aplicó o la canceló.
+             */
+            closedBy: string | null;
+            /**
+             * @description Cuántas están contadas.
+             * @example 12
+             */
+            countedCount: number;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que la abrió.
+             */
+            createdBy: string;
+            filter: components["schemas"]["CountFilterDto"];
+            /**
+             * @description El folio, consecutivo.
+             * @example C-000123
+             */
+            folio: string;
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description Cuántas líneas tiene.
+             * @example 40
+             */
+            lineCount: number;
+            /** @description En su orden en la hoja. */
+            lines: components["schemas"]["CountLineDto"][];
+            /** @description Nota del staff; `null` sin ella. */
+            note: string | null;
+            /**
+             * @description `OPEN` mientras se cuenta; `APPLIED` o `CANCELLED` ya no cambia.
+             * @enum {string}
+             */
+            status: "OPEN" | "APPLIED" | "CANCELLED";
+            /**
+             * @description Versión para revisarla, aplicarla o cancelarla (bloqueo optimista).
+             * @example 3
+             */
+            version: number;
+            /** Format: uuid */
+            warehouseId: string;
+        };
+        CountFilterDto: {
+            /** Format: uuid */
+            categoryId?: string;
+            /** @enum {string} */
+            countClass?: "A" | "B" | "C";
+            /**
+             * @description La ubicación o el prefijo con `*`, en mayúsculas.
+             * @example A*
+             */
+            location?: string;
+            variantIds?: string[];
+        };
+        CountLineDto: {
+            /** @description Lo contado; `null` mientras no se cuenta. */
+            counted: number | null;
+            /** Format: date-time */
+            countedAt: string | null;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que la contó.
+             */
+            countedBy: string | null;
+            /** @description Lo contado menos `expected`; `null` sin contar y en una hoja a ciegas. */
+            difference: number | null;
+            /** @description Las físicas al contarla; `null` sin contar y en una hoja a ciegas (`blind`). */
+            expected: number | null;
+            /**
+             * @description La ubicación de la existencia cuando se tomó la línea; `null` sin ella.
+             * @example A1
+             */
+            location: string | null;
+            /**
+             * Format: uuid
+             * @description El ajuste `PHYSICAL_COUNT` de una línea `ADJUSTED`.
+             */
+            movementId: string | null;
+            /**
+             * @description Lo que hizo aplicar la hoja: `ADJUSTED`, `NO_DIFFERENCE`, `NOT_COUNTED` o `SKIPPED_RESERVED` (dejaría menos físicas que las apartadas); `null` mientras está abierta.
+             * @enum {string|null}
+             */
+            outcome: "ADJUSTED" | "NO_DIFFERENCE" | "NOT_COUNTED" | "SKIPPED_RESERVED" | null;
+            /**
+             * @description Su orden en la hoja, desde 1.
+             * @example 1
+             */
+            position: number;
+            /** @example The Legend of Zelda */
+            productTitle: string;
+            /** @description Se pidió volver a contarla. */
+            recount: boolean;
+            /** @example JUE-ZELDA-SW */
+            sku: string;
+            /** Format: uuid */
+            variantId: string;
+        };
+        CountLineInputDto: {
+            /**
+             * @description Lo contado, de 0 a 100,000.
+             * @example 7
+             */
+            counted: number;
+        };
+        CountListDto: {
+            /** @description De la más reciente a la más antigua. */
+            data: components["schemas"]["CountSummaryDto"][];
+            meta: components["schemas"]["PageMetaDto"];
+        };
+        CountSummaryDto: {
+            /** Format: date-time */
+            closedAt: string | null;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que la aplicó o la canceló.
+             */
+            closedBy: string | null;
+            /**
+             * @description Cuántas están contadas.
+             * @example 12
+             */
+            countedCount: number;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que la abrió.
+             */
+            createdBy: string;
+            filter: components["schemas"]["CountFilterDto"];
+            /**
+             * @description El folio, consecutivo.
+             * @example C-000123
+             */
+            folio: string;
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description Cuántas líneas tiene.
+             * @example 40
+             */
+            lineCount: number;
+            /** @description Nota del staff; `null` sin ella. */
+            note: string | null;
+            /**
+             * @description `OPEN` mientras se cuenta; `APPLIED` o `CANCELLED` ya no cambia.
+             * @enum {string}
+             */
+            status: "OPEN" | "APPLIED" | "CANCELLED";
+            /**
+             * @description Versión para revisarla, aplicarla o cancelarla (bloqueo optimista).
+             * @example 3
+             */
+            version: number;
+            /** Format: uuid */
+            warehouseId: string;
+        };
+        CountVersionDto: {
+            /** @description Versión leída de la hoja (bloqueo optimista). */
+            version: number;
         };
         CreateAddressDto: {
             /**
@@ -4041,6 +4854,35 @@ export interface components {
              */
             slug?: string;
         };
+        CreateCountDto: {
+            /**
+             * Format: uuid
+             * @description Los productos que están directamente en esta categoría.
+             */
+            categoryId?: string;
+            /**
+             * @description Los productos de esta clase; `C` incluye a los que no tienen clase.
+             * @enum {string}
+             */
+            countClass?: "A" | "B" | "C";
+            /**
+             * @description Una ubicación, o con `*` al final las que empiezan así; sin importar mayúsculas.
+             * @example A*
+             */
+            location?: string;
+            /**
+             * @description Hasta 500 caracteres.
+             * @example Conteo semanal clase A
+             */
+            note?: string | null;
+            /** @description Exactamente estas variantes, de 1 a 1,000, cada una una vez; sin otro filtro. */
+            variantIds?: string[];
+            /**
+             * Format: uuid
+             * @description El almacén que se cuenta, en cualquier estado.
+             */
+            warehouseId: string;
+        };
         CreateProductDto: {
             /**
              * Format: uuid
@@ -4049,8 +4891,18 @@ export interface components {
             brandId?: string | null;
             /** @description Categorías activas, hasta 10. */
             categoryIds?: string[];
+            /**
+             * @description Cada cuándo se cuenta (ADR-0173); sin ella, o con `null`, el producto queda sin clase y se cuenta como `C`.
+             * @enum {string|null}
+             */
+            countClass?: "A" | "B" | "C" | null;
             /** @description Hasta 10,000 caracteres; opcional. */
             description?: string | null;
+            /**
+             * @description Si se vende a precio libre en la tienda física (ADR-0171); `false` por defecto. Exige `storeOnly`: si no, 400 en
+             *     `openPrice` con código `openPriceStoreOnly`.
+             */
+            openPrice?: boolean;
             /**
              * @description Único y nunca reutilizado. Sin él, se genera del título y, si ya existe, se numera: `camisa-lino-2`.
              * @example camisa-lino
@@ -4123,7 +4975,7 @@ export interface components {
              *       "orders.read"
              *     ]
              */
-            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
+            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "inventory.transfer" | "inventory.count" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "orders.open-price" | "cash-closings.read" | "cash-closings.manage" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
         };
         CreateStaffDto: {
             /**
@@ -4144,6 +4996,42 @@ export interface components {
             lastNames: string;
             /** @description De 1 a 50 roles. */
             roleIds: string[];
+        };
+        CreateTransferDto: {
+            /**
+             * Format: uuid
+             * @description El almacén de donde salen las unidades, en cualquier estado.
+             */
+            fromWarehouseId: string;
+            /**
+             * @description `TRANSFER`, un traslado definitivo, o `LOAN`, un préstamo para mostrar, con `returnBy` (T-164).
+             * @default TRANSFER
+             * @enum {string}
+             */
+            kind: "TRANSFER" | "LOAN";
+            /** @description De 1 a 100 líneas, cada variante una vez. */
+            lines: components["schemas"]["TransferLineInputDto"][];
+            /**
+             * @description Hasta 500 caracteres; obligatoria con `OTHER`.
+             * @example Para enseñarlo a un cliente
+             */
+            note?: string | null;
+            /**
+             * @description En un traslado, `SALE` para venderlo en el destino, `RESTOCK` para surtirlo u `OTHER` con `note` obligatoria; en un préstamo, `SHOW`.
+             * @enum {string}
+             */
+            reason: "SALE" | "RESTOCK" | "OTHER" | "SHOW";
+            /**
+             * Format: date-time
+             * @description Solo en un préstamo, y obligatoria: cuándo debe regresar, de 5 minutos a 24 horas después de registrarlo.
+             * @example 2026-11-08T19:00:00.000Z
+             */
+            returnBy?: string;
+            /**
+             * Format: uuid
+             * @description El almacén al que llegan: activo y distinto del origen.
+             */
+            toWarehouseId: string;
         };
         CreateVariantDto: {
             /**
@@ -4237,6 +5125,38 @@ export interface components {
              * @example BUENFIN
              */
             couponCode?: string | null;
+        };
+        DescriptionDraftDto: {
+            /**
+             * @description Texto plano, sin Markdown.
+             * @example Una camisa ligera de lino para los días de calor.
+             */
+            description: string;
+            /**
+             * @description De 3 a 5 puntos destacados del producto.
+             * @example [
+             *       "Lino",
+             *       "Tallas M y L"
+             *     ]
+             */
+            highlights: string[];
+            /** @example Camisa de lino fresca para el verano */
+            title: string;
+        };
+        DescriptionDraftRequestDto: {
+            /**
+             * @description Idioma del borrador: `es` (español) o `en` (inglés).
+             * @example es
+             * @enum {string}
+             */
+            language: "es" | "en";
+            /**
+             * @description Tono del texto: `neutral`, `friendly` (cercano) o `formal`.
+             * @default neutral
+             * @example friendly
+             * @enum {string}
+             */
+            tone: "neutral" | "friendly" | "formal";
         };
         DispatchShipmentDto: {
             /**
@@ -4544,6 +5464,19 @@ export interface components {
              */
             guestCartId: string;
         };
+        MethodTotalDto: {
+            amount: components["schemas"]["MoneyDto"];
+            /**
+             * @description Cobros.
+             * @example 12
+             */
+            count: number;
+            /**
+             * @description Efectivo, terminal o transferencia; `null` para los cobros sin método: de un proveedor, o sin que el staff lo dijera.
+             * @enum {string|null}
+             */
+            method: "CASH" | "CARD_TERMINAL" | "TRANSFER" | null;
+        };
         MoneyDto: {
             /**
              * @description Centavos, entero.
@@ -4561,6 +5494,70 @@ export interface components {
             /** Format: uuid */
             id: string;
             name: string;
+        };
+        OpenPriceLineDto: {
+            /** @description Desde 1. */
+            lineNumber: number;
+            /** @description Precio por cantidad, con IVA. */
+            lineTotal: components["schemas"]["MoneyDto"];
+            /**
+             * @description Qué se vendió, como lo escribió el staff.
+             * @example Juego usado de carreras
+             */
+            note: string;
+            /** Format: uuid */
+            orderId: string;
+            /**
+             * @description Número interno consecutivo (ADR-0049).
+             * @example 1042
+             */
+            orderNumber: number;
+            /**
+             * Format: date-time
+             * @description Cuándo se colocó la orden.
+             */
+            placedAt: string;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que colocó la venta.
+             */
+            placedBy: string | null;
+            /**
+             * @description El producto de precio libre.
+             * @example Artículo sin registrar
+             */
+            productName: string;
+            /** @example K7M4-Q9XA */
+            publicCode: string;
+            /** @example 1 */
+            quantity: number;
+            /** @example VARIOS-JUEGO */
+            sku: string;
+            /**
+             * @description El estado de la orden ahora: la lista incluye las canceladas y las vencidas.
+             * @enum {string}
+             */
+            status: "PENDING_PAYMENT" | "PAID" | "AWAITING_MANUAL_FULFILLMENT" | "SHIPPED" | "DELIVERED" | "CANCELLED" | "EXPIRED" | "REFUNDED";
+            /** @description El precio que escribió el staff, con IVA. */
+            unitPrice: components["schemas"]["MoneyDto"];
+            /**
+             * @description Los valores de las opciones de la variante, por nombre.
+             * @example {
+             *       "tipo": "Juego"
+             *     }
+             */
+            variantOptions: {
+                [key: string]: string;
+            };
+            /**
+             * Format: uuid
+             * @description El almacén de la venta.
+             */
+            warehouseId: string | null;
+        };
+        OpenPriceLineListDto: {
+            data: components["schemas"]["OpenPriceLineDto"][];
+            meta: components["schemas"]["PageMetaDto"];
         };
         OrderAccessDto: {
             /**
@@ -4686,6 +5683,8 @@ export interface components {
             lineNumber: number;
             /** @description Precio por cantidad, con IVA, antes del descuento. */
             lineTotal: components["schemas"]["MoneyDto"];
+            /** @description Qué se vendió, en una línea de precio libre de la tienda física (ADR-0171); `null` en las demás. */
+            note: string | null;
             /**
              * @description El nombre del producto al colocar la orden.
              * @example Camisa de lino
@@ -5256,7 +6255,7 @@ export interface components {
              * @example /problems/not-found
              * @enum {string}
              */
-            type: "/problems/validation-error" | "/problems/password-policy-violation" | "/problems/invalid-or-expired-token" | "/problems/idempotency-key-missing" | "/problems/unauthenticated" | "/problems/invalid-credentials" | "/problems/invalid-refresh-token" | "/problems/invalid-webhook-signature" | "/problems/forbidden" | "/problems/email-not-verified" | "/problems/staff-cannot-purchase" | "/problems/password-change-required" | "/problems/manual-payments-disabled" | "/problems/not-found" | "/problems/version-conflict" | "/problems/total-mismatch" | "/problems/insufficient-stock" | "/problems/variant-not-sellable" | "/problems/invalid-state-transition" | "/problems/duplicate-value" | "/problems/resource-in-use" | "/problems/price-period-conflict" | "/problems/idempotency-request-in-progress" | "/problems/cart-not-active" | "/problems/cart-line-limit-reached" | "/problems/image-limit-reached" | "/problems/address-limit-reached" | "/problems/last-superadmin" | "/problems/restock-not-allowed" | "/problems/active-orders-exist" | "/problems/field-locked" | "/problems/empty-cart" | "/problems/source-cart-unavailable" | "/problems/sale-not-linkable" | "/problems/coupon-not-applicable" | "/problems/idempotency-key-mismatch" | "/problems/payload-too-large" | "/problems/unsupported-media-type" | "/problems/rate-limit-exceeded" | "/problems/internal-error";
+            type: "/problems/validation-error" | "/problems/password-policy-violation" | "/problems/invalid-or-expired-token" | "/problems/idempotency-key-missing" | "/problems/unauthenticated" | "/problems/invalid-credentials" | "/problems/invalid-refresh-token" | "/problems/invalid-webhook-signature" | "/problems/forbidden" | "/problems/email-not-verified" | "/problems/staff-cannot-purchase" | "/problems/password-change-required" | "/problems/manual-payments-disabled" | "/problems/not-found" | "/problems/version-conflict" | "/problems/total-mismatch" | "/problems/insufficient-stock" | "/problems/variant-not-sellable" | "/problems/invalid-state-transition" | "/problems/duplicate-value" | "/problems/resource-in-use" | "/problems/price-period-conflict" | "/problems/idempotency-request-in-progress" | "/problems/cart-not-active" | "/problems/cart-line-limit-reached" | "/problems/image-limit-reached" | "/problems/address-limit-reached" | "/problems/last-superadmin" | "/problems/restock-not-allowed" | "/problems/active-orders-exist" | "/problems/field-locked" | "/problems/empty-cart" | "/problems/source-cart-unavailable" | "/problems/sale-not-linkable" | "/problems/coupon-not-applicable" | "/problems/variant-in-open-count" | "/problems/idempotency-key-mismatch" | "/problems/payload-too-large" | "/problems/unsupported-media-type" | "/problems/rate-limit-exceeded" | "/problems/internal-error" | "/problems/ai-unavailable";
         };
         ProductDetailDto: {
             /** @description Alguna variante vendible está disponible (ADR-0061). */
@@ -5788,6 +6787,18 @@ export interface components {
             /** @description Versión leída (bloqueo optimista). */
             version: number;
         };
+        ReturnedLineInputDto: {
+            /**
+             * @description Unidades que regresaron, de 0 a las prestadas.
+             * @example 1
+             */
+            returned: number;
+            /**
+             * Format: uuid
+             * @description Una línea del préstamo, una vez.
+             */
+            variantId: string;
+        };
         RoleDto: {
             /** Format: date-time */
             createdAt: string;
@@ -5806,7 +6817,7 @@ export interface components {
              *       "orders.read"
              *     ]
              */
-            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
+            permissions: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "inventory.transfer" | "inventory.count" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "orders.open-price" | "cash-closings.read" | "cash-closings.manage" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
             /** Format: date-time */
             updatedAt: string;
             /** @description Staff con este rol. */
@@ -5945,10 +6956,22 @@ export interface components {
         };
         StaffOrderLineDto: {
             /**
+             * @description Qué se vendió, de 1 a 200 caracteres: solo y siempre en una variante de precio libre (ADR-0171). La orden la
+             *     guarda en la línea.
+             * @example Juego usado: carreras para consola portátil
+             */
+            note?: string;
+            /**
              * @description Unidades, de 1 a 30, como una línea del carrito (BR-CRT-02).
              * @example 2
              */
             quantity: number;
+            /**
+             * @description Precio unitario con IVA, en centavos, de 1 a 10,000,000: solo y siempre en una variante de precio libre, que lo
+             *     cobra en lugar de la lista de precios (ADR-0171). Exige `orders.open-price`.
+             * @example 35000
+             */
+            unitPrice?: number;
             /**
              * Format: uuid
              * @description Una variante del catálogo.
@@ -5979,6 +7002,24 @@ export interface components {
             id: string;
             /** @example Operador */
             name: string;
+        };
+        StaffTotalDto: {
+            /** @description Lo que cobró en efectivo. */
+            cashAmount: components["schemas"]["MoneyDto"];
+            /** @description Lo que cobró. */
+            paymentAmount: components["schemas"]["MoneyDto"];
+            /**
+             * @description Cobros que registró.
+             * @example 7
+             */
+            paymentCount: number;
+            /** @description Lo que reembolsó. */
+            refundAmount: components["schemas"]["MoneyDto"];
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que registró los cobros y reembolsos; `null` para los que no registró nadie, como los de un proveedor.
+             */
+            staffId: string | null;
         };
         StaffUserDto: {
             /** Format: date-time */
@@ -6069,6 +7110,11 @@ export interface components {
             /** Format: uuid */
             id: string;
             /**
+             * @description Dónde está en el almacén, en mayúsculas (ADR-0173); `null` sin ubicación.
+             * @example A1
+             */
+            location: string | null;
+            /**
              * @description Unidades físicas en el almacén.
              * @example 25
              */
@@ -6093,12 +7139,34 @@ export interface components {
             data: components["schemas"]["StockItemDto"][];
             meta: components["schemas"]["PageMetaDto"];
         };
+        StockLocationDto: {
+            /**
+             * @description De 1 a 20 caracteres; se guarda sin espacios de sobra y en mayúsculas. `null` la quita.
+             * @example vitrina 1
+             */
+            location: string | null;
+            /**
+             * Format: uuid
+             * @description La variante, en cualquier estado.
+             */
+            variantId: string;
+            /**
+             * Format: uuid
+             * @description Cualquier almacén, también uno inactivo.
+             */
+            warehouseId: string;
+        };
         StockMovementDto: {
             /**
              * Format: uuid
              * @description Staff que lo registró; `null` si fue el sistema.
              */
             actorId: string | null;
+            /**
+             * Format: uuid
+             * @description La hoja de conteo de un ajuste `PHYSICAL_COUNT` que la aplicó (ADR-0173); `null` en los demás.
+             */
+            countId: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: uuid */
@@ -6131,10 +7199,15 @@ export interface components {
              */
             reasonCode: "PHYSICAL_COUNT" | "DAMAGED" | "LOSS_OR_THEFT" | "INTERNAL_USE" | "DATA_ENTRY_ERROR" | "OTHER" | "WAREHOUSE_TRANSFER" | "ORDER_CANCELLED" | "SHIPMENT_RETURNED" | null;
             /**
-             * @description `RECEIPT`, `ADJUSTMENT`, `SALE` o `RESTOCK`.
+             * Format: uuid
+             * @description El traslado de un movimiento `TRANSFER` (ADR-0172); `null` en los demás.
+             */
+            transferId: string | null;
+            /**
+             * @description `RECEIPT`, `ADJUSTMENT`, `SALE`, `RESTOCK` o `TRANSFER`, uno de los lados de un traslado (ADR-0172).
              * @enum {string}
              */
-            type: "RECEIPT" | "ADJUSTMENT" | "SALE" | "RESTOCK";
+            type: "RECEIPT" | "ADJUSTMENT" | "SALE" | "RESTOCK" | "TRANSFER";
         };
         StockMovementListDto: {
             /** @description Del más reciente al más antiguo. */
@@ -6208,6 +7281,112 @@ export interface components {
             price: components["schemas"]["MoneyDto"];
             /** @example CAM-LIN-AZ-M */
             sku: string;
+        };
+        TransferDto: {
+            /**
+             * Format: date-time
+             * @description Hasta cuándo se puede cancelar: 10 minutos después de registrarse; `null` si ya no se puede por su estado (cancelado, préstamo cerrado o regreso de un préstamo).
+             */
+            cancellableUntil: string | null;
+            /** Format: date-time */
+            cancelledAt: string | null;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que lo canceló; `null` si no se canceló.
+             */
+            cancelledBy: string | null;
+            /** Format: date-time */
+            closedAt: string | null;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que cerró el préstamo; `null` si no se ha cerrado.
+             */
+            closedBy: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: uuid
+             * @description La cuenta de staff que lo registró.
+             */
+            createdBy: string;
+            /**
+             * @description El folio, consecutivo: `T-` en un traslado y `P-` en un préstamo.
+             * @example T-000123
+             */
+            folio: string;
+            /** Format: uuid */
+            fromWarehouseId: string;
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "TRANSFER" | "LOAN";
+            /** @description Por variante. */
+            lines: components["schemas"]["TransferLineDto"][];
+            /**
+             * Format: uuid
+             * @description En el regreso de un préstamo (`LOAN_RETURN`), el préstamo.
+             */
+            loanId: string | null;
+            /** @description Nota del staff; `null` sin ella. */
+            note: string | null;
+            /** @description Un préstamo abierto cuya hora de regreso ya pasó. */
+            overdue: boolean;
+            /** @enum {string} */
+            reason: "SALE" | "RESTOCK" | "OTHER" | "SHOW" | "LOAN_RETURN";
+            /**
+             * Format: date-time
+             * @description En un préstamo, cuándo debe regresar; `null` en un traslado.
+             */
+            returnBy: string | null;
+            /**
+             * Format: uuid
+             * @description En un préstamo cerrado, el traslado que regresó sus unidades; `null` si no regresó ninguna o no se ha cerrado.
+             */
+            returnTransferId: string | null;
+            /**
+             * @description Un traslado está `COMPLETED` al registrarse; un préstamo, `OPEN` hasta que se cierra (`CLOSED`). `CANCELLED` si se canceló en sus primeros 10 minutos.
+             * @enum {string}
+             */
+            status: "COMPLETED" | "CANCELLED" | "OPEN" | "CLOSED";
+            /** Format: uuid */
+            toWarehouseId: string;
+            /**
+             * @description Versión para cancelarlo o cerrarlo (bloqueo optimista).
+             * @example 1
+             */
+            version: number;
+        };
+        TransferLineDto: {
+            /** @example The Legend of Zelda */
+            productTitle: string;
+            /**
+             * @description Unidades trasladadas.
+             * @example 2
+             */
+            quantity: number;
+            /** @description En un préstamo cerrado, las unidades que regresaron; `null` mientras está abierto, y siempre en un traslado. */
+            returned: number | null;
+            /** @example JUE-ZELDA-SW */
+            sku: string;
+            /** Format: uuid */
+            variantId: string;
+        };
+        TransferLineInputDto: {
+            /**
+             * @description De 1 a 100,000 unidades disponibles en el origen.
+             * @example 2
+             */
+            quantity: number;
+            /**
+             * Format: uuid
+             * @description La variante que se traslada, en cualquier estado; una vez por traslado.
+             */
+            variantId: string;
+        };
+        TransferListDto: {
+            /** @description Del más reciente al más antiguo. */
+            data: components["schemas"]["TransferDto"][];
+            meta: components["schemas"]["PageMetaDto"];
         };
         UpdateAccountDto: {
             /**
@@ -6292,8 +7471,19 @@ export interface components {
             brandId?: string | null;
             /** @description Reemplaza las categorías, hasta 10. Las nuevas deben estar activas; las que ya tenía se conservan aunque se hayan desactivado. */
             categoryIds?: string[];
+            /**
+             * @description Cada cuándo se cuenta (ADR-0173); `null` la quita.
+             * @enum {string|null}
+             */
+            countClass?: "A" | "B" | "C" | null;
             /** @description Hasta 10,000 caracteres; `null` la quita. */
             description?: string | null;
+            /**
+             * @description A precio libre, o al de la lista de precios (ADR-0171); se cambia también publicado. Exige que el producto quede
+             *     `storeOnly`, y un producto de precio libre no deja de ser `storeOnly` sin quitárselo: si no, 400 en `openPrice` con
+             *     código `openPriceStoreOnly`. En la misma solicitud, `storeOnly: false` con `openPrice: false` sí se acepta.
+             */
+            openPrice?: boolean;
             /** @description Solo mientras el producto nunca se ha publicado (ADR-0068). */
             slug?: string;
             /** @description Solo en la tienda física, o también en línea (ADR-0165); se cambia también publicado. */
@@ -6341,7 +7531,7 @@ export interface components {
             /** @description Nombre único, de 1 a 50 caracteres. */
             name?: string;
             /** @description Reemplaza el conjunto. El rol superadministrador no cambia sus permisos. */
-            permissions?: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
+            permissions?: ("catalog.read" | "catalog.write" | "pricing.read" | "pricing.write" | "inventory.read" | "inventory.write" | "inventory.transfer" | "inventory.count" | "orders.read" | "orders.manage" | "orders.read-blocked" | "orders.place" | "orders.open-price" | "cash-closings.read" | "cash-closings.manage" | "work-orders.read" | "work-orders.manage" | "work-orders.read-blocked" | "promotions.read" | "promotions.manage" | "payments.manage" | "payments.configure" | "shipping.manage" | "shipping.configure" | "customers.read" | "customers.manage" | "staff.manage" | "audit.read" | "events.manage")[];
             /** @description Versión leída (bloqueo optimista). */
             version: number;
         };
@@ -6751,6 +7941,321 @@ export interface operations {
             };
             /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminCashClosingsController_list_v1: {
+        parameters: {
+            query?: {
+                /** @description Página, de 1 a 1,000,000. */
+                page?: number;
+                /** @description Resultados por página, de 1 a 100. */
+                pageSize?: number;
+                /** @description Desde este día, incluido. */
+                dateFrom?: string;
+                /** @description Hasta este día, incluido. */
+                dateTo?: string;
+                /** @description Solo los cierres de este almacén. */
+                warehouseId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CashClosingListDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminCashClosingsController_close_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CloseCashDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CashClosingDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `duplicate-value`: Valor duplicado */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminCashClosingsController_summary_v1: {
+        parameters: {
+            query: {
+                /** @description El almacén del local. */
+                warehouseId: string;
+                /** @description El día de la Ciudad de México, `AAAA-MM-DD`. */
+                date: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CashSummaryDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminCashClosingsController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID del cierre de caja. */
+                closingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CashClosingDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7758,6 +9263,83 @@ export interface operations {
             };
         };
     };
+    AdminCountClassesController_set_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CountClassesDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountClassesResultDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     AdminProductImportsController_import_v1: {
         parameters: {
             query?: {
@@ -7861,6 +9443,12 @@ export interface operations {
                 status?: string;
                 /** @description `true`: solo los productos que se venden solo en la tienda física; `false`: solo los que se venden también en línea. */
                 storeOnly?: boolean;
+                /** @description `true`: solo los productos de precio libre (ADR-0171); `false`: solo los de precio de lista. */
+                openPrice?: boolean;
+                /** @description Solo los productos de esta clase de conteo (ADR-0173). */
+                countClass?: "A" | "B" | "C";
+                /** @description `true`: solo los productos con clase de conteo; `false`: solo los que no tienen (ADR-0173). */
+                hasCountClass?: boolean;
                 /** @description Parte del título, de un SKU o de un GTIN, sin distinguir mayúsculas. */
                 q?: string;
                 /** @description Solo los productos de esta marca. */
@@ -8256,6 +9844,95 @@ export interface operations {
             };
             /** @description `internal-error`: Error interno */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminProductsController_descriptionDraft_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID del producto. */
+                productId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DescriptionDraftRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DescriptionDraftDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `ai-unavailable`: Asistente de IA no disponible */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11033,6 +12710,694 @@ export interface operations {
             };
         };
     };
+    AdminCountsController_list_v1: {
+        parameters: {
+            query?: {
+                /** @description Página, de 1 a 1,000,000. */
+                page?: number;
+                /** @description Resultados por página, de 1 a 100. */
+                pageSize?: number;
+                /** @description Las hojas en este estado. */
+                status?: "OPEN" | "APPLIED" | "CANCELLED";
+                /** @description Las hojas de este almacén. */
+                warehouseId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountListDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminCountsController_open_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCountDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `variant-in-open-count`: Variante en otra hoja de conteo */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminCountsController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID de la hoja de conteo. */
+                countId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminCountsController_apply_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Llave de idempotencia de 1 a 255 caracteres; se recomienda un UUID (API_SPEC.md, sección 4). */
+                "Idempotency-Key": string;
+            };
+            path: {
+                /** @description ID de la hoja de conteo. */
+                countId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CountVersionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountDto"];
+                };
+            };
+            /** @description `idempotency-key-missing`: Falta la llave de idempotencia; `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /**
+             * @description `idempotency-request-in-progress`: Solicitud en proceso
+             *
+             *     `version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `idempotency-key-mismatch`: Llave de idempotencia reutilizada */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminCountsController_cancel_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID de la hoja de conteo. */
+                countId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CountVersionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminCountsController_capture_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID de la hoja de conteo. */
+                countId: string;
+                /** @description ID de la variante. */
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CountLineInputDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountLineDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `invalid-state-transition`: Acción no permitida en el estado actual; `variant-in-open-count`: Variante en otra hoja de conteo */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminCountsController_recount_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID de la hoja de conteo. */
+                countId: string;
+                /** @description ID de la variante. */
+                variantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CountVersionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminStockController_setLocation_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StockLocationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockItemDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     AdminReceiptImportsController_import_v1: {
         parameters: {
             query?: {
@@ -11209,6 +13574,8 @@ export interface operations {
                 page?: number;
                 /** @description Resultados por página, de 1 a 100. */
                 pageSize?: number;
+                /** @description `true`, solo las existencias con ubicación; `false`, solo las que no tienen. */
+                hasLocation?: boolean;
                 /** @description Solo las existencias de esta variante. */
                 variantId?: string;
                 /** @description SKU exacto, sin distinguir mayúsculas; un SKU tiene a lo sumo 64 caracteres. */
@@ -11219,6 +13586,11 @@ export interface operations {
                 q?: string;
                 /** @description A lo sumo esta cantidad disponible, para detectar existencias bajas. */
                 availableMax?: number;
+                /**
+                 * @description Ubicación exacta, sin distinguir mayúsculas, o con `*` al final las que empiezan así (ADR-0173); hasta 20
+                 *     caracteres antes del `*`.
+                 */
+                location?: string;
                 /** @description `sku`, `available` o `updatedAt`, con `-` para orden descendente; por defecto `sku`. */
                 sort?: string;
             };
@@ -11288,7 +13660,7 @@ export interface operations {
             query?: {
                 /** @description Resultados por página, de 1 a 100. */
                 limit?: number;
-                /** @description Uno o más tipos separados por comas: `RECEIPT`, `ADJUSTMENT`, `SALE`, `RESTOCK`. */
+                /** @description Uno o más tipos separados por comas: `RECEIPT`, `ADJUSTMENT`, `SALE`, `RESTOCK`, `TRANSFER`. */
                 type?: string;
                 /** @description Fecha o fecha y hora ISO 8601; incluida. */
                 from?: string;
@@ -11343,6 +13715,447 @@ export interface operations {
             };
             /** @description `not-found`: No encontrado */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminTransfersController_list_v1: {
+        parameters: {
+            query?: {
+                /** @description Página, de 1 a 1,000,000. */
+                page?: number;
+                /** @description Resultados por página, de 1 a 100. */
+                pageSize?: number;
+                /** @description Solo los traslados o solo los préstamos. */
+                kind?: "TRANSFER" | "LOAN";
+                /** @description `true`, solo los préstamos abiertos cuya hora de regreso ya pasó; `false`, todos los demás. */
+                overdue?: boolean;
+                /** @description Los traslados con este motivo. */
+                reason?: "SALE" | "RESTOCK" | "OTHER" | "SHOW" | "LOAN_RETURN";
+                /** @description Los traslados en este estado. */
+                status?: "COMPLETED" | "CANCELLED" | "OPEN" | "CLOSED";
+                /** @description Los que salen de este almacén o llegan a él. */
+                warehouseId?: string;
+                /** @description Los que tienen una línea de esta variante. */
+                variantId?: string;
+                /** @description Fecha o fecha y hora ISO 8601; incluida. */
+                from?: string;
+                /** @description Fecha o fecha y hora ISO 8601; incluida (una fecha sola incluye todo el día). */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferListDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminTransfersController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Llave de idempotencia de 1 a 255 caracteres; se recomienda un UUID (API_SPEC.md, sección 4). */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTransferDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferDto"];
+                };
+            };
+            /** @description `idempotency-key-missing`: Falta la llave de idempotencia; `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /**
+             * @description `idempotency-request-in-progress`: Solicitud en proceso
+             *
+             *     `insufficient-stock`: Stock insuficiente
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `idempotency-key-mismatch`: Llave de idempotencia reutilizada */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminTransfersController_get_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID del traslado entre almacenes. */
+                transferId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminTransfersController_cancel_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID del traslado entre almacenes. */
+                transferId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelTransferDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual; `insufficient-stock`: Stock insuficiente */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminTransfersController_close_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description ID del traslado entre almacenes. */
+                transferId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CloseLoanDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `not-found`: No encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual; `insufficient-stock`: Stock insuficiente */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11847,6 +14660,145 @@ export interface operations {
             };
             /** @description `idempotency-key-mismatch`: Llave de idempotencia reutilizada */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminOrdersController_countClassSuggestions_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountClassSuggestionListDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `rate-limit-exceeded`: Demasiadas solicitudes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `internal-error`: Error interno */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AdminOrdersController_openPriceLines_v1: {
+        parameters: {
+            query?: {
+                /** @description Página, de 1 a 1,000,000. */
+                page?: number;
+                /** @description Resultados por página, de 1 a 100. */
+                pageSize?: number;
+                /** @description Solo las ventas de este almacén. */
+                warehouseId?: string;
+                /** @description Fecha o fecha y hora ISO 8601 de la orden; incluida. */
+                placedFrom?: string;
+                /** @description Fecha o fecha y hora ISO 8601 de la orden; incluida (una fecha sola incluye todo el día). */
+                placedTo?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenPriceLineListDto"];
+                };
+            };
+            /** @description `validation-error`: Solicitud inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `unauthenticated`: No autenticado */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description `forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

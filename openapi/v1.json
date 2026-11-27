@@ -41,10 +41,15 @@
                 "pricing.write",
                 "inventory.read",
                 "inventory.write",
+                "inventory.transfer",
+                "inventory.count",
                 "orders.read",
                 "orders.manage",
                 "orders.read-blocked",
                 "orders.place",
+                "orders.open-price",
+                "cash-closings.read",
+                "cash-closings.manage",
                 "work-orders.read",
                 "work-orders.manage",
                 "work-orders.read-blocked",
@@ -1088,6 +1093,11 @@
             ],
             "description": "Precio por cantidad, con IVA, antes del descuento."
           },
+          "note": {
+            "description": "Qué se vendió, en una línea de precio libre de la tienda física (ADR-0171); `null` en las demás.",
+            "nullable": true,
+            "type": "string"
+          },
           "productName": {
             "description": "El nombre del producto al colocar la orden.",
             "example": "Camisa de lino",
@@ -1139,6 +1149,7 @@
           "taxAmount",
           "lineTotal",
           "discountAmount",
+          "note",
           "id",
           "lineNumber",
           "sku",
@@ -1760,6 +1771,16 @@
             },
             "type": "array"
           },
+          "countClass": {
+            "description": "Cada cuándo se cuenta (ADR-0173): `A` cada semana, `B` cada mes, `C` cada trimestre; `null` sin clase, que se cuenta como `C`.",
+            "enum": [
+              "A",
+              "B",
+              "C"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -1784,6 +1805,10 @@
               "$ref": "#/components/schemas/ImageDto"
             },
             "type": "array"
+          },
+          "openPrice": {
+            "description": "Si se vende a precio libre: el staff escribe el precio y qué se vendió en cada línea de la venta de mostrador, en\nlugar de la lista de precios (ADR-0171). Solo un producto `storeOnly`.",
+            "type": "boolean"
           },
           "publishedAt": {
             "description": "Desde cuándo está publicado; `null` si no lo está.",
@@ -1843,6 +1868,7 @@
           "categories",
           "status",
           "storeVisibility",
+          "countClass",
           "variants",
           "images",
           "publishedAt",
@@ -1853,6 +1879,7 @@
           "title",
           "slug",
           "storeOnly",
+          "openPrice",
           "version"
         ],
         "type": "object"
@@ -2105,6 +2132,51 @@
           "heightCm",
           "sku",
           "editableIdentity"
+        ],
+        "type": "object"
+      },
+      "AfterClosingDto": {
+        "properties": {
+          "cashAmount": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "De ellos, en efectivo."
+          },
+          "cashRefundAmount": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "De ellos, de pagos en efectivo."
+          },
+          "paymentAmount": {
+            "$ref": "#/components/schemas/MoneyDto"
+          },
+          "paymentCount": {
+            "description": "Cobros posteriores al cierre.",
+            "example": 1,
+            "type": "number"
+          },
+          "refundAmount": {
+            "$ref": "#/components/schemas/MoneyDto"
+          },
+          "refundCount": {
+            "description": "Reembolsos posteriores al cierre.",
+            "example": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "paymentAmount",
+          "cashAmount",
+          "refundAmount",
+          "cashRefundAmount",
+          "paymentCount",
+          "refundCount"
         ],
         "type": "object"
       },
@@ -2510,6 +2582,19 @@
         ],
         "type": "object"
       },
+      "CancelTransferDto": {
+        "properties": {
+          "version": {
+            "description": "Versión leída del traslado (bloqueo optimista).",
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "type": "object"
+      },
       "CartDto": {
         "properties": {
           "id": {
@@ -2695,6 +2780,358 @@
           "id",
           "slug",
           "title"
+        ],
+        "type": "object"
+      },
+      "CashClosingDto": {
+        "properties": {
+          "closedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "closedBy": {
+            "description": "La cuenta de staff que cerró.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "countedCash": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "El efectivo que contó el staff."
+          },
+          "date": {
+            "description": "El día de la Ciudad de México que cierra.",
+            "example": "2026-11-07",
+            "type": "string"
+          },
+          "difference": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "Contado menos esperado: negativo si falta efectivo."
+          },
+          "expectedCash": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "El efectivo esperado al cerrar. Puede ser negativo."
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "note": {
+            "description": "Por qué hay diferencia; siempre la hay si `difference` no es 0.",
+            "nullable": true,
+            "type": "string"
+          },
+          "summary": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CashDayDto"
+              }
+            ],
+            "description": "El resumen del día al cerrar."
+          },
+          "warehouseId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "warehouseId",
+          "expectedCash",
+          "countedCash",
+          "difference",
+          "note",
+          "summary",
+          "closedBy",
+          "closedAt",
+          "date"
+        ],
+        "type": "object"
+      },
+      "CashClosingListDto": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/CashClosingDto"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "CashDayDto": {
+        "properties": {
+          "byStaff": {
+            "description": "Por quien registró cada cobro o reembolso; los que no registró nadie, al final.",
+            "items": {
+              "$ref": "#/components/schemas/StaffTotalDto"
+            },
+            "type": "array"
+          },
+          "cancelledCount": {
+            "description": "Órdenes de la tienda física canceladas ese día, cuando sea que se colocaron.",
+            "example": 0,
+            "type": "number"
+          },
+          "cashRefundAmount": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "Lo reembolsado de pagos cobrados en efectivo."
+          },
+          "expectedCash": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "El efectivo esperado en la caja: lo cobrado en efectivo menos lo reembolsado de pagos en efectivo. Puede ser negativo."
+          },
+          "openPriceAmount": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "El total de esas líneas."
+          },
+          "openPriceLineCount": {
+            "description": "Líneas de precio libre de las órdenes colocadas ese día, sin las canceladas, reembolsadas o vencidas (ADR-0171).",
+            "example": 3,
+            "type": "number"
+          },
+          "paymentAmount": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "Todo lo cobrado ese día."
+          },
+          "payments": {
+            "description": "Lo cobrado ese día por método: `CASH`, `CARD_TERMINAL`, `TRANSFER` y sin método, siempre los cuatro y en ese orden.",
+            "items": {
+              "$ref": "#/components/schemas/MethodTotalDto"
+            },
+            "type": "array"
+          },
+          "pendingPaymentCount": {
+            "description": "De esas, las que siguen esperando su pago: vendidas sin cobrar.",
+            "example": 1,
+            "type": "number"
+          },
+          "placedAmount": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "El total de esas órdenes."
+          },
+          "placedCount": {
+            "description": "Órdenes de la tienda física colocadas ese día en el almacén.",
+            "example": 18,
+            "type": "number"
+          },
+          "refundAmount": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "Lo reembolsado ese día."
+          },
+          "refundCount": {
+            "description": "Reembolsos completados ese día.",
+            "example": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "placedAmount",
+          "payments",
+          "paymentAmount",
+          "refundAmount",
+          "cashRefundAmount",
+          "expectedCash",
+          "byStaff",
+          "openPriceAmount",
+          "placedCount",
+          "pendingPaymentCount",
+          "cancelledCount",
+          "refundCount",
+          "openPriceLineCount"
+        ],
+        "type": "object"
+      },
+      "CashSummaryDto": {
+        "properties": {
+          "afterClosing": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AfterClosingDto"
+              }
+            ],
+            "description": "Lo que llegó después del cierre, que ya va en los totales del día; `null` sin cierre.",
+            "nullable": true,
+            "type": "object"
+          },
+          "byStaff": {
+            "description": "Por quien registró cada cobro o reembolso; los que no registró nadie, al final.",
+            "items": {
+              "$ref": "#/components/schemas/StaffTotalDto"
+            },
+            "type": "array"
+          },
+          "cancelledCount": {
+            "description": "Órdenes de la tienda física canceladas ese día, cuando sea que se colocaron.",
+            "example": 0,
+            "type": "number"
+          },
+          "cashRefundAmount": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "Lo reembolsado de pagos cobrados en efectivo."
+          },
+          "closing": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CashClosingDto"
+              }
+            ],
+            "description": "El cierre del día; `null` mientras no lo tenga.",
+            "nullable": true,
+            "type": "object"
+          },
+          "date": {
+            "example": "2026-11-07",
+            "type": "string"
+          },
+          "expectedCash": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "El efectivo esperado en la caja: lo cobrado en efectivo menos lo reembolsado de pagos en efectivo. Puede ser negativo."
+          },
+          "from": {
+            "description": "Cuándo empieza el día en la Ciudad de México.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "openPriceAmount": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "El total de esas líneas."
+          },
+          "openPriceLineCount": {
+            "description": "Líneas de precio libre de las órdenes colocadas ese día, sin las canceladas, reembolsadas o vencidas (ADR-0171).",
+            "example": 3,
+            "type": "number"
+          },
+          "paymentAmount": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "Todo lo cobrado ese día."
+          },
+          "payments": {
+            "description": "Lo cobrado ese día por método: `CASH`, `CARD_TERMINAL`, `TRANSFER` y sin método, siempre los cuatro y en ese orden.",
+            "items": {
+              "$ref": "#/components/schemas/MethodTotalDto"
+            },
+            "type": "array"
+          },
+          "pendingPaymentCount": {
+            "description": "De esas, las que siguen esperando su pago: vendidas sin cobrar.",
+            "example": 1,
+            "type": "number"
+          },
+          "placedAmount": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "El total de esas órdenes."
+          },
+          "placedCount": {
+            "description": "Órdenes de la tienda física colocadas ese día en el almacén.",
+            "example": 18,
+            "type": "number"
+          },
+          "refundAmount": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "Lo reembolsado ese día."
+          },
+          "refundCount": {
+            "description": "Reembolsos completados ese día.",
+            "example": 0,
+            "type": "number"
+          },
+          "to": {
+            "description": "Cuándo termina, sin incluirlo.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "warehouseId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "placedAmount",
+          "payments",
+          "paymentAmount",
+          "refundAmount",
+          "cashRefundAmount",
+          "expectedCash",
+          "byStaff",
+          "openPriceAmount",
+          "warehouseId",
+          "from",
+          "to",
+          "closing",
+          "afterClosing",
+          "date",
+          "placedCount",
+          "pendingPaymentCount",
+          "cancelledCount",
+          "refundCount",
+          "openPriceLineCount"
         ],
         "type": "object"
       },
@@ -2922,6 +3359,11 @@
             "nullable": true,
             "type": "object"
           },
+          "note": {
+            "description": "Qué se vende, en una línea de precio libre de la tienda física (ADR-0171): `unitPrice` es entonces el que escribió el staff. `null` en las demás.",
+            "nullable": true,
+            "type": "string"
+          },
           "options": {
             "additionalProperties": {
               "type": "string"
@@ -2987,11 +3429,68 @@
           "discountAmount",
           "taxRateBp",
           "taxAmount",
+          "note",
           "quantity",
           "sku",
           "productTitle",
           "sellable",
           "canFulfill"
+        ],
+        "type": "object"
+      },
+      "CloseCashDto": {
+        "properties": {
+          "countedCash": {
+            "description": "El efectivo contado en la caja, en centavos.",
+            "example": 352500,
+            "maximum": 2147483647,
+            "minimum": 0,
+            "type": "number"
+          },
+          "date": {
+            "description": "El día de la Ciudad de México, `AAAA-MM-DD`.",
+            "example": "2026-11-07",
+            "type": "string"
+          },
+          "note": {
+            "description": "Hasta 500 caracteres; obligatoria si el contado no es el esperado.",
+            "example": "Faltan $20 de un cambio mal dado.",
+            "maxLength": 500,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "warehouseId": {
+            "description": "El almacén del local.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "warehouseId",
+          "date",
+          "countedCash"
+        ],
+        "type": "object"
+      },
+      "CloseLoanDto": {
+        "properties": {
+          "lines": {
+            "description": "Cada línea del préstamo, una vez, con lo que regresó.",
+            "items": {
+              "$ref": "#/components/schemas/ReturnedLineInputDto"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "version": {
+            "description": "Versión leída del préstamo (bloqueo optimista).",
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "lines",
+          "version"
         ],
         "type": "object"
       },
@@ -3006,6 +3505,514 @@
         },
         "required": [
           "token"
+        ],
+        "type": "object"
+      },
+      "CountClassItemDto": {
+        "properties": {
+          "countClass": {
+            "description": "`null` le quita la clase.",
+            "enum": [
+              "A",
+              "B",
+              "C"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "productId": {
+            "description": "El producto, en cualquier estado; una vez por solicitud.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "productId",
+          "countClass"
+        ],
+        "type": "object"
+      },
+      "CountClassSuggestionDto": {
+        "properties": {
+          "countClass": {
+            "description": "La clase que tiene hoy; `null` sin clase.",
+            "enum": [
+              "A",
+              "B",
+              "C"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "productId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "productTitle": {
+            "description": "El título del producto hoy.",
+            "example": "Zelda: Tears of the Kingdom",
+            "type": "string"
+          },
+          "sales": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "Lo vendido: el total de sus líneas menos sus descuentos."
+          },
+          "suggestedClass": {
+            "description": "La clase por sus ventas: `A`, los productos que suman el primer 80 % de lo vendido; `B`, el siguiente 15 %; `C`, el resto.",
+            "enum": [
+              "A",
+              "B",
+              "C"
+            ],
+            "type": "string"
+          },
+          "units": {
+            "description": "Unidades vendidas.",
+            "example": 14,
+            "type": "number"
+          }
+        },
+        "required": [
+          "productId",
+          "countClass",
+          "sales",
+          "suggestedClass",
+          "productTitle",
+          "units"
+        ],
+        "type": "object"
+      },
+      "CountClassSuggestionListDto": {
+        "properties": {
+          "data": {
+            "description": "Del producto que más vendió al que menos; los que no vendieron nada no aparecen y son `C`.",
+            "items": {
+              "$ref": "#/components/schemas/CountClassSuggestionDto"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/CountClassSuggestionsMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "CountClassSuggestionsMetaDto": {
+        "properties": {
+          "days": {
+            "description": "Días de ventas que cuenta.",
+            "example": 90,
+            "type": "number"
+          },
+          "from": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "to": {
+            "description": "Sin incluirlo: el momento de la consulta.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "total": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "Lo vendido en total."
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "total",
+          "days"
+        ],
+        "type": "object"
+      },
+      "CountClassesDto": {
+        "properties": {
+          "items": {
+            "description": "De 1 a 500 productos, cada uno una vez.",
+            "items": {
+              "$ref": "#/components/schemas/CountClassItemDto"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "CountClassesResultDto": {
+        "properties": {
+          "updated": {
+            "description": "Productos cuya clase cambió; los que ya la tenían no cuentan.",
+            "example": 12,
+            "type": "number"
+          }
+        },
+        "required": [
+          "updated"
+        ],
+        "type": "object"
+      },
+      "CountDto": {
+        "properties": {
+          "blind": {
+            "description": "Sin `expected` ni `difference`: quien no tiene `inventory.write` cuenta a ciegas.",
+            "type": "boolean"
+          },
+          "closedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "closedBy": {
+            "description": "La cuenta de staff que la aplicó o la canceló.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "countedCount": {
+            "description": "Cuántas están contadas.",
+            "example": 12,
+            "type": "number"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdBy": {
+            "description": "La cuenta de staff que la abrió.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "filter": {
+            "$ref": "#/components/schemas/CountFilterDto"
+          },
+          "folio": {
+            "description": "El folio, consecutivo.",
+            "example": "C-000123",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lineCount": {
+            "description": "Cuántas líneas tiene.",
+            "example": 40,
+            "type": "number"
+          },
+          "lines": {
+            "description": "En su orden en la hoja.",
+            "items": {
+              "$ref": "#/components/schemas/CountLineDto"
+            },
+            "type": "array"
+          },
+          "note": {
+            "description": "Nota del staff; `null` sin ella.",
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "description": "`OPEN` mientras se cuenta; `APPLIED` o `CANCELLED` ya no cambia.",
+            "enum": [
+              "OPEN",
+              "APPLIED",
+              "CANCELLED"
+            ],
+            "type": "string"
+          },
+          "version": {
+            "description": "Versión para revisarla, aplicarla o cancelarla (bloqueo optimista).",
+            "example": 3,
+            "type": "number"
+          },
+          "warehouseId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "warehouseId",
+          "filter",
+          "note",
+          "status",
+          "createdBy",
+          "createdAt",
+          "closedBy",
+          "closedAt",
+          "lines",
+          "blind",
+          "folio",
+          "lineCount",
+          "countedCount",
+          "version"
+        ],
+        "type": "object"
+      },
+      "CountFilterDto": {
+        "properties": {
+          "categoryId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "countClass": {
+            "enum": [
+              "A",
+              "B",
+              "C"
+            ],
+            "type": "string"
+          },
+          "location": {
+            "description": "La ubicación o el prefijo con `*`, en mayúsculas.",
+            "example": "A*",
+            "type": "string"
+          },
+          "variantIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "CountLineDto": {
+        "properties": {
+          "counted": {
+            "description": "Lo contado; `null` mientras no se cuenta.",
+            "nullable": true,
+            "type": "number"
+          },
+          "countedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "countedBy": {
+            "description": "La cuenta de staff que la contó.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "difference": {
+            "description": "Lo contado menos `expected`; `null` sin contar y en una hoja a ciegas.",
+            "nullable": true,
+            "type": "number"
+          },
+          "expected": {
+            "description": "Las físicas al contarla; `null` sin contar y en una hoja a ciegas (`blind`).",
+            "nullable": true,
+            "type": "number"
+          },
+          "location": {
+            "description": "La ubicación de la existencia cuando se tomó la línea; `null` sin ella.",
+            "example": "A1",
+            "nullable": true,
+            "type": "string"
+          },
+          "movementId": {
+            "description": "El ajuste `PHYSICAL_COUNT` de una línea `ADJUSTED`.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "outcome": {
+            "description": "Lo que hizo aplicar la hoja: `ADJUSTED`, `NO_DIFFERENCE`, `NOT_COUNTED` o `SKIPPED_RESERVED` (dejaría menos físicas que las apartadas); `null` mientras está abierta.",
+            "enum": [
+              "ADJUSTED",
+              "NO_DIFFERENCE",
+              "NOT_COUNTED",
+              "SKIPPED_RESERVED"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "position": {
+            "description": "Su orden en la hoja, desde 1.",
+            "example": 1,
+            "type": "number"
+          },
+          "productTitle": {
+            "example": "The Legend of Zelda",
+            "type": "string"
+          },
+          "recount": {
+            "description": "Se pidió volver a contarla.",
+            "type": "boolean"
+          },
+          "sku": {
+            "example": "JUE-ZELDA-SW",
+            "type": "string"
+          },
+          "variantId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "variantId",
+          "location",
+          "counted",
+          "countedBy",
+          "countedAt",
+          "expected",
+          "difference",
+          "outcome",
+          "movementId",
+          "sku",
+          "productTitle",
+          "position",
+          "recount"
+        ],
+        "type": "object"
+      },
+      "CountLineInputDto": {
+        "properties": {
+          "counted": {
+            "description": "Lo contado, de 0 a 100,000.",
+            "example": 7,
+            "maximum": 100000,
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "counted"
+        ],
+        "type": "object"
+      },
+      "CountListDto": {
+        "properties": {
+          "data": {
+            "description": "De la más reciente a la más antigua.",
+            "items": {
+              "$ref": "#/components/schemas/CountSummaryDto"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "CountSummaryDto": {
+        "properties": {
+          "closedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "closedBy": {
+            "description": "La cuenta de staff que la aplicó o la canceló.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "countedCount": {
+            "description": "Cuántas están contadas.",
+            "example": 12,
+            "type": "number"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdBy": {
+            "description": "La cuenta de staff que la abrió.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "filter": {
+            "$ref": "#/components/schemas/CountFilterDto"
+          },
+          "folio": {
+            "description": "El folio, consecutivo.",
+            "example": "C-000123",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lineCount": {
+            "description": "Cuántas líneas tiene.",
+            "example": 40,
+            "type": "number"
+          },
+          "note": {
+            "description": "Nota del staff; `null` sin ella.",
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "description": "`OPEN` mientras se cuenta; `APPLIED` o `CANCELLED` ya no cambia.",
+            "enum": [
+              "OPEN",
+              "APPLIED",
+              "CANCELLED"
+            ],
+            "type": "string"
+          },
+          "version": {
+            "description": "Versión para revisarla, aplicarla o cancelarla (bloqueo optimista).",
+            "example": 3,
+            "type": "number"
+          },
+          "warehouseId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "warehouseId",
+          "filter",
+          "note",
+          "status",
+          "createdBy",
+          "createdAt",
+          "closedBy",
+          "closedAt",
+          "folio",
+          "lineCount",
+          "countedCount",
+          "version"
+        ],
+        "type": "object"
+      },
+      "CountVersionDto": {
+        "properties": {
+          "version": {
+            "description": "Versión leída de la hoja (bloqueo optimista).",
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "version"
         ],
         "type": "object"
       },
@@ -3167,6 +4174,55 @@
         ],
         "type": "object"
       },
+      "CreateCountDto": {
+        "properties": {
+          "categoryId": {
+            "description": "Los productos que están directamente en esta categoría.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "countClass": {
+            "description": "Los productos de esta clase; `C` incluye a los que no tienen clase.",
+            "enum": [
+              "A",
+              "B",
+              "C"
+            ],
+            "type": "string"
+          },
+          "location": {
+            "description": "Una ubicación, o con `*` al final las que empiezan así; sin importar mayúsculas.",
+            "example": "A*",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "note": {
+            "description": "Hasta 500 caracteres.",
+            "example": "Conteo semanal clase A",
+            "maxLength": 500,
+            "nullable": true,
+            "type": "string"
+          },
+          "variantIds": {
+            "description": "Exactamente estas variantes, de 1 a 1,000, cada una una vez; sin otro filtro.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "warehouseId": {
+            "description": "El almacén que se cuenta, en cualquier estado.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "warehouseId"
+        ],
+        "type": "object"
+      },
       "CreateProductDto": {
         "properties": {
           "brandId": {
@@ -3183,11 +4239,25 @@
             },
             "type": "array"
           },
+          "countClass": {
+            "description": "Cada cuándo se cuenta (ADR-0173); sin ella, o con `null`, el producto queda sin clase y se cuenta como `C`.",
+            "enum": [
+              "A",
+              "B",
+              "C"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
           "description": {
             "description": "Hasta 10,000 caracteres; opcional.",
             "maxLength": 10000,
             "nullable": true,
             "type": "string"
+          },
+          "openPrice": {
+            "description": "Si se vende a precio libre en la tienda física (ADR-0171); `false` por defecto. Exige `storeOnly`: si no, 400 en\n`openPrice` con código `openPriceStoreOnly`.",
+            "type": "boolean"
           },
           "slug": {
             "description": "Único y nunca reutilizado. Sin él, se genera del título y, si ya existe, se numera: `camisa-lino-2`.",
@@ -3333,10 +4403,15 @@
                 "pricing.write",
                 "inventory.read",
                 "inventory.write",
+                "inventory.transfer",
+                "inventory.count",
                 "orders.read",
                 "orders.manage",
                 "orders.read-blocked",
                 "orders.place",
+                "orders.open-price",
+                "cash-closings.read",
+                "cash-closings.manage",
                 "work-orders.read",
                 "work-orders.manage",
                 "work-orders.read-blocked",
@@ -3404,6 +4479,67 @@
           "email",
           "firstNames",
           "lastNames"
+        ],
+        "type": "object"
+      },
+      "CreateTransferDto": {
+        "properties": {
+          "fromWarehouseId": {
+            "description": "El almacén de donde salen las unidades, en cualquier estado.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "default": "TRANSFER",
+            "description": "`TRANSFER`, un traslado definitivo, o `LOAN`, un préstamo para mostrar, con `returnBy` (T-164).",
+            "enum": [
+              "TRANSFER",
+              "LOAN"
+            ],
+            "type": "string"
+          },
+          "lines": {
+            "description": "De 1 a 100 líneas, cada variante una vez.",
+            "items": {
+              "$ref": "#/components/schemas/TransferLineInputDto"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "note": {
+            "description": "Hasta 500 caracteres; obligatoria con `OTHER`.",
+            "example": "Para enseñarlo a un cliente",
+            "maxLength": 500,
+            "nullable": true,
+            "type": "string"
+          },
+          "reason": {
+            "description": "En un traslado, `SALE` para venderlo en el destino, `RESTOCK` para surtirlo u `OTHER` con `note` obligatoria; en un préstamo, `SHOW`.",
+            "enum": [
+              "SALE",
+              "RESTOCK",
+              "OTHER",
+              "SHOW"
+            ],
+            "type": "string"
+          },
+          "returnBy": {
+            "description": "Solo en un préstamo, y obligatoria: cuándo debe regresar, de 5 minutos a 24 horas después de registrarlo.",
+            "example": "2026-11-08T19:00:00.000Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "toWarehouseId": {
+            "description": "El almacén al que llegan: activo y distinto del origen.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "lines",
+          "fromWarehouseId",
+          "toWarehouseId"
         ],
         "type": "object"
       },
@@ -3590,6 +4726,64 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "DescriptionDraftDto": {
+        "properties": {
+          "description": {
+            "description": "Texto plano, sin Markdown.",
+            "example": "Una camisa ligera de lino para los días de calor.",
+            "type": "string"
+          },
+          "highlights": {
+            "description": "De 3 a 5 puntos destacados del producto.",
+            "example": [
+              "Lino",
+              "Tallas M y L"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": {
+            "example": "Camisa de lino fresca para el verano",
+            "type": "string"
+          }
+        },
+        "required": [
+          "highlights",
+          "title",
+          "description"
+        ],
+        "type": "object"
+      },
+      "DescriptionDraftRequestDto": {
+        "properties": {
+          "language": {
+            "description": "Idioma del borrador: `es` (español) o `en` (inglés).",
+            "enum": [
+              "es",
+              "en"
+            ],
+            "example": "es",
+            "type": "string"
+          },
+          "tone": {
+            "default": "neutral",
+            "description": "Tono del texto: `neutral`, `friendly` (cercano) o `formal`.",
+            "enum": [
+              "neutral",
+              "friendly",
+              "formal"
+            ],
+            "example": "friendly",
+            "type": "string"
+          }
+        },
+        "required": [
+          "language"
+        ],
         "type": "object"
       },
       "DispatchShipmentDto": {
@@ -4202,6 +5396,34 @@
         ],
         "type": "object"
       },
+      "MethodTotalDto": {
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/MoneyDto"
+          },
+          "count": {
+            "description": "Cobros.",
+            "example": 12,
+            "type": "number"
+          },
+          "method": {
+            "description": "Efectivo, terminal o transferencia; `null` para los cobros sin método: de un proveedor, o sin que el staff lo dijera.",
+            "enum": [
+              "CASH",
+              "CARD_TERMINAL",
+              "TRANSFER"
+            ],
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "method",
+          "amount",
+          "count"
+        ],
+        "type": "object"
+      },
       "MoneyDto": {
         "properties": {
           "amount": {
@@ -4237,6 +5459,138 @@
         "required": [
           "id",
           "name"
+        ],
+        "type": "object"
+      },
+      "OpenPriceLineDto": {
+        "properties": {
+          "lineNumber": {
+            "description": "Desde 1.",
+            "type": "number"
+          },
+          "lineTotal": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "Precio por cantidad, con IVA."
+          },
+          "note": {
+            "description": "Qué se vendió, como lo escribió el staff.",
+            "example": "Juego usado de carreras",
+            "type": "string"
+          },
+          "orderId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "orderNumber": {
+            "description": "Número interno consecutivo (ADR-0049).",
+            "example": 1042,
+            "type": "number"
+          },
+          "placedAt": {
+            "description": "Cuándo se colocó la orden.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "placedBy": {
+            "description": "La cuenta de staff que colocó la venta.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "productName": {
+            "description": "El producto de precio libre.",
+            "example": "Artículo sin registrar",
+            "type": "string"
+          },
+          "publicCode": {
+            "example": "K7M4-Q9XA",
+            "type": "string"
+          },
+          "quantity": {
+            "example": 1,
+            "type": "number"
+          },
+          "sku": {
+            "example": "VARIOS-JUEGO",
+            "type": "string"
+          },
+          "status": {
+            "description": "El estado de la orden ahora: la lista incluye las canceladas y las vencidas.",
+            "enum": [
+              "PENDING_PAYMENT",
+              "PAID",
+              "AWAITING_MANUAL_FULFILLMENT",
+              "SHIPPED",
+              "DELIVERED",
+              "CANCELLED",
+              "EXPIRED",
+              "REFUNDED"
+            ],
+            "type": "string"
+          },
+          "unitPrice": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "El precio que escribió el staff, con IVA."
+          },
+          "variantOptions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Los valores de las opciones de la variante, por nombre.",
+            "example": {
+              "tipo": "Juego"
+            },
+            "type": "object"
+          },
+          "warehouseId": {
+            "description": "El almacén de la venta.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "orderId",
+          "status",
+          "warehouseId",
+          "placedBy",
+          "placedAt",
+          "variantOptions",
+          "unitPrice",
+          "lineTotal",
+          "publicCode",
+          "orderNumber",
+          "lineNumber",
+          "sku",
+          "productName",
+          "quantity",
+          "note"
+        ],
+        "type": "object"
+      },
+      "OpenPriceLineListDto": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/OpenPriceLineDto"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ],
         "type": "object"
       },
@@ -4534,6 +5888,11 @@
             ],
             "description": "Precio por cantidad, con IVA, antes del descuento."
           },
+          "note": {
+            "description": "Qué se vendió, en una línea de precio libre de la tienda física (ADR-0171); `null` en las demás.",
+            "nullable": true,
+            "type": "string"
+          },
           "productName": {
             "description": "El nombre del producto al colocar la orden.",
             "example": "Camisa de lino",
@@ -4585,6 +5944,7 @@
           "taxAmount",
           "lineTotal",
           "discountAmount",
+          "note",
           "lineNumber",
           "sku",
           "productName",
@@ -5741,11 +7101,13 @@
               "/problems/source-cart-unavailable",
               "/problems/sale-not-linkable",
               "/problems/coupon-not-applicable",
+              "/problems/variant-in-open-count",
               "/problems/idempotency-key-mismatch",
               "/problems/payload-too-large",
               "/problems/unsupported-media-type",
               "/problems/rate-limit-exceeded",
-              "/problems/internal-error"
+              "/problems/internal-error",
+              "/problems/ai-unavailable"
             ],
             "example": "/problems/not-found",
             "type": "string"
@@ -7023,6 +8385,27 @@
         ],
         "type": "object"
       },
+      "ReturnedLineInputDto": {
+        "properties": {
+          "returned": {
+            "description": "Unidades que regresaron, de 0 a las prestadas.",
+            "example": 1,
+            "maximum": 100000,
+            "minimum": 0,
+            "type": "number"
+          },
+          "variantId": {
+            "description": "Una línea del préstamo, una vez.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "variantId",
+          "returned"
+        ],
+        "type": "object"
+      },
       "RoleDto": {
         "properties": {
           "createdAt": {
@@ -7060,10 +8443,15 @@
                 "pricing.write",
                 "inventory.read",
                 "inventory.write",
+                "inventory.transfer",
+                "inventory.count",
                 "orders.read",
                 "orders.manage",
                 "orders.read-blocked",
                 "orders.place",
+                "orders.open-price",
+                "cash-closings.read",
+                "cash-closings.manage",
                 "work-orders.read",
                 "work-orders.manage",
                 "work-orders.read-blocked",
@@ -7434,10 +8822,24 @@
       },
       "StaffOrderLineDto": {
         "properties": {
+          "note": {
+            "description": "Qué se vendió, de 1 a 200 caracteres: solo y siempre en una variante de precio libre (ADR-0171). La orden la\nguarda en la línea.",
+            "example": "Juego usado: carreras para consola portátil",
+            "maxLength": 200,
+            "pattern": "\\S",
+            "type": "string"
+          },
           "quantity": {
             "description": "Unidades, de 1 a 30, como una línea del carrito (BR-CRT-02).",
             "example": 2,
             "maximum": 30,
+            "minimum": 1,
+            "type": "number"
+          },
+          "unitPrice": {
+            "description": "Precio unitario con IVA, en centavos, de 1 a 10,000,000: solo y siempre en una variante de precio libre, que lo\ncobra en lugar de la lista de precios (ADR-0171). Exige `orders.open-price`.",
+            "example": 35000,
+            "maximum": 10000000,
             "minimum": 1,
             "type": "number"
           },
@@ -7506,6 +8908,53 @@
         "required": [
           "id",
           "name"
+        ],
+        "type": "object"
+      },
+      "StaffTotalDto": {
+        "properties": {
+          "cashAmount": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "Lo que cobró en efectivo."
+          },
+          "paymentAmount": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "Lo que cobró."
+          },
+          "paymentCount": {
+            "description": "Cobros que registró.",
+            "example": 7,
+            "type": "number"
+          },
+          "refundAmount": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoneyDto"
+              }
+            ],
+            "description": "Lo que reembolsó."
+          },
+          "staffId": {
+            "description": "La cuenta de staff que registró los cobros y reembolsos; `null` para los que no registró nadie, como los de un proveedor.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "staffId",
+          "paymentAmount",
+          "cashAmount",
+          "refundAmount",
+          "paymentCount"
         ],
         "type": "object"
       },
@@ -7710,6 +9159,13 @@
             "format": "uuid",
             "type": "string"
           },
+          "location": {
+            "description": "Dónde está en el almacén, en mayúsculas (ADR-0173); `null` sin ubicación.",
+            "example": "A1",
+            "maxLength": 20,
+            "nullable": true,
+            "type": "string"
+          },
           "onHand": {
             "description": "Unidades físicas en el almacén.",
             "example": 25,
@@ -7745,6 +9201,7 @@
           "id",
           "variantId",
           "warehouseId",
+          "location",
           "updatedAt",
           "sku",
           "productTitle",
@@ -7772,10 +9229,43 @@
         ],
         "type": "object"
       },
+      "StockLocationDto": {
+        "properties": {
+          "location": {
+            "description": "De 1 a 20 caracteres; se guarda sin espacios de sobra y en mayúsculas. `null` la quita.",
+            "example": "vitrina 1",
+            "maxLength": 100,
+            "nullable": true,
+            "type": "string"
+          },
+          "variantId": {
+            "description": "La variante, en cualquier estado.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "warehouseId": {
+            "description": "Cualquier almacén, también uno inactivo.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "location",
+          "variantId",
+          "warehouseId"
+        ],
+        "type": "object"
+      },
       "StockMovementDto": {
         "properties": {
           "actorId": {
             "description": "Staff que lo registró; `null` si fue el sistema.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "countId": {
+            "description": "La hoja de conteo de un ajuste `PHYSICAL_COUNT` que la aplicó (ADR-0173); `null` en los demás.",
             "format": "uuid",
             "nullable": true,
             "type": "string"
@@ -7831,13 +9321,20 @@
             "nullable": true,
             "type": "string"
           },
+          "transferId": {
+            "description": "El traslado de un movimiento `TRANSFER` (ADR-0172); `null` en los demás.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
           "type": {
-            "description": "`RECEIPT`, `ADJUSTMENT`, `SALE` o `RESTOCK`.",
+            "description": "`RECEIPT`, `ADJUSTMENT`, `SALE`, `RESTOCK` o `TRANSFER`, uno de los lados de un traslado (ADR-0172).",
             "enum": [
               "RECEIPT",
               "ADJUSTMENT",
               "SALE",
-              "RESTOCK"
+              "RESTOCK",
+              "TRANSFER"
             ],
             "type": "string"
           }
@@ -7849,6 +9346,8 @@
           "note",
           "orderId",
           "orderLineId",
+          "transferId",
+          "countId",
           "actorId",
           "createdAt",
           "quantity",
@@ -8024,6 +9523,228 @@
           "compareAtPrice",
           "sku",
           "available"
+        ],
+        "type": "object"
+      },
+      "TransferDto": {
+        "properties": {
+          "cancellableUntil": {
+            "description": "Hasta cuándo se puede cancelar: 10 minutos después de registrarse; `null` si ya no se puede por su estado (cancelado, préstamo cerrado o regreso de un préstamo).",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "cancelledAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "cancelledBy": {
+            "description": "La cuenta de staff que lo canceló; `null` si no se canceló.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "closedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "closedBy": {
+            "description": "La cuenta de staff que cerró el préstamo; `null` si no se ha cerrado.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdBy": {
+            "description": "La cuenta de staff que lo registró.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "folio": {
+            "description": "El folio, consecutivo: `T-` en un traslado y `P-` en un préstamo.",
+            "example": "T-000123",
+            "type": "string"
+          },
+          "fromWarehouseId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "TRANSFER",
+              "LOAN"
+            ],
+            "type": "string"
+          },
+          "lines": {
+            "description": "Por variante.",
+            "items": {
+              "$ref": "#/components/schemas/TransferLineDto"
+            },
+            "type": "array"
+          },
+          "loanId": {
+            "description": "En el regreso de un préstamo (`LOAN_RETURN`), el préstamo.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "note": {
+            "description": "Nota del staff; `null` sin ella.",
+            "nullable": true,
+            "type": "string"
+          },
+          "overdue": {
+            "description": "Un préstamo abierto cuya hora de regreso ya pasó.",
+            "type": "boolean"
+          },
+          "reason": {
+            "enum": [
+              "SALE",
+              "RESTOCK",
+              "OTHER",
+              "SHOW",
+              "LOAN_RETURN"
+            ],
+            "type": "string"
+          },
+          "returnBy": {
+            "description": "En un préstamo, cuándo debe regresar; `null` en un traslado.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "returnTransferId": {
+            "description": "En un préstamo cerrado, el traslado que regresó sus unidades; `null` si no regresó ninguna o no se ha cerrado.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "description": "Un traslado está `COMPLETED` al registrarse; un préstamo, `OPEN` hasta que se cierra (`CLOSED`). `CANCELLED` si se canceló en sus primeros 10 minutos.",
+            "enum": [
+              "COMPLETED",
+              "CANCELLED",
+              "OPEN",
+              "CLOSED"
+            ],
+            "type": "string"
+          },
+          "toWarehouseId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "version": {
+            "description": "Versión para cancelarlo o cerrarlo (bloqueo optimista).",
+            "example": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "fromWarehouseId",
+          "toWarehouseId",
+          "reason",
+          "note",
+          "status",
+          "lines",
+          "createdBy",
+          "createdAt",
+          "cancellableUntil",
+          "cancelledBy",
+          "cancelledAt",
+          "returnBy",
+          "closedBy",
+          "closedAt",
+          "loanId",
+          "returnTransferId",
+          "folio",
+          "overdue",
+          "version"
+        ],
+        "type": "object"
+      },
+      "TransferLineDto": {
+        "properties": {
+          "productTitle": {
+            "example": "The Legend of Zelda",
+            "type": "string"
+          },
+          "quantity": {
+            "description": "Unidades trasladadas.",
+            "example": 2,
+            "type": "number"
+          },
+          "returned": {
+            "description": "En un préstamo cerrado, las unidades que regresaron; `null` mientras está abierto, y siempre en un traslado.",
+            "nullable": true,
+            "type": "number"
+          },
+          "sku": {
+            "example": "JUE-ZELDA-SW",
+            "type": "string"
+          },
+          "variantId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "variantId",
+          "returned",
+          "sku",
+          "productTitle",
+          "quantity"
+        ],
+        "type": "object"
+      },
+      "TransferLineInputDto": {
+        "properties": {
+          "quantity": {
+            "description": "De 1 a 100,000 unidades disponibles en el origen.",
+            "example": 2,
+            "maximum": 100000,
+            "minimum": 1,
+            "type": "number"
+          },
+          "variantId": {
+            "description": "La variante que se traslada, en cualquier estado; una vez por traslado.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "variantId",
+          "quantity"
+        ],
+        "type": "object"
+      },
+      "TransferListDto": {
+        "properties": {
+          "data": {
+            "description": "Del más reciente al más antiguo.",
+            "items": {
+              "$ref": "#/components/schemas/TransferDto"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ],
         "type": "object"
       },
@@ -8226,11 +9947,25 @@
             },
             "type": "array"
           },
+          "countClass": {
+            "description": "Cada cuándo se cuenta (ADR-0173); `null` la quita.",
+            "enum": [
+              "A",
+              "B",
+              "C"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
           "description": {
             "description": "Hasta 10,000 caracteres; `null` la quita.",
             "maxLength": 10000,
             "nullable": true,
             "type": "string"
+          },
+          "openPrice": {
+            "description": "A precio libre, o al de la lista de precios (ADR-0171); se cambia también publicado. Exige que el producto quede\n`storeOnly`, y un producto de precio libre no deja de ser `storeOnly` sin quitárselo: si no, 400 en `openPrice` con\ncódigo `openPriceStoreOnly`. En la misma solicitud, `storeOnly: false` con `openPrice: false` sí se acepta.",
+            "type": "boolean"
           },
           "slug": {
             "description": "Solo mientras el producto nunca se ha publicado (ADR-0068).",
@@ -8373,10 +10108,15 @@
                 "pricing.write",
                 "inventory.read",
                 "inventory.write",
+                "inventory.transfer",
+                "inventory.count",
                 "orders.read",
                 "orders.manage",
                 "orders.read-blocked",
                 "orders.place",
+                "orders.open-price",
+                "cash-closings.read",
+                "cash-closings.manage",
                 "work-orders.read",
                 "work-orders.manage",
                 "work-orders.read-blocked",
@@ -9423,6 +11163,467 @@
         ],
         "x-required-permissions": [
           "audit.read"
+        ]
+      }
+    },
+    "/v1/admin/cash-closings": {
+      "get": {
+        "description": "Del día más reciente al más antiguo, de un almacén o de todos, entre dos días incluidos.",
+        "operationId": "AdminCashClosingsController_list_v1",
+        "parameters": [
+          {
+            "description": "Página, de 1 a 1,000,000.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "maximum": 1000000,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Resultados por página, de 1 a 100.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Desde este día, incluido.",
+            "in": "query",
+            "name": "dateFrom",
+            "required": false,
+            "schema": {
+              "example": "2026-11-01",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Hasta este día, incluido.",
+            "in": "query",
+            "name": "dateTo",
+            "required": false,
+            "schema": {
+              "example": "2026-11-30",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Solo los cierres de este almacén.",
+            "in": "query",
+            "name": "warehouseId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashClosingListDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Listar los cierres de caja",
+        "tags": [
+          "Administración: corte de caja"
+        ],
+        "x-required-permissions": [
+          "cash-closings.read"
+        ]
+      },
+      "post": {
+        "description": "Guarda el resumen del día en ese momento, el efectivo esperado, el contado (`countedCash`, en centavos) y la diferencia, contado menos esperado. El día es el de la Ciudad de México, `AAAA-MM-DD`. Cuenta solo las órdenes de la tienda física de ese almacén: las colocadas ese día con su total y las que siguen sin pago, las canceladas ese día, los cobros capturados ese día por método (`CASH`, `CARD_TERMINAL`, `TRANSFER` y sin método), los reembolsos completados ese día, lo que registró cada cuenta de staff y las líneas de precio libre. Un cobro o reembolso cuenta el día en que se registró, aunque la orden sea de otro día. Las órdenes en línea pagadas en la tienda no tienen almacén y no entran. El efectivo esperado es lo cobrado en efectivo menos lo reembolsado de pagos en efectivo. Si el contado no es el esperado, `note` es obligatoria (400 en `note` con `requiredWithDifference`). Hoy o un día anterior: un día por venir es 400 en `date` con `notFuture`. Un cierre por almacén y día, que nunca se edita ni se borra: el segundo es 409 `duplicate-value` en `date`. Lo que se cobre o reembolse después aparece en el resumen como posterior al cierre. Se audita como `cash-closings.close` con los montos, sin la nota.",
+        "operationId": "AdminCashClosingsController_close_v1",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseCashDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashClosingDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`duplicate-value`: Valor duplicado"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cerrar la caja de un local",
+        "tags": [
+          "Administración: corte de caja"
+        ],
+        "x-required-permissions": [
+          "cash-closings.manage"
+        ]
+      }
+    },
+    "/v1/admin/cash-closings/summary": {
+      "get": {
+        "description": "El día es el de la Ciudad de México, `AAAA-MM-DD`. Cuenta solo las órdenes de la tienda física de ese almacén: las colocadas ese día con su total y las que siguen sin pago, las canceladas ese día, los cobros capturados ese día por método (`CASH`, `CARD_TERMINAL`, `TRANSFER` y sin método), los reembolsos completados ese día, lo que registró cada cuenta de staff y las líneas de precio libre. Un cobro o reembolso cuenta el día en que se registró, aunque la orden sea de otro día. Las órdenes en línea pagadas en la tienda no tienen almacén y no entran. El efectivo esperado es lo cobrado en efectivo menos lo reembolsado de pagos en efectivo. Con el cierre del día si lo tiene, y lo que llegó después de él (`afterClosing`), que ya va en los totales. Un almacén que no existe es 404.",
+        "operationId": "AdminCashClosingsController_summary_v1",
+        "parameters": [
+          {
+            "description": "El almacén del local.",
+            "in": "query",
+            "name": "warehouseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "El día de la Ciudad de México, `AAAA-MM-DD`.",
+            "in": "query",
+            "name": "date",
+            "required": true,
+            "schema": {
+              "example": "2026-11-07",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashSummaryDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consultar el corte de caja de un local en un día",
+        "tags": [
+          "Administración: corte de caja"
+        ],
+        "x-required-permissions": [
+          "cash-closings.read"
+        ]
+      }
+    },
+    "/v1/admin/cash-closings/{closingId}": {
+      "get": {
+        "description": "Con el resumen del día como estaba al cerrar.",
+        "operationId": "AdminCashClosingsController_get_v1",
+        "parameters": [
+          {
+            "description": "ID del cierre de caja.",
+            "in": "path",
+            "name": "closingId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashClosingDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consultar un cierre de caja",
+        "tags": [
+          "Administración: corte de caja"
+        ],
+        "x-required-permissions": [
+          "cash-closings.read"
         ]
       }
     },
@@ -10766,6 +12967,107 @@
         ]
       }
     },
+    "/v1/admin/catalog/count-classes": {
+      "put": {
+        "description": "ADR-0173. De 1 a 500 productos, cada uno una vez (400 `duplicateProduct` en `items`), en cualquier estado, también archivados. Todo o nada: un producto que no existe es 404 y no cambia ninguno. Sin `version`: solo cambia la clase, y la versión de cada producto que cambia sube. Cada producto que cambia se audita como `products.update`.",
+        "operationId": "AdminCountClassesController_set_v1",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CountClassesDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountClassesResultDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cambiar la clase de conteo de varios productos",
+        "tags": [
+          "Administración: catálogo"
+        ],
+        "x-required-permissions": [
+          "catalog.write"
+        ]
+      }
+    },
     "/v1/admin/catalog/product-imports": {
       "post": {
         "description": "CSV en UTF-8 con una fila por variante: las filas con el mismo slug forman un producto nuevo, que queda en borrador. Columnas slug, title y sku, obligatorias; description, brand y categories (por su slug, separadas por |), gtin, weightGrams, lengthCm, widthCm, heightCm y una columna option:<nombre> por opción, opcionales. Los datos del producto van en su primera fila; las siguientes los dejan vacíos o los repiten iguales. Todo o nada: con un error en cualquier fila no se carga ninguna. Hasta 5,000 filas y 5 MB.",
@@ -10950,6 +13252,38 @@
             "description": "`true`: solo los productos que se venden solo en la tienda física; `false`: solo los que se venden también en línea.",
             "in": "query",
             "name": "storeOnly",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "`true`: solo los productos de precio libre (ADR-0171); `false`: solo los de precio de lista.",
+            "in": "query",
+            "name": "openPrice",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Solo los productos de esta clase de conteo (ADR-0173).",
+            "in": "query",
+            "name": "countClass",
+            "required": false,
+            "schema": {
+              "enum": [
+                "A",
+                "B",
+                "C"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "`true`: solo los productos con clase de conteo; `false`: solo los que no tienen (ADR-0173).",
+            "in": "query",
+            "name": "hasCountClass",
             "required": false,
             "schema": {
               "type": "boolean"
@@ -11507,6 +13841,128 @@
           }
         ],
         "summary": "Archivar un producto",
+        "tags": [
+          "Administración: catálogo"
+        ],
+        "x-required-permissions": [
+          "catalog.write"
+        ]
+      }
+    },
+    "/v1/admin/catalog/products/{productId}/description-draft": {
+      "post": {
+        "description": "Lo escribe Claude con los datos del producto: título, descripción actual y opciones de las variantes; nunca datos personales. No guarda nada: el borrador se revisa y se guarda con `PATCH`. 503 `ai-unavailable` sin `ANTHROPIC_API_KEY` o si el modelo no responde (ADR-0170).",
+        "operationId": "AdminProductsController_descriptionDraft_v1",
+        "parameters": [
+          {
+            "description": "ID del producto.",
+            "in": "path",
+            "name": "productId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DescriptionDraftRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DescriptionDraftDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`ai-unavailable`: Asistente de IA no disponible"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Pedir a la IA un borrador de título y descripción",
         "tags": [
           "Administración: catálogo"
         ],
@@ -15468,6 +17924,978 @@
         ]
       }
     },
+    "/v1/admin/inventory/counts": {
+      "get": {
+        "description": "De la más reciente a la más antigua, sin sus líneas: cuántas tiene y cuántas están contadas. Por almacén y estado.",
+        "operationId": "AdminCountsController_list_v1",
+        "parameters": [
+          {
+            "description": "Página, de 1 a 1,000,000.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "maximum": 1000000,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Resultados por página, de 1 a 100.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Las hojas en este estado.",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "enum": [
+                "OPEN",
+                "APPLIED",
+                "CANCELLED"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Las hojas de este almacén.",
+            "in": "query",
+            "name": "warehouseId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountListDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Listar las hojas de conteo",
+        "tags": [
+          "Administración: inventario"
+        ],
+        "x-required-permissions": [
+          "inventory.read"
+        ]
+      },
+      "post": {
+        "description": "ADR-0173. Con un almacén y un filtro: `location` (exacta o, con `*` al final, por prefijo), `categoryId` (los productos directamente en ella), `countClass` (`C` incluye a los productos sin clase), varios a la vez; o `variantIds`, solo (400 `variantIdsAlone`). Sin filtro, 400 `countFilter`. Con un filtro toma las variantes con existencia o con ubicación en ese almacén; con `variantIds`, exactamente esas. Ninguna línea es 400 `noLines`, y más de 1,000, 400 `tooManyLines`, en el primer filtro. Las líneas van por ubicación (sin ella al final) y SKU. Una variante va en una sola hoja abierta por almacén: si alguna ya está en otra, 409 `variant-in-open-count` con esas variantes y sus hojas. Un almacén o una variante de la lista que no existe es 404. Se audita como `inventory.count-open`.",
+        "operationId": "AdminCountsController_open_v1",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCountDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`variant-in-open-count`: Variante en otra hoja de conteo"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Abrir una hoja de conteo",
+        "tags": [
+          "Administración: inventario"
+        ],
+        "x-required-permissions": [
+          "inventory.write"
+        ]
+      }
+    },
+    "/v1/admin/inventory/counts/{countId}": {
+      "get": {
+        "description": "Con sus líneas en orden. Sin `inventory.write` es a ciegas (`blind`): sin `expected` ni `difference`.",
+        "operationId": "AdminCountsController_get_v1",
+        "parameters": [
+          {
+            "description": "ID de la hoja de conteo.",
+            "in": "path",
+            "name": "countId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consultar una hoja de conteo",
+        "tags": [
+          "Administración: inventario"
+        ],
+        "x-required-permissions": [
+          "inventory.read"
+        ]
+      }
+    },
+    "/v1/admin/inventory/counts/{countId}/apply": {
+      "post": {
+        "description": "ADR-0173. Exige `Idempotency-Key` y la `version` leída. Cada línea contada con diferencia crea un ajuste `PHYSICAL_COUNT` ligado a la hoja (`countId` en el movimiento) por la diferencia, sobre las físicas de ahora; una sin diferencia queda `NO_DIFFERENCE`, y una sin contar, `NOT_COUNTED`, sin tocarse. Una línea que dejaría menos físicas que las apartadas no se aplica (`SKIPPED_RESERVED`) y las demás sí. La hoja queda `APPLIED` y sus variantes pueden ir en otra. Una hoja que no está abierta es 409 `invalid-state-transition`. Se audita como `inventory.count-apply`.",
+        "operationId": "AdminCountsController_apply_v1",
+        "parameters": [
+          {
+            "description": "ID de la hoja de conteo.",
+            "in": "path",
+            "name": "countId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Llave de idempotencia de 1 a 255 caracteres; se recomienda un UUID (API_SPEC.md, sección 4).",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "example": "0192a3b4-5c6d-7e8f-9a0b-1c2d3e4f5a6b",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CountVersionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`idempotency-key-missing`: Falta la llave de idempotencia; `validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`idempotency-request-in-progress`: Solicitud en proceso\n\n`version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`idempotency-key-mismatch`: Llave de idempotencia reutilizada"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Aplicar una hoja de conteo",
+        "tags": [
+          "Administración: inventario"
+        ],
+        "x-required-permissions": [
+          "inventory.write"
+        ]
+      }
+    },
+    "/v1/admin/inventory/counts/{countId}/cancel": {
+      "post": {
+        "description": "ADR-0173. Sin ajustar nada; sus variantes pueden ir en otra hoja. Exige la `version` leída. Una hoja que no está abierta es 409 `invalid-state-transition`. Se audita como `inventory.count-cancel`.",
+        "operationId": "AdminCountsController_cancel_v1",
+        "parameters": [
+          {
+            "description": "ID de la hoja de conteo.",
+            "in": "path",
+            "name": "countId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CountVersionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cancelar una hoja de conteo",
+        "tags": [
+          "Administración: inventario"
+        ],
+        "x-required-permissions": [
+          "inventory.write"
+        ]
+      }
+    },
+    "/v1/admin/inventory/counts/{countId}/lines/{variantId}": {
+      "put": {
+        "description": "ADR-0173. De 0 a 100,000. Guarda también las físicas de ese momento, para comparar, así que lo vendido antes o después no sale como faltante. Una variante que no está en la hoja se agrega al final; si está en otra hoja abierta del almacén, 409 `variant-in-open-count`. Volver a capturar reemplaza lo anterior y quita la petición de recontar. Sin `version`: cada captura cuenta una versión de la hoja. Una hoja que no está abierta es 409 `invalid-state-transition`. Responde la línea, a ciegas sin `inventory.write`. No se audita.",
+        "operationId": "AdminCountsController_capture_v1",
+        "parameters": [
+          {
+            "description": "ID de la hoja de conteo.",
+            "in": "path",
+            "name": "countId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "ID de la variante.",
+            "in": "path",
+            "name": "variantId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CountLineInputDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountLineDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`invalid-state-transition`: Acción no permitida en el estado actual; `variant-in-open-count`: Variante en otra hoja de conteo"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Capturar lo contado de una variante",
+        "tags": [
+          "Administración: inventario"
+        ],
+        "x-required-permissions": [
+          "inventory.count"
+        ]
+      }
+    },
+    "/v1/admin/inventory/counts/{countId}/lines/{variantId}/recount": {
+      "post": {
+        "description": "ADR-0173. Quita lo contado y marca la línea con `recount`. Exige la `version` leída. Una línea que no está en la hoja es 404, y una hoja que no está abierta, 409 `invalid-state-transition`.",
+        "operationId": "AdminCountsController_recount_v1",
+        "parameters": [
+          {
+            "description": "ID de la hoja de conteo.",
+            "in": "path",
+            "name": "countId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "ID de la variante.",
+            "in": "path",
+            "name": "variantId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CountVersionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Pedir volver a contar una línea",
+        "tags": [
+          "Administración: inventario"
+        ],
+        "x-required-permissions": [
+          "inventory.write"
+        ]
+      }
+    },
+    "/v1/admin/inventory/locations": {
+      "put": {
+        "description": "ADR-0173. Por variante y almacén, aunque la variante todavía no tenga unidades ahí: crea su existencia en 0. `null` la quita; quitarla donde no hay existencia es 404. Se guarda sin espacios de sobra y en mayúsculas; vacía o de más de 20 caracteres es 400 `isLength`. La variante puede estar en cualquier estado y el almacén, inactivo. Un traslado no la cambia. Se audita como `inventory.location` cuando cambia.",
+        "operationId": "AdminStockController_setLocation_v1",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockLocationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockItemDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cambiar la ubicación de un producto en un almacén",
+        "tags": [
+          "Administración: inventario"
+        ],
+        "x-required-permissions": [
+          "inventory.count"
+        ]
+      }
+    },
     "/v1/admin/inventory/receipt-imports": {
       "post": {
         "description": "CSV en UTF-8 con las columnas sku, warehouse (el código del almacén, activo) y quantity (de 1 a 100,000), obligatorias, y note, opcional, en cualquier orden. Cada fila suma sus unidades a la existencia de la variante en el almacén y deja su movimiento. Todo o nada: con un error en cualquier fila no se carga ninguna. Un archivo idéntico a uno ya cargado responde 409, para no sumar dos veces. Hasta 5,000 filas y 1 MB.",
@@ -15732,6 +19160,15 @@
             }
           },
           {
+            "description": "`true`, solo las existencias con ubicación; `false`, solo las que no tienen.",
+            "in": "query",
+            "name": "hasLocation",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "description": "Solo las existencias de esta variante.",
             "in": "query",
             "name": "variantId",
@@ -15781,6 +19218,17 @@
               "maximum": 2147483647,
               "minimum": 0,
               "type": "number"
+            }
+          },
+          {
+            "description": "Ubicación exacta, sin distinguir mayúsculas, o con `*` al final las que empiezan así (ADR-0173); hasta 20\ncaracteres antes del `*`.",
+            "in": "query",
+            "name": "location",
+            "required": false,
+            "schema": {
+              "example": "A*",
+              "maxLength": 21,
+              "type": "string"
             }
           },
           {
@@ -15898,7 +19346,7 @@
             }
           },
           {
-            "description": "Uno o más tipos separados por comas: `RECEIPT`, `ADJUSTMENT`, `SALE`, `RESTOCK`.",
+            "description": "Uno o más tipos separados por comas: `RECEIPT`, `ADJUSTMENT`, `SALE`, `RESTOCK`, `TRANSFER`.",
             "in": "query",
             "name": "type",
             "required": false,
@@ -15909,7 +19357,8 @@
                   "RECEIPT",
                   "ADJUSTMENT",
                   "SALE",
-                  "RESTOCK"
+                  "RESTOCK",
+                  "TRANSFER"
                 ],
                 "type": "string"
               },
@@ -16029,6 +19478,683 @@
         ],
         "x-required-permissions": [
           "inventory.read"
+        ]
+      }
+    },
+    "/v1/admin/inventory/transfers": {
+      "get": {
+        "description": "Del más reciente al más antiguo, con sus líneas. Por tipo, almacén, de origen o de destino, variante, motivo, estado, fechas y préstamos vencidos (`overdue`).",
+        "operationId": "AdminTransfersController_list_v1",
+        "parameters": [
+          {
+            "description": "Página, de 1 a 1,000,000.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "maximum": 1000000,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Resultados por página, de 1 a 100.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Solo los traslados o solo los préstamos.",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "enum": [
+                "TRANSFER",
+                "LOAN"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "`true`, solo los préstamos abiertos cuya hora de regreso ya pasó; `false`, todos los demás.",
+            "in": "query",
+            "name": "overdue",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Los traslados con este motivo.",
+            "in": "query",
+            "name": "reason",
+            "required": false,
+            "schema": {
+              "enum": [
+                "SALE",
+                "RESTOCK",
+                "OTHER",
+                "SHOW",
+                "LOAN_RETURN"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Los traslados en este estado.",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "enum": [
+                "COMPLETED",
+                "CANCELLED",
+                "OPEN",
+                "CLOSED"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Los que salen de este almacén o llegan a él.",
+            "in": "query",
+            "name": "warehouseId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Los que tienen una línea de esta variante.",
+            "in": "query",
+            "name": "variantId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Fecha o fecha y hora ISO 8601; incluida.",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "example": "2026-11-01",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Fecha o fecha y hora ISO 8601; incluida (una fecha sola incluye todo el día).",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "example": "2026-11-30",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferListDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Listar los traslados",
+        "tags": [
+          "Administración: inventario"
+        ],
+        "x-required-permissions": [
+          "inventory.read"
+        ]
+      },
+      "post": {
+        "description": "ADR-0172. Exige `Idempotency-Key`. Con `kind: LOAN` es un préstamo para mostrar (T-164): folio `P-`, motivo `SHOW` y `returnBy` de 5 minutos a 24 horas después (400 `loanRange`); queda `OPEN` hasta que se cierra. Un motivo que no va con el tipo es 400 `reasonKind`, y `returnBy` en un traslado, 400 `isEmpty`. Cada línea sale del origen y entra al destino en una sola transacción, o no pasa nada; el historial de existencias de los dos almacenes la registra como `TRANSFER`. Solo se trasladan unidades disponibles (`onHand − reserved`): si alguna línea no alcanza, 409 `insufficient-stock` con esas líneas. El destino debe ser un almacén activo y distinto del origen (400 `differentWarehouse` en `toWarehouseId`); el origen, cualquiera. Una variante va una vez por traslado (400 `duplicateVariant`). Un almacén o una variante que no existe, o un destino inactivo, es 404. Se audita como `inventory.transfer`.",
+        "operationId": "AdminTransfersController_create_v1",
+        "parameters": [
+          {
+            "description": "Llave de idempotencia de 1 a 255 caracteres; se recomienda un UUID (API_SPEC.md, sección 4).",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "example": "0192a3b4-5c6d-7e8f-9a0b-1c2d3e4f5a6b",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTransferDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`idempotency-key-missing`: Falta la llave de idempotencia; `validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`idempotency-request-in-progress`: Solicitud en proceso\n\n`insufficient-stock`: Stock insuficiente"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`idempotency-key-mismatch`: Llave de idempotencia reutilizada"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Trasladar o prestar existencias a otro almacén",
+        "tags": [
+          "Administración: inventario"
+        ],
+        "x-required-permissions": [
+          "inventory.transfer"
+        ]
+      }
+    },
+    "/v1/admin/inventory/transfers/{transferId}": {
+      "get": {
+        "description": "Con sus líneas y hasta cuándo se puede cancelar.",
+        "operationId": "AdminTransfersController_get_v1",
+        "parameters": [
+          {
+            "description": "ID del traslado entre almacenes.",
+            "in": "path",
+            "name": "transferId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consultar un traslado",
+        "tags": [
+          "Administración: inventario"
+        ],
+        "x-required-permissions": [
+          "inventory.read"
+        ]
+      }
+    },
+    "/v1/admin/inventory/transfers/{transferId}/cancel": {
+      "post": {
+        "description": "ADR-0172. Un traslado, o un préstamo abierto, solo en los 10 minutos que siguen a su registro (`cancellableUntil`); después, si ya se canceló, si es un préstamo cerrado o el regreso de uno, 409 `invalid-state-transition`, con `reason: cancel-window-passed` en el primer caso. Regresa las unidades al origen con movimientos `TRANSFER` contrarios, porque el historial de existencias nunca se borra. Si el destino ya no tiene esas unidades disponibles, 409 `insufficient-stock`. Exige la `version` leída. Se audita como `inventory.transfer-cancel`.",
+        "operationId": "AdminTransfersController_cancel_v1",
+        "parameters": [
+          {
+            "description": "ID del traslado entre almacenes.",
+            "in": "path",
+            "name": "transferId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelTransferDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual; `insufficient-stock`: Stock insuficiente"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cancelar un traslado",
+        "tags": [
+          "Administración: inventario"
+        ],
+        "x-required-permissions": [
+          "inventory.transfer"
+        ]
+      }
+    },
+    "/v1/admin/inventory/transfers/{transferId}/close": {
+      "post": {
+        "description": "T-164, ADR-0172. Con la `version` leída y lo que regresó de cada línea del préstamo, todas una vez (400 `loanLines`), de 0 a lo prestado (400 `range` en `lines[i].returned`). Lo que regresó vuelve al origen con un traslado `LOAN_RETURN` ligado al préstamo (`returnTransferId`), que no se cancela, aunque el origen esté inactivo; lo demás se queda en el destino. Si el destino ya no tiene esas unidades disponibles, 409 `insufficient-stock`. Un préstamo que no está abierto, o un traslado, es 409 `invalid-state-transition`. Se audita como `inventory.loan-close`.",
+        "operationId": "AdminTransfersController_close_v1",
+        "parameters": [
+          {
+            "description": "ID del traslado entre almacenes.",
+            "in": "path",
+            "name": "transferId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseLoanDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`not-found`: No encontrado"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`version-conflict`: Versión desactualizada; `invalid-state-transition`: Acción no permitida en el estado actual; `insufficient-stock`: Stock insuficiente"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cerrar un préstamo",
+        "tags": [
+          "Administración: inventario"
+        ],
+        "x-required-permissions": [
+          "inventory.transfer"
         ]
       }
     },
@@ -16657,7 +20783,7 @@
         ]
       },
       "post": {
-        "description": "UC-ORD-13 (ADR-0161). Exige `Idempotency-Key`. Para un cliente registrado y activo, con el email verificado, cuyo contacto es el email de su cuenta; o para un invitado, con `contactEmail` y la versión del aviso de privacidad que el staff le presentó. Exactamente uno de `customerId` y `contactEmail`, y uno de `addressId` y `shippingAddress`; `addressId` solo con `customerId`. Recalcula todo sin cache; si el total difiere de `expectedTotal` responde 409 `total-mismatch` con `currentTotal`. Reserva todo el stock en el almacén `warehouseId` o nada, y crea la orden `STORE` en `PENDING_PAYMENT`, en una sola transacción; sin carrito, una orden vencida no regresa a ninguno. Con `couponCode`, el cupón se revisa y cuenta su uso en la misma transacción; si no aplica, 409 `coupon-not-applicable` con `reason`, y hasta 10 códigos que nadie tiene por IP cada 15 minutos. Si el almacén no existe o está inactivo, 404. Hasta 30 órdenes por cuenta de staff cada 10 minutos. Se audita como `orders.place`.",
+        "description": "UC-ORD-13 (ADR-0161). Exige `Idempotency-Key`. Para un cliente registrado y activo, con el email verificado, cuyo contacto es el email de su cuenta; o para un invitado, con `contactEmail` y la versión del aviso de privacidad que el staff le presentó. Exactamente uno de `customerId` y `contactEmail`, y uno de `addressId` y `shippingAddress`; `addressId` solo con `customerId`. Recalcula todo sin cache; si el total difiere de `expectedTotal` responde 409 `total-mismatch` con `currentTotal`. Reserva todo el stock en el almacén `warehouseId` o nada, y crea la orden `STORE` en `PENDING_PAYMENT`, en una sola transacción; sin carrito, una orden vencida no regresa a ninguno. Con `couponCode`, el cupón se revisa y cuenta su uso en la misma transacción; si no aplica, 409 `coupon-not-applicable` con `reason`, y hasta 10 códigos que nadie tiene por IP cada 15 minutos. Si el almacén no existe o está inactivo, 404. Hasta 30 órdenes por cuenta de staff cada 10 minutos. Una línea de una variante de precio libre (ADR-0171) lleva `unitPrice` y `note`, y las demás no: si no, 400 en `lines[i].unitPrice` o `lines[i].note`. Esa línea se cobra al precio escrito, guarda la nota y no recibe promociones ni cupones, ni cuenta para su mínimo. Vender una variante de precio libre exige `orders.open-price`: sin él, 403. Se audita como `orders.place`.",
         "operationId": "AdminOrdersController_place_v1",
         "parameters": [
           {
@@ -16787,9 +20913,228 @@
         ]
       }
     },
+    "/v1/admin/orders/count-class-suggestions": {
+      "get": {
+        "description": "ADR-0173. Lo vendido por producto en los últimos 90 días, en línea y en la tienda física: las líneas de las órdenes colocadas en ese tiempo que se pagaron y no se cancelaron, vencieron ni reembolsaron, cada una por su total menos su descuento. `A` para los productos que suman el primer 80 % de lo vendido (el que pasa del 80 % todavía es `A`), `B` para el siguiente 15 % y `C` para el resto; un empate va por ID del producto. Los productos que no vendieron nada no aparecen: son `C`. Sin paginación. La clase se aplica en Catálogo con `PUT /v1/admin/catalog/count-classes`.",
+        "operationId": "AdminOrdersController_countClassSuggestions_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountClassSuggestionListDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Sugerir la clase de conteo de cada producto por sus ventas",
+        "tags": [
+          "Administración: pedidos"
+        ],
+        "x-required-permissions": [
+          "orders.read"
+        ]
+      }
+    },
+    "/v1/admin/orders/open-price-lines": {
+      "get": {
+        "description": "Las líneas de las ventas de la tienda física cobradas a precio libre (ADR-0171), con su nota y su orden, la más reciente primero y por número de línea, en cualquier estado de la orden: lo que se vende sin estar en el catálogo, para saber qué dar de alta primero. Por almacén y por fecha de la orden.",
+        "operationId": "AdminOrdersController_openPriceLines_v1",
+        "parameters": [
+          {
+            "description": "Página, de 1 a 1,000,000.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "example": 1,
+              "maximum": 1000000,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Resultados por página, de 1 a 100.",
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Solo las ventas de este almacén.",
+            "in": "query",
+            "name": "warehouseId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Fecha o fecha y hora ISO 8601 de la orden; incluida.",
+            "in": "query",
+            "name": "placedFrom",
+            "required": false,
+            "schema": {
+              "example": "2026-11-01",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Fecha o fecha y hora ISO 8601 de la orden; incluida (una fecha sola incluye todo el día).",
+            "in": "query",
+            "name": "placedTo",
+            "required": false,
+            "schema": {
+              "example": "2026-11-30",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenPriceLineListDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`validation-error`: Solicitud inválida"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`unauthenticated`: No autenticado"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`forbidden`: Acceso denegado; `password-change-required`: Cambio de contraseña pendiente"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`rate-limit-exceeded`: Demasiadas solicitudes"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "`internal-error`: Error interno"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Listar las líneas vendidas a precio libre",
+        "tags": [
+          "Administración: pedidos"
+        ],
+        "x-required-permissions": [
+          "orders.read"
+        ]
+      }
+    },
     "/v1/admin/orders/quote": {
       "post": {
-        "description": "UC-ORD-12 (ADR-0161). Sin efectos secundarios y sin cache: precios, IVA, envío y disponibilidad de ahora. Las líneas no vendibles o no surtibles no son un error: se marcan y `readyToPlace` queda en `false`. Los totales suman solo las líneas vendibles. Con `couponCode`, el cupón reemplaza a la promoción automática; si no aplica, 409 `coupon-not-applicable` con `reason`, y hasta 10 códigos que nadie tiene por IP cada 15 minutos. Las líneas vienen en la solicitud, sin carrito, y la disponibilidad es la del almacén `warehouseId`. Si el almacén no existe o está inactivo, o una variante no existe, 404.",
+        "description": "UC-ORD-12 (ADR-0161). Sin efectos secundarios y sin cache: precios, IVA, envío y disponibilidad de ahora. Las líneas no vendibles o no surtibles no son un error: se marcan y `readyToPlace` queda en `false`. Los totales suman solo las líneas vendibles. Con `couponCode`, el cupón reemplaza a la promoción automática; si no aplica, 409 `coupon-not-applicable` con `reason`, y hasta 10 códigos que nadie tiene por IP cada 15 minutos. Las líneas vienen en la solicitud, sin carrito, y la disponibilidad es la del almacén `warehouseId`. Si el almacén no existe o está inactivo, o una variante no existe, 404. Una línea de una variante de precio libre (ADR-0171) lleva `unitPrice` y `note`, y las demás no: si no, 400 en `lines[i].unitPrice` o `lines[i].note`. Esa línea se cobra al precio escrito, guarda la nota y no recibe promociones ni cupones, ni cuenta para su mínimo. Vender una variante de precio libre exige `orders.open-price`: sin él, 403.",
         "operationId": "AdminOrdersController_quote_v1",
         "parameters": [],
         "requestBody": {

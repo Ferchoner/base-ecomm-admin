@@ -37,6 +37,7 @@ Todas las pantallas con datos tienen estados de carga (skeleton), vacío, error 
 | Precios     | `/precios`              | `ProductPicker` (catálogo), `VariantPriceSlideover`, `PriceImportCard`    | Buscar producto y ver el precio vigente por variante; por variante: precio desde ahora o programado, precio "antes", historial, cancelar programados; importación CSV con "Revisar archivo" antes de "Importar" y errores por línea. Sin `catalog.read`, solo CSV (G-12) | pricing-inventory |
 | Existencias | `/inventario/stock`     | `InventoryTabs`, `StockEntryModal`, `MovementsSlideover`, `ProductPicker` | Búsqueda, "Disponibles hasta N", atajo "Stock bajo (≤ N)" con el umbral del usuario, orden; entrada y ajuste con vista previa; movimientos por cursor; movimiento de una variante sin existencias                                                                        | pricing-inventory |
 | Almacenes   | `/inventario/almacenes` | `InventoryTabs`, `WarehouseFormModal`                                     | Lista por prioridad; crear, editar (nombre, prioridad, dirección del INEGI) y desactivar para siempre                                                                                                                                                                    | pricing-inventory |
+| Traslados   | `/inventario/traslados` | `InventoryTabs`, `CloseLoanModal`                                         | Préstamos abiertos al abrir; vencidos, todos, solo traslados y todos los préstamos; filtro por almacén y estado; cancelar en 10 minutos y cerrar el préstamo con lo que regresó. Se registran desde Existencias (`TransferStockModal`)                                   | pricing-inventory |
 
 ## Ventas
 
@@ -86,3 +87,35 @@ Todas las pantallas con datos tienen estados de carga (skeleton), vacío, error 
 | Nota de servicio   | `/imprimir/nota-servicio/[id]`                            | `ServiceNoteDocument`, `PrintToolbar`                                                                                   | Carta por defecto, 58 u 80 mm: tienda, folio en Code 128, cliente, equipo, servicio, ventas, condiciones y línea de firma                                                                                        |
 
 En Vender en tienda, Productos, Pedidos y "Registrar movimiento" el lector de códigos (modo teclado) busca el código exacto (D-088). Mi cuenta suma "Sonido al escanear" e "Impresión" (papel inicial de cada documento).
+
+## API 1.10: operación diaria de la tienda física (2026-11-07)
+
+| Pantalla         | Ruta             | Componentes                                          | Qué hace                                                                                                                                                                                                                      |
+| ---------------- | ---------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Corte de caja    | `/caja`          | `CashDayFigures`, `CloseCashForm`, `CashClosingCard` | Local y día; ventas, cobrado, reembolsado y efectivo esperado; por método y por quien registró; artículos a precio libre; cerrar con lo contado, la diferencia y la nota; lo que llegó después del cierre; cierres anteriores |
+| Mi cuenta        | `/cuenta`        | `DeviceWarehouseCard`                                | Local de este equipo, con confirmación al cambiarlo                                                                                                                                                                           |
+| Vender en tienda | `/pedidos/nuevo` | `StoreOrderForm`                                     | Empieza en el local del equipo y avisa si se vende desde otro; "Artículo sin registrar" con precio y qué se vendió                                                                                                            |
+
+## API 1.11: traslados entre locales (2026-11-08)
+
+| Pantalla         | Ruta                    | Componentes                    | Qué hace                                                                                                            |
+| ---------------- | ----------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| Existencias      | `/inventario/stock`     | `TransferStockModal`           | "Trasladar a otro almacén" y "Prestar para mostrar" en cada existencia con unidades disponibles (D-100)             |
+| Traslados        | `/inventario/traslados` | `CloseLoanModal`               | Préstamos abiertos, vencidos y traslados; cancelar en 10 minutos; cerrar el préstamo (D-100)                        |
+| Vender en tienda | `/pedidos/nuevo`        | `BringStockFromOtherWarehouse` | "Traer N de Local 206" en una línea que no alcanza aquí; escanear lo que aquí no hay lo agrega para traerlo (D-101) |
+| Corte de caja    | `/caja`                 | —                              | Aviso de préstamos abiertos del local, sin impedir el cierre (D-102)                                                |
+| Inicio           | `/`                     | `CountCard`                    | Conteo de préstamos vencidos (D-102)                                                                                |
+
+## API 1.12: ubicación de productos y conteo (2026-11-08)
+
+| Pantalla             | Ruta                            | Componentes                       | Qué hace                                                                                                                   |
+| -------------------- | ------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Existencias          | `/inventario/stock`             | `LocationModal`                   | Columna y filtros de ubicación; poner o cambiar la ubicación con `inventory.count` (D-103)                                 |
+| Conteos              | `/inventario/conteos`           | `InventoryTabs`, `OpenCountModal` | Hojas abiertas por omisión; abrir una por ubicación, categoría o clase (D-104)                                             |
+| Hoja de conteo       | `/inventario/conteos/[id]`      | `CountedInput`, `ScanResult`      | Contar con el lector o escribiendo el total, a ciegas sin `inventory.write`; revisar, recontar, aplicar y cancelar (D-105) |
+| Hoja impresa         | `/imprimir/conteo/[id]`         | `CountSheetDocument`              | Ubicación, SKU, producto y recuadro vacío; carta u 80 mm (D-106)                                                           |
+| Etiquetas de estante | `/inventario/etiquetas-estante` | `ShelfLabelSheet`                 | La ubicación en grande y el almacén (D-106)                                                                                |
+| Etiquetas            | `/catalogo/etiquetas`           | `LabelSheet`                      | Ubicación en el almacén elegido (D-103)                                                                                    |
+| Producto, Productos  | `/catalogo/productos/**`        | `ProductForm`                     | Clase de conteo en el producto y filtro en el listado (D-107)                                                              |
+| Clases de conteo     | `/catalogo/productos/clases`    | —                                 | Lo vendido en 90 días, la clase sugerida y aplicarla a los elegidos (D-107)                                                |
+| Inicio               | `/`                             | `CountCard`                       | Hojas abiertas y variantes sin ubicación (D-107)                                                                           |

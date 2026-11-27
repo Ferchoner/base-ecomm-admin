@@ -21,6 +21,8 @@ const ALL = [
   'pricing.write',
   'inventory.read',
   'inventory.write',
+  'inventory.transfer',
+  'inventory.count',
   'orders.read',
   'orders.manage',
   'orders.read-blocked',
@@ -62,14 +64,18 @@ async function seedAll(page: Page) {
     products: [{ title: 'Camisa de lino', status: 'PUBLISHED' }],
   })
   await mockPricingInventoryApi(page, {
+    warehouses: [{ code: 'L206', name: 'Local 206', priority: 2 }],
+    loans: [{ sku: 'CAM-001', quantity: 1, minutesLeft: -15 }],
     stock: [
       {
         variantId: '0192a3b4-0000-7000-8000-000000000101',
         sku: 'CAM-001',
         productTitle: 'Camisa de lino',
         onHand: 3,
+        location: 'A1',
       },
     ],
+    openCounts: [{ location: 'A*' }],
   })
   await mockIdentityApi(page, {
     customers: [{ email: 'maria@example.com', firstNames: 'María' }],
@@ -124,6 +130,15 @@ const PAGES: Array<{
   { path: '/inventario/stock', heading: 'Inventario' },
   { path: '/inventario/almacenes', heading: 'Almacenes' },
   { path: '/inventario/cargar-entradas', heading: 'Inventario' },
+  { path: '/inventario/traslados', heading: 'Traslados' },
+  { path: '/inventario/conteos?status=all', heading: 'Conteos' },
+  {
+    path: '/inventario/conteos?status=all',
+    heading: 'Hoja de conteo',
+    open: { link: 'C-000001', url: /\/inventario\/conteos\/.+/ },
+  },
+  { path: '/inventario/etiquetas-estante', heading: 'Etiquetas de estante' },
+  { path: '/catalogo/productos/clases', heading: 'Clases de conteo' },
   { path: '/catalogo/productos/importar', heading: 'Cargar productos' },
   { path: '/catalogo/etiquetas', heading: 'Etiquetas' },
   { path: '/configuracion/pagos', heading: 'Pago en tienda' },

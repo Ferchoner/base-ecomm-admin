@@ -154,3 +154,27 @@ Plan aprobado en PLAN_API_1.7.md (D-082). Seis PR apilados que se fusionan en or
 | #23 | Órdenes de trabajo, ventas ligadas y nota de servicio (D-085, D-090 a D-093)                                             |
 
 Gaps nuevos: G-22 a G-27. El técnico se elige de la lista de staff solo con `staff.manage`; sin él, "Asignármela" (D-085, G-23).
+
+## API 1.10, operación diaria de la tienda física — fusionado (PR #28, 2026-11-08)
+
+- Local de cada equipo en Mi cuenta (D-097): Vender en tienda, "Registrar movimiento" y el corte empiezan con él.
+- Artículo sin registrar a precio libre en Vender en tienda (D-098).
+- Corte de caja en `/caja` (D-099), en el menú de Ventas con `cash-closings.read`.
+- Contrato fijado a `main` de base-shop (`3af8641`), con sus PR #142 y #143 fusionados.
+- Calidad: lint, formato, tipos, 126 pruebas unitarias, build y 264 E2E en escritorio y móvil.
+
+## API 1.11, traslados entre locales — en PR (2026-11-08)
+
+- Traslado de un paso y préstamo para mostrar desde Existencias; pestaña Traslados con cancelación en 10 minutos y cierre de préstamos (D-100). G-20 resuelto: ya no hay transferencias a medias.
+- "Traer del otro local" en Vender en tienda (D-101); aviso de préstamos abiertos en el corte y conteo de vencidos en Inicio (D-102).
+- Contrato fijado a `main` de base-shop (`a57d27c`), con sus PR #147 (T-163) y #148 (T-164) fusionados; se vuelve a fijar al tag `v1.11.0` cuando se publique.
+- Calidad: lint, formato, tipos, 129 pruebas unitarias, build y 275 E2E en escritorio y móvil.
+
+## API 1.12, ubicación de productos y conteo — en PR (2026-11-08)
+
+- Ubicación de cada producto por local en Existencias, Trasladar, Vender en tienda y etiquetas, con filtro por prefijo y "Sin ubicación" (D-103).
+- Pestaña Conteos: abrir hojas por ubicación, categoría o clase; contar a ciegas con el lector; revisar, recontar, aplicar o cancelar (D-104, D-105).
+- Hoja de conteo impresa sin cantidades y etiquetas de estante (D-106).
+- Clase de conteo en el producto, filtro y clases sugeridas por las ventas de 90 días; Inicio cuenta hojas abiertas y variantes sin ubicación (D-107).
+- Contrato fijado a `main` de base-shop (`e8985fa`), con sus PR #151 (paso 0 y T-165) y #152 (T-166) fusionados; se vuelve a fijar al tag `v1.12.0` cuando se publique.
+- Calidad: lint, formato, tipos, 138 pruebas unitarias, build y 299 E2E en escritorio y móvil (35 se omiten a propósito: el tema oscuro solo en escritorio).

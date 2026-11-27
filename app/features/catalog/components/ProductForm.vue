@@ -3,6 +3,7 @@ import type { FormSubmitEvent } from '@nuxt/ui'
 import type { z } from 'zod'
 import type { ApiProblem } from '~/shared/api/problem'
 import { notifyProblem, notifySuccess } from '~/shared/api/feedback'
+import { COUNT_CLASS_OPTIONS } from '~/shared/status/count-class'
 import { useDebounced } from '~/shared/utils/debounce'
 import { problemFieldErrors } from '~/shared/utils/form-errors'
 import { useBrands, useCategoryTree, useCreateProduct, useUpdateProduct } from '../api'
@@ -16,7 +17,20 @@ const props = defineProps<{ product?: Product; disabled?: boolean }>()
 const emit = defineEmits<{ saved: [product: Product] }>()
 
 const NO_BRAND = '__none__'
-const FIELDS = ['title', 'slug', 'description', 'brandId', 'categoryIds', 'storeOnly'] as const
+const FIELDS = [
+  'title',
+  'slug',
+  'description',
+  'brandId',
+  'categoryIds',
+  'storeOnly',
+  'countClass',
+] as const
+const NO_CLASS = '__none__'
+const CLASS_OPTIONS = [
+  { value: NO_CLASS, label: 'Sin clase (se cuenta como C)' },
+  ...COUNT_CLASS_OPTIONS,
+]
 
 function initialState(p?: Product): ProductForm {
   return {
@@ -26,6 +40,7 @@ function initialState(p?: Product): ProductForm {
     brandId: p?.brand?.id ?? null,
     categoryIds: p?.categories.map((c) => c.id) ?? [],
     storeOnly: p?.storeOnly ?? false,
+    countClass: p?.countClass ?? null,
   }
 }
 
@@ -77,6 +92,10 @@ const brandOptions = computed(() => {
     options.unshift({ value: current.id, label: current.name })
   return [{ value: NO_BRAND, label: 'Sin marca' }, ...options]
 })
+const classValue = computed({
+  get: () => state.countClass ?? NO_CLASS,
+  set: (v: string) => (state.countClass = v === NO_CLASS ? null : (v as 'A' | 'B' | 'C')),
+})
 const brandValue = computed({
   get: () => state.brandId ?? NO_BRAND,
   set: (v: string) => (state.brandId = v === NO_BRAND ? null : v),
@@ -110,6 +129,7 @@ function changes(data: z.output<typeof productSchema>, p: Product) {
     ...(data.brandId !== (p.brand?.id ?? null) && { brandId: data.brandId }),
     ...(!sameCategories && { categoryIds: data.categoryIds }),
     ...(data.storeOnly !== p.storeOnly && { storeOnly: data.storeOnly }),
+    ...(data.countClass !== (p.countClass ?? null) && { countClass: data.countClass }),
   }
 }
 
@@ -137,6 +157,7 @@ async function onSubmit(event: FormSubmitEvent<z.output<typeof productSchema>>) 
         ...(data.brandId && { brandId: data.brandId }),
         categoryIds: data.categoryIds,
         storeOnly: data.storeOnly,
+        ...(data.countClass && { countClass: data.countClass }),
       })
       notifySuccess(
         toast,
@@ -243,6 +264,15 @@ async function onSubmit(event: FormSubmitEvent<z.output<typeof productSchema>>) 
       "
     >
       <USwitch v-model="state.storeOnly" label="Solo en la tienda física (servicio)" />
+    </UFormField>
+
+    <UFormField
+      name="countClass"
+      label="Clase de conteo"
+      help="Cada cuánto se cuenta en el inventario físico. Las sugeridas por ventas están en Productos → Clases de conteo."
+      class="max-w-sm"
+    >
+      <USelect v-model="classValue" :items="CLASS_OPTIONS" class="w-full" />
     </UFormField>
 
     <div class="flex gap-2">

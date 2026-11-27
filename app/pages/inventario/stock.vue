@@ -1,12 +1,14 @@
 <script setup lang="ts">
+import { useDeviceWarehouse } from '~/shared/device/device-warehouse'
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import { useProduct } from '~/features/catalog/api'
 import ProductPicker from '~/features/catalog/components/ProductPicker.vue'
 import { useStockItems, useStockOfVariant, useWarehouses } from '~/features/inventory/api'
+import LocationModal from '~/features/inventory/components/LocationModal.vue'
 import MovementsSlideover from '~/features/inventory/components/MovementsSlideover.vue'
 import StockEntryModal from '~/features/inventory/components/StockEntryModal.vue'
 import TransferStockModal from '~/features/inventory/components/TransferStockModal.vue'
-import { STOCK_SORT_OPTIONS } from '~/features/inventory/status'
+import { normalizeLocation, STOCK_SORT_OPTIONS } from '~/features/inventory/status'
 import type { StockItem } from '~/features/inventory/types'
 import { useListParams } from '~/shared/api/use-list-params'
 import { variantOptionsLabel } from '~/shared/api/variant-lookup'
@@ -21,13 +23,31 @@ definePageMeta({ title: 'Inventario', permission: 'inventory.read' })
 
 const session = useSessionStore()
 const canWrite = computed(() => session.can('inventory.write'))
+const canTransfer = computed(() => session.can('inventory.transfer'))
+const canLocate = computed(() => session.can('inventory.count'))
 const canBrowseCatalog = computed(() => session.can('catalog.read'))
-const list = useListParams({ filters: ['q', 'warehouseId', 'availableMax', 'sort'] })
+const list = useListParams({
+  filters: ['q', 'warehouseId', 'availableMax', 'location', 'hasLocation', 'sort'],
+})
 const filters = list.filters
 
 const search = ref(filters.value.q ?? '')
 const debouncedSearch = useDebounced(search)
 watch(debouncedSearch, (q) => list.setFilter('q', q.trim() || undefined))
+
+// Ubicación exacta o, con * al final, las que empiezan así (ADR-0173).
+const locationText = ref(filters.value.location ?? '')
+const debouncedLocation = useDebounced(locationText)
+watch(debouncedLocation, (v) => {
+  const location = normalizeLocation(v)
+  const part = location.endsWith('*') ? location.slice(0, -1).trim() : location
+  list.setFilter('location', part !== '' && part.length <= 20 ? location : undefined)
+})
+const HAS_LOCATION_OPTIONS = [
+  { value: 'all', label: 'Con y sin ubicación' },
+  { value: 'true', label: 'Con ubicación' },
+  { value: 'false', label: 'Sin ubicación' },
+]
 
 // "Disponibles hasta N". El atajo "Stock bajo" usa el umbral de cada usuario (G-06, Mi cuenta).
 const prefs = usePreferencesStore()
@@ -48,6 +68,9 @@ const { data, isPending, error, refetch, isFetching } = useStockItems(() => ({
   warehouseId: filters.value.warehouseId,
   availableMax:
     filters.value.availableMax !== undefined ? Number(filters.value.availableMax) : undefined,
+  location: filters.value.location,
+  hasLocation:
+    filters.value.hasLocation === undefined ? undefined : filters.value.hasLocation === 'true',
   sort: filters.value.sort ?? 'sku',
 }))
 // Varios almacenes (ADR-0160): entradas solo en activos; ajustes en cualquiera.
@@ -92,10 +115,37 @@ function openEntry(item: StockItem, mode: 'receipt' | 'adjustment') {
 
 const transferOpen = ref(false)
 const transferItem = ref<StockItem | null>(null)
-function openTransfer(item: StockItem) {
+const transferKind = ref<'TRANSFER' | 'LOAN'>('TRANSFER')
+function openTransfer(item: StockItem, kind: 'TRANSFER' | 'LOAN') {
   transferItem.value = item
+  transferKind.value = kind
   transferOpen.value = true
 }
+
+// Ubicación de una existencia, o de una variante que aún no tiene unidades en ese almacén.
+const locating = reactive<{
+  open: boolean
+  variantId: string
+  sku: string
+  productTitle?: string
+  warehouseId: string
+  location: string | null
+}>({ open: false, variantId: '', sku: '', warehouseId: '', location: null })
+function openLocation(
+  item: Pick<StockItem, 'variantId' | 'sku' | 'productTitle' | 'warehouseId' | 'location'>,
+) {
+  Object.assign(locating, { ...item, open: true })
+}
+// Las ubicaciones que ya existen en ese almacén, para sugerirlas (hasta 100 existencias).
+const located = useStockItems(
+  () => ({ page: 1, pageSize: 100, warehouseId: locating.warehouseId, hasLocation: true }),
+  { enabled: () => locating.open && !!locating.warehouseId },
+)
+const locationSuggestions = computed(() =>
+  [
+    ...new Set((located.data.value?.data ?? []).map((s) => s.location).filter((l) => l !== null)),
+  ].sort(),
+)
 
 const movementsOpen = ref(false)
 const movementsItem = ref<StockItem | null>(null)
@@ -112,12 +162,16 @@ const productQuery = useProduct(() => pickedProduct.value ?? '')
 const variantOptions = computed(() =>
   (productQuery.data.value?.variants ?? []).map((v) => ({ value: v.id, label: v.sku })),
 )
+// El almacén inicial es el del equipo (D-097), salvo que la lista ya esté filtrada por uno.
+const device = useDeviceWarehouse()
 const pickedWarehouse = ref<string>()
 watch(
   [pickerOpen, activeWarehouses],
   () => {
     if (pickerOpen.value && !pickedWarehouse.value)
-      pickedWarehouse.value = filters.value.warehouseId ?? activeWarehouses.value[0]?.id
+      pickedWarehouse.value =
+        filters.value.warehouseId ??
+        (device.initial(activeWarehouses.value.map((w) => w.id)) || undefined)
   },
   { immediate: true },
 )
@@ -153,6 +207,28 @@ watch(pickerOpen, (open) => {
   scan.clear()
 })
 
+function pickedVariantLabel() {
+  const product = productQuery.data.value
+  if (scanned.value)
+    return { id: scanned.value.id, sku: scanned.value.sku, title: scanned.value.product.title }
+  const v = product?.variants.find((x) => x.id === pickedVariant.value)
+  return v && product ? { id: v.id, sku: v.sku, title: product.title } : undefined
+}
+
+/** La ubicación de la variante elegida, aunque aún no tenga unidades en ese almacén (ADR-0173). */
+function locateVariant() {
+  const variant = pickedVariantLabel()
+  if (!variant || !pickedWarehouse.value) return
+  pickerOpen.value = false
+  openLocation({
+    variantId: variant.id,
+    sku: variant.sku,
+    productTitle: variant.title,
+    warehouseId: pickedWarehouse.value,
+    location: pickedStock.value?.location ?? null,
+  })
+}
+
 function continueWithVariant(mode: 'receipt' | 'adjustment') {
   const product = productQuery.data.value
   const variant = scanned.value
@@ -177,6 +253,15 @@ function continueWithVariant(mode: 'receipt' | 'adjustment') {
 function rowActions(item: StockItem): DropdownMenuItem[] {
   return [
     { label: 'Ver movimientos', icon: 'i-lucide-history', onSelect: () => openMovements(item) },
+    ...(canLocate.value
+      ? [
+          {
+            label: item.location ? 'Cambiar ubicación' : 'Poner ubicación',
+            icon: 'i-lucide-map-pin',
+            onSelect: () => openLocation(item),
+          },
+        ]
+      : []),
     ...(canWrite.value && isActive(item.warehouseId)
       ? [
           {
@@ -195,12 +280,19 @@ function rowActions(item: StockItem): DropdownMenuItem[] {
           },
         ]
       : []),
-    ...(canWrite.value && activeWarehouses.value.some((w) => w.id !== item.warehouseId)
+    ...(canTransfer.value &&
+    item.available > 0 &&
+    activeWarehouses.value.some((w) => w.id !== item.warehouseId)
       ? [
           {
-            label: 'Transferir a otro almacén',
+            label: 'Trasladar a otro almacén',
             icon: 'i-lucide-arrow-right-left',
-            onSelect: () => openTransfer(item),
+            onSelect: () => openTransfer(item, 'TRANSFER'),
+          },
+          {
+            label: 'Prestar para mostrar',
+            icon: 'i-lucide-hand-helping',
+            onSelect: () => openTransfer(item, 'LOAN'),
           },
         ]
       : []),
@@ -211,6 +303,7 @@ const columns: TableColumn<StockItem>[] = [
   { accessorKey: 'sku', header: 'SKU' },
   { accessorKey: 'productTitle', header: 'Producto' },
   { id: 'warehouse', header: 'Almacén' },
+  { accessorKey: 'location', header: 'Ubicación' },
   { accessorKey: 'onHand', header: 'Físicas' },
   { accessorKey: 'reserved', header: 'Apartadas' },
   { accessorKey: 'available', header: 'Disponibles' },
@@ -219,10 +312,18 @@ const columns: TableColumn<StockItem>[] = [
 ]
 
 const hasFilters = computed(
-  () => !!(filters.value.q || filters.value.availableMax || filters.value.warehouseId),
+  () =>
+    !!(
+      filters.value.q ||
+      filters.value.availableMax ||
+      filters.value.warehouseId ||
+      filters.value.location ||
+      filters.value.hasLocation
+    ),
 )
 function clearFilters() {
   search.value = ''
+  locationText.value = ''
   threshold.value = ''
   list.resetFilters()
 }
@@ -247,6 +348,22 @@ function clearFilters() {
         aria-label="Filtrar por almacén"
         class="w-full sm:w-56"
         @update:model-value="(v) => list.setFilter('warehouseId', v as string)"
+      />
+      <UInput
+        v-model="locationText"
+        icon="i-lucide-map-pin"
+        placeholder="Ubicación, o A* para A1, A2…"
+        aria-label="Filtrar por ubicación"
+        class="w-full sm:w-56"
+      />
+      <USelect
+        :model-value="filters.hasLocation ?? 'all'"
+        :items="HAS_LOCATION_OPTIONS"
+        aria-label="Con o sin ubicación"
+        class="w-full sm:w-48"
+        @update:model-value="
+          (v) => list.setFilter('hasLocation', v === 'all' ? undefined : (v as string))
+        "
       />
       <UFormField label="Disponibles hasta" class="w-full sm:w-36">
         <UInput
@@ -282,10 +399,17 @@ function clearFilters() {
       >
       <div class="flex-1" />
       <UButton
-        v-if="canWrite && canBrowseCatalog && warehouses?.length"
+        v-if="(canWrite || canLocate) && canBrowseCatalog && warehouses?.length"
         icon="i-lucide-package-plus"
         @click="pickerOpen = true"
-        >Registrar movimiento</UButton
+        >{{ canWrite ? 'Registrar movimiento' : 'Poner ubicación' }}</UButton
+      >
+      <UButton
+        to="/inventario/etiquetas-estante"
+        color="neutral"
+        variant="outline"
+        icon="i-lucide-tag"
+        >Etiquetas de estante</UButton
       >
     </div>
 
@@ -320,6 +444,10 @@ function clearFilters() {
             >Inactivo</UBadge
           >
         </template>
+        <template #location-cell="{ row }">
+          <span v-if="row.original.location" class="font-medium">{{ row.original.location }}</span>
+          <span v-else class="text-muted">—</span>
+        </template>
         <template #available-cell="{ row }">
           <span :class="['font-semibold', row.original.available <= 0 && 'text-error']">
             {{ row.original.available }}
@@ -342,7 +470,11 @@ function clearFilters() {
       <ListPagination class="mt-3" :meta="data?.meta" @update:page="list.setPage" />
     </QueryState>
 
-    <UModal v-model:open="pickerOpen" title="Registrar movimiento" description="Elige la variante.">
+    <UModal
+      v-model:open="pickerOpen"
+      :title="canWrite ? 'Registrar movimiento' : 'Poner ubicación'"
+      description="Elige la variante."
+    >
       <template #body>
         <div class="space-y-4">
           <div v-if="scanned" class="flex items-center justify-between gap-2 text-sm">
@@ -411,6 +543,16 @@ function clearFilters() {
       <template #footer>
         <div class="flex w-full justify-end gap-2">
           <UButton
+            v-if="canLocate"
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-map-pin"
+            :disabled="!pickedVariant || !pickedWarehouse || variantStock.isPending.value"
+            @click="locateVariant"
+            >Ubicación</UButton
+          >
+          <UButton
+            v-if="canWrite"
             color="neutral"
             variant="outline"
             :disabled="!pickedVariant || !pickedWarehouse || variantStock.isPending.value"
@@ -418,6 +560,7 @@ function clearFilters() {
             >Ajustar</UButton
           >
           <UButton
+            v-if="canWrite"
             :disabled="
               !pickedVariant ||
               !pickedWarehouse ||
@@ -445,9 +588,20 @@ function clearFilters() {
       v-if="transferItem"
       v-model:open="transferOpen"
       :item="transferItem"
+      :kind="transferKind"
       :from-name="warehouseName(transferItem.warehouseId)"
       :destinations="activeWarehouses.filter((w) => w.id !== transferItem?.warehouseId)"
     />
     <MovementsSlideover v-if="movementsItem" v-model:open="movementsOpen" :item="movementsItem" />
+    <LocationModal
+      v-model:open="locating.open"
+      :variant-id="locating.variantId"
+      :sku="locating.sku"
+      :product-title="locating.productTitle"
+      :warehouse-id="locating.warehouseId"
+      :warehouse-name="warehouseName(locating.warehouseId)"
+      :location="locating.location"
+      :suggestions="locationSuggestions"
+    />
   </div>
 </template>

@@ -45,10 +45,11 @@ Del lado del backend, en cada ambiente:
 | Modo           | Comando                                     | URL                      |
 | -------------- | ------------------------------------------- | ------------------------ |
 | Desarrollo     | `npm run dev`                               | `https://localhost:3003` |
+| Desarrollo LAN | `npm run dev:lan`                           | `https://<IP>:3003`      |
 | Build local    | `npm run build && npm run preview`          | la que indique Nuxt      |
 | Build como E2E | `npm run build && node tests/e2e/serve.mjs` | `http://localhost:4173`  |
 
-`localhost` cuenta como origen seguro: el service worker funciona sin HTTPS. Recuerda poner el origen elegido en `CORS_ALLOWED_ORIGINS` del backend (DEVELOPER_ONBOARDING.md).
+En desarrollo el service worker está desactivado (`pwa.devOptions.enabled: false`). En `preview` y E2E, `http://localhost` cuenta como origen seguro y el service worker funciona sin HTTPS; servido por una IP de la red local, exige HTTPS con un certificado confiable. Recuerda poner el origen elegido en `CORS_ALLOWED_ORIGINS` del backend (DEVELOPER_ONBOARDING.md).
 
 ## Requisitos para un servidor real (cuando se decida)
 

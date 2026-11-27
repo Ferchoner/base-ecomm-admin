@@ -1,7 +1,15 @@
+import { existsSync } from 'node:fs'
+
+// Certificado local opcional (mkcert, nombres fijos: ver DEVELOPER_ONBOARDING.md).
+// Sin él, `nuxt dev --https` genera uno autofirmado.
+const devCert = { key: './localhost-key.pem', cert: './localhost.pem' }
+const hasDevCert = existsSync(devCert.key) && existsSync(devCert.cert)
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2026-10-01',
   ssr: false,
+  ...(hasDevCert && { devServer: { https: devCert } }),
   devtools: { enabled: true },
   modules: ['@nuxt/ui', '@nuxt/eslint', '@pinia/nuxt', '@nuxt/test-utils/module', '@vite-pwa/nuxt'],
   css: ['~/assets/css/main.css'],

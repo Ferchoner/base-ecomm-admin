@@ -19,8 +19,8 @@ En el repo `Ferchoner/base-shop` (ver su README):
 ```bash
 cp .env.example .env
 # En .env del backend:
-#   CORS_ALLOWED_ORIGINS=http://localhost:3001     # origen del backoffice
-#   FRONTEND_BASE_URL=http://localhost:3001        # enlaces de recuperación al backoffice (G-01)
+#   CORS_ALLOWED_ORIGINS=https://localhost:3003    # origen del backoffice
+#   FRONTEND_BASE_URL=https://localhost:3003       # enlaces de recuperación al backoffice (G-01)
 docker compose up --build
 docker compose exec api npm run db:migrate:deploy
 docker compose exec api node dist/scripts/import-geo-catalog.js data/inegi/municipios-2026-06.csv
@@ -35,16 +35,33 @@ El último comando muestra una contraseña temporal una sola vez. La API queda e
 ```bash
 npm install
 cp .env.example .env          # NUXT_PUBLIC_API_BASE_URL=http://localhost:3000
-npm run dev -- --port 3001
+npm run dev
 ```
 
-Abre `http://localhost:3001`, entra con el superadministrador y cambia la contraseña temporal. Para dar acceso a otras personas, crea staff en **Staff**.
+`npm run dev` sirve con HTTPS en `https://localhost:3003`, solo en esta máquina. Si en la raíz existen `localhost-key.pem` y `localhost.pem`, los usa; si no, Nuxt genera un certificado autofirmado. Para generarlos con nombres fijos (los `.pem` no se versionan):
+
+```bash
+mkcert -install
+mkcert -key-file localhost-key.pem -cert-file localhost.pem localhost 127.0.0.1 ::1 <IP-local>
+```
+
+### Desde otro equipo de la red local (`npm run dev:lan`)
+
+`npm run dev:lan` añade `--host` y expone el servidor en todas las interfaces: úsalo solo en redes de confianza. Para que la app funcione desde otro equipo en `https://<IP-local>:3003`:
+
+1. `NUXT_PUBLIC_API_BASE_URL` debe apuntar a la IP de esta máquina, no a `localhost` (en el otro equipo, `localhost` es él mismo).
+2. La API también debe servirse por HTTPS (o tras un proxy TLS): una página HTTPS no puede llamar a `http://<IP-local>:3000`, el navegador lo bloquea como contenido mixto.
+3. El otro equipo debe confiar en la CA de mkcert (instala el `rootCA.pem` de `mkcert -CAROOT`); con el certificado autofirmado habrá que aceptar el aviso en cada sesión.
+4. Añade `https://<IP-local>:3003` a `CORS_ALLOWED_ORIGINS` del backend.
+
+Abre `https://localhost:3003`, entra con el superadministrador y cambia la contraseña temporal. Para dar acceso a otras personas, crea staff en **Staff**.
 
 ## 4. Scripts
 
 | Script                                | Uso                                                                                                   |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `npm run dev`                         | Servidor de desarrollo con recarga                                                                    |
+| `npm run dev`                         | Servidor de desarrollo con HTTPS en `https://localhost:3003`                                          |
+| `npm run dev:lan`                     | Igual, expuesto en la red local (`--host`); ver la sección 3                                          |
 | `npm run build`                       | Build estático (`nuxt generate`) en `.output/public`                                                  |
 | `npm run preview`                     | Sirve el build                                                                                        |
 | `npm run lint`                        | ESLint (incluye la regla entre features y `vue/no-v-html`)                                            |

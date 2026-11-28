@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
-import type { Page } from '@playwright/test'
 import { login, mockAuthApi, staff } from './mock-api'
 import { mockSalesApi, OTHER_LOCAL_ID } from './mock-sales'
+import { scan } from './scan'
 
 const ALL = [
   'orders.read',
@@ -390,11 +390,6 @@ test('vender en tienda: cupón que no aplica y cupón aplicado', async ({ page }
   expect(place.body).toMatchObject({ couponCode: 'BUENFIN', expectedTotal: 53910 })
 })
 
-async function scanCode(page: Page, code: string) {
-  await page.keyboard.type(code, { delay: 5 })
-  await page.keyboard.press('Enter')
-}
-
 test('vender en tienda: traer del otro local lo que aquí no hay, y luego cobrarlo aquí', async ({
   page,
 }) => {
@@ -409,7 +404,7 @@ test('vender en tienda: traer del otro local lo que aquí no hay, y luego cobrar
   await expect(page.getByLabel('Buscar productos')).toBeFocused()
 
   // Aquí no hay: con permiso de traslado se agrega igual, para traerlo.
-  await scanCode(page, 'CIN-01')
+  await scan(page, 'CIN-01')
   await expect(
     page.getByText('No hay CIN-01 en este almacén: tráelo de otro local desde la línea.'),
   ).toBeVisible()

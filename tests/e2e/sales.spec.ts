@@ -361,6 +361,33 @@ test('vender en tienda: venta de mostrador con cambio de precio, sin duplicar el
   expect(places.every((c) => !!c.headers['idempotency-key'])).toBe(true)
 })
 
+test('vender en tienda: tras un error de negocio, el mismo pedido va con otra llave', async ({
+  page,
+}) => {
+  await mockAuthApi(page, staff(SELLER))
+  const api = await mockSalesApi(page, { orders: [], storeCatalog: true, outOfStockOnPlace: true })
+  await login(page)
+  await page.goto('/pedidos/nuevo')
+  await page.getByLabel('Buscar productos').fill('cam')
+  await page.getByRole('button', { name: 'Agregar CAM-M' }).click()
+  await page.getByRole('radio', { name: 'Sin datos del comprador' }).click()
+  await expect(page.getByText('$599.00').last()).toBeVisible()
+  const places = () => api.calls.filter((c) => c.method === 'POST' && c.path === '/v1/admin/orders')
+
+  // La API guarda el 409 con la llave (API_SPEC §2): con la misma, el reintento lo repetiría.
+  await page.getByRole('button', { name: 'Colocar pedido' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Colocar pedido' }).click()
+  await expect.poll(() => places().length).toBe(1)
+  await expect(page.getByRole('button', { name: 'Colocar pedido' })).toBeEnabled()
+
+  await page.getByRole('button', { name: 'Colocar pedido' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Colocar pedido' }).click()
+  await expect(page.getByRole('heading', { name: 'Pedido T5N8-W2RP' })).toBeVisible()
+  const [first, second] = places()
+  expect(second!.body).toEqual(first!.body)
+  expect(second!.headers['idempotency-key']).not.toBe(first!.headers['idempotency-key'])
+})
+
 test('vender en tienda: cupón que no aplica y cupón aplicado', async ({ page }) => {
   await mockAuthApi(page, staff(SELLER))
   const api = await mockSalesApi(page, { orders: [], storeCatalog: true })

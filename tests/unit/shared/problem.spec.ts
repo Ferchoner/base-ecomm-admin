@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   ApiProblem,
   isRetryableRead,
+  keepsIdempotencyKey,
   problemFromResponse,
   problemTypeFromUri,
   toApiProblem,
@@ -114,5 +115,32 @@ describe('notifyProblem', () => {
     )
     expect(added[0]?.description).toBe('Referencia: c-1')
     expect(added[1]?.description).toBe('Ya existe.')
+  })
+})
+
+describe('keepsIdempotencyKey (API_SPEC §2)', () => {
+  const problem = (type: ConstructorParameters<typeof ApiProblem>[0]['type'], status: number) =>
+    new ApiProblem({ type, status, title: '' })
+
+  it('conserva la llave cuando no se sabe si la API procesó la solicitud', () => {
+    expect(keepsIdempotencyKey(problem('network-error', 0))).toBe(true)
+    expect(keepsIdempotencyKey(problem('timeout', 0))).toBe(true)
+    expect(keepsIdempotencyKey(problem('internal-error', 500))).toBe(true)
+    expect(keepsIdempotencyKey(problem('rate-limit-exceeded', 429))).toBe(true)
+    expect(keepsIdempotencyKey(problem('unauthenticated', 401))).toBe(true)
+    expect(keepsIdempotencyKey(problem('idempotency-request-in-progress', 409))).toBe(true)
+    expect(keepsIdempotencyKey(new Error('desconocido'))).toBe(true)
+  })
+
+  it('conserva la llave con idempotency-key-mismatch: la original pudo procesarse', () => {
+    expect(keepsIdempotencyKey(problem('idempotency-key-mismatch', 422))).toBe(true)
+  })
+
+  it('cambia la llave tras una respuesta definitiva, que la API guarda o rechaza', () => {
+    expect(keepsIdempotencyKey(problem('insufficient-stock', 409))).toBe(false)
+    expect(keepsIdempotencyKey(problem('email-not-verified', 403))).toBe(false)
+    expect(keepsIdempotencyKey(problem('total-mismatch', 409))).toBe(false)
+    expect(keepsIdempotencyKey(problem('validation-error', 400))).toBe(false)
+    expect(keepsIdempotencyKey(problem('not-found', 404))).toBe(false)
   })
 })

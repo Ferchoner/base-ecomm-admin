@@ -399,6 +399,40 @@ test('inventario: prestar para mostrar y cerrar el préstamo con lo que regresó
   await expect(page.getByText('Sin préstamos')).toBeVisible()
 })
 
+test('inventario: reintentar un préstamo tras un error de red no lo duplica ni cambia su cuerpo', async ({
+  page,
+}) => {
+  await mockAuthApi(page, staff(['inventory.read', 'inventory.transfer']))
+  await mockPricingInventoryApi(page, {
+    warehouses: [{ id: SECOND_WAREHOUSE_ID, code: 'L206', name: 'Local 206', priority: 2 }],
+    stock: [{ variantId: V1, sku: 'CAM-M', productTitle: 'Camisa de lino', onHand: 10 }],
+  })
+  // El primer POST no llega a la API; los demás pasan al mock, que compara el cuerpo de una llave repetida.
+  const attempts: Array<{ key: string | undefined; body: unknown }> = []
+  await page.route(/\/v1\/admin\/inventory\/transfers$/, async (route) => {
+    const request = route.request()
+    if (request.method() !== 'POST') return route.fallback()
+    attempts.push({ key: request.headers()['idempotency-key'], body: request.postDataJSON() })
+    if (attempts.length === 1) return route.abort('internetdisconnected')
+    return route.fallback()
+  })
+  await login(page)
+  await page.goto('/inventario/stock')
+  await page.getByRole('button', { name: 'Acciones de CAM-M' }).click()
+  await page.getByRole('menuitem', { name: 'Prestar para mostrar' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Prestar para mostrar' })
+  await dialog.getByLabel('Cantidad').fill('2')
+  await dialog.getByRole('button', { name: 'Prestar' }).click()
+  await expect.poll(() => attempts.length).toBe(1)
+  await expect(dialog).toBeVisible()
+
+  await dialog.getByRole('button', { name: 'Prestar' }).click()
+  await expect(page.getByText('Préstamo P-000001 registrado', { exact: true })).toBeVisible()
+  expect(attempts).toHaveLength(2)
+  expect(attempts[1]!.key).toBe(attempts[0]!.key)
+  expect(attempts[1]!.body).toEqual(attempts[0]!.body)
+})
+
 test('inventario: los préstamos vencidos se cuentan en Inicio y ya no se cancelan', async ({
   page,
 }) => {

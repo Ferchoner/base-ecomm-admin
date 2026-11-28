@@ -43,8 +43,15 @@ const form = useTemplateRef('form')
 const problem = ref<ApiProblem | null>(null)
 const transfer = useCreateTransfer()
 const toast = useToast()
-// Una llave por intento: si se reintenta tras un error de red, la API no mueve dos veces.
+// Una llave por intento: si se reintenta tras un error de red, la API no mueve dos veces. La API
+// compara el cuerpo (API_SPEC §2), así que la hora de regreso de un préstamo se fija con la llave:
+// recalcularla al reintentar respondería 422 `idempotency-key-mismatch`.
 let idempotencyKey = crypto.randomUUID()
+let returnBy: string | null = null
+function newAttempt() {
+  idempotencyKey = crypto.randomUUID()
+  returnBy = null
+}
 
 // El modal se monta ya abierto desde la fila, así que se inicializa también al montarse.
 watch(
@@ -61,14 +68,11 @@ watch(
       note: '',
     })
     problem.value = null
-    idempotencyKey = crypto.randomUUID()
+    newAttempt()
   },
   { immediate: true },
 )
-watch(
-  () => ({ ...state }),
-  () => (idempotencyKey = crypto.randomUUID()),
-)
+watch(() => ({ ...state }), newAttempt)
 
 const KIND_OPTIONS = [
   { value: 'TRANSFER', label: 'Trasladar' },
@@ -86,6 +90,7 @@ const isLoan = computed(() => state.kind === 'LOAN')
 async function onSubmit(event: FormSubmitEvent<TransferForm>) {
   const d = event.data
   problem.value = null
+  if (d.kind === 'LOAN') returnBy ??= new Date(Date.now() + d.loanMinutes * 60_000).toISOString()
   try {
     const done = await transfer.mutateAsync({
       idempotencyKey,
@@ -96,9 +101,7 @@ async function onSubmit(event: FormSubmitEvent<TransferForm>) {
         toWarehouseId: d.toWarehouseId,
         lines: [{ variantId: props.item.variantId, quantity: d.quantity }],
         ...(d.note && { note: d.note }),
-        ...(d.kind === 'LOAN' && {
-          returnBy: new Date(Date.now() + d.loanMinutes * 60_000).toISOString(),
-        }),
+        ...(d.kind === 'LOAN' && returnBy && { returnBy }),
       },
     })
     notifySuccess(
@@ -109,6 +112,8 @@ async function onSubmit(event: FormSubmitEvent<TransferForm>) {
     open.value = false
   } catch (e) {
     const p = e as ApiProblem
+    // Un 400 no se guarda con la llave (API_SPEC §2): el siguiente intento va con hora y llave nuevas.
+    if (p.status === 400) newAttempt()
     const { fieldErrors, otherMessages } = problemFieldErrors(p, ['quantity', 'note'])
     form.value?.setErrors(fieldErrors)
     if (fieldErrors.length === 0 || otherMessages.length > 0) problem.value = p

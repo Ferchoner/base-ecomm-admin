@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { FormSubmitEvent } from '@nuxt/ui'
 import { notifySuccess } from '~/shared/api/feedback'
+import { keepsIdempotencyKey } from '~/shared/api/problem'
 import type { ApiProblem } from '~/shared/api/problem'
 import { useSessionStore } from '~/shared/auth/session.store'
 import { useRestock, useWarehouseOptions } from '../api'
@@ -84,6 +85,8 @@ async function onSubmit(event: FormSubmitEvent<RestockForm>) {
     notifySuccess(toast, 'Stock reintegrado', `${units} unidades volvieron al inventario.`)
     open.value = false
   } catch (e) {
+    // Una respuesta definitiva de la API va con llave nueva al reintentar (keepsIdempotencyKey).
+    if (!keepsIdempotencyKey(e)) idempotencyKey = crypto.randomUUID()
     problem.value = e as ApiProblem
   }
 }

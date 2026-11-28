@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { FormSubmitEvent } from '@nuxt/ui'
 import { notifyProblem, notifySuccess } from '~/shared/api/feedback'
+import { keepsIdempotencyKey } from '~/shared/api/problem'
 import type { ApiProblem } from '~/shared/api/problem'
 import { useSessionStore } from '~/shared/auth/session.store'
 import { useDebounced } from '~/shared/utils/debounce'
@@ -121,6 +122,8 @@ async function onSubmit(event: FormSubmitEvent<WorkOrderForm>) {
     emit('saved', saved)
   } catch (error) {
     const p = error as ApiProblem
+    // Una respuesta definitiva de la API va con llave nueva al reintentar (keepsIdempotencyKey).
+    if (!keepsIdempotencyKey(p)) idempotencyKey = crypto.randomUUID()
     if (p.type === 'version-conflict') return notifyProblem(toast, p, () => load(props.workOrder))
     const { fieldErrors, otherMessages: rest } = problemFieldErrors(p, FIELDS)
     form.value?.setErrors(fieldErrors)

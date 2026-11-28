@@ -14,6 +14,7 @@ import CountedInput from '~/features/inventory/components/CountedInput.vue'
 import { COUNT_OUTCOME, COUNT_STATUS, countFilterLabel } from '~/features/inventory/status'
 import type { Count, CountLine } from '~/features/inventory/types'
 import { notifyProblem, notifySuccess } from '~/shared/api/feedback'
+import { keepsIdempotencyKey } from '~/shared/api/problem'
 import type { ApiProblem } from '~/shared/api/problem'
 import { isScanCode } from '~/shared/api/variant-lookup'
 import { useSessionStore } from '~/shared/auth/session.store'
@@ -253,6 +254,8 @@ async function applyCount() {
         .join(' '),
     )
   } catch (e) {
+    // Una respuesta definitiva de la API va con llave nueva al reintentar (keepsIdempotencyKey).
+    if (!keepsIdempotencyKey(e)) applyKey = crypto.randomUUID()
     notifyProblem(toast, e, () => query.refetch())
   }
 }

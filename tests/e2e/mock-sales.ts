@@ -92,6 +92,11 @@ export interface SalesSeed {
   /** El precio sube entre la cotización y la colocación: el primer intento recibe `total-mismatch`. */
   priceChangeOnPlace?: boolean
   /**
+   * El primer intento de colocar el pedido recibe 409 `insufficient-stock` y enseguida llegan
+   * existencias: el mismo pedido ya cabe, pero solo con una llave nueva (API_SPEC §2).
+   */
+  outOfStockOnPlace?: boolean
+  /**
    * Un segundo local con estas existencias disponibles por SKU, para "Traer del otro local"
    * (`POST /v1/admin/inventory/transfers`, ADR-0172 de base-shop).
    */
@@ -538,6 +543,7 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
   }>
   let priceBump = 0
   let pendingPriceChange = !!seed.priceChangeOnPlace
+  let pendingOutOfStock = !!seed.outOfStockOnPlace
   const CUSTOMER = {
     id: uuid(),
     email: 'lucia@example.com',
@@ -560,7 +566,12 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
       },
     ],
   }
-  const idempotency = new Map<string, Order>()
+  // Como la API (API_SPEC §2): cada llave guarda su cuerpo y su respuesta, también los errores de
+  // negocio; la misma llave con otro cuerpo es 422 `idempotency-key-mismatch`.
+  const idempotency = new Map<
+    string,
+    { body: string; order?: Order; status?: number; type?: string; extra?: Record<string, unknown> }
+  >()
   const otherLocal: Record<string, number> = { ...seed.otherLocalStock }
   const transfers = new Map<string, Record<string, unknown>>()
 
@@ -920,19 +931,31 @@ export async function mockSalesApi(page: Page, seed: SalesSeed) {
       if (!parts[1] && method === 'POST') {
         const key = request.headers()['idempotency-key']
         if (!key) return problem(route, 400, 'idempotency-key-missing', 'Falta Idempotency-Key')
+        const content = JSON.stringify(body)
         const seen = idempotency.get(key)
-        if (seen) return json(route, 201, orderDto(seen, true))
+        if (seen && seen.body !== content)
+          return problem(route, 422, 'idempotency-key-mismatch', 'Llave reutilizada')
+        if (seen?.order) return json(route, 201, orderDto(seen.order, true))
+        if (seen) return problem(route, seen.status!, seen.type!, 'Repetido', seen.extra)
+        const businessError = (status: number, type: string, extra: Record<string, unknown>) => {
+          idempotency.set(key, { body: content, status, type, extra })
+          return problem(route, status, type, 'Error de negocio', extra)
+        }
+        if (pendingOutOfStock) {
+          pendingOutOfStock = false
+          return businessError(409, 'insufficient-stock', {
+            lines: [{ variantId: (body!.lines as Array<{ variantId: string }>)[0]!.variantId }],
+          })
+        }
         if (pendingPriceChange) {
           pendingPriceChange = false
           priceBump = 1000
         }
         const current = quote(body as Parameters<typeof quote>[0]).grandTotal
         if (body?.expectedTotal !== current.amount)
-          return problem(route, 409, 'total-mismatch', 'El total cambió', {
-            currentTotal: current,
-          })
+          return businessError(409, 'total-mismatch', { currentTotal: current })
         const created = placeOrder(body!)
-        idempotency.set(key, created)
+        idempotency.set(key, { body: content, order: created })
         return json(route, 201, orderDto(created, true))
       }
       if (!parts[1] && method === 'GET') {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { notifyProblem, notifySuccess } from '~/shared/api/feedback'
+import { keepsIdempotencyKey } from '~/shared/api/problem'
 import { useBringStock, useVariantStockEverywhere } from '../api'
 import type { SellableStock } from '../types'
 
@@ -63,6 +64,8 @@ async function bringFrom(s: SellableStock) {
       `${quantity} ${quantity === 1 ? 'unidad' : 'unidades'} de ${props.sku} llegaron de ${nameOf(s.warehouseId)}. Si fue un error, se cancela en Inventario → Traslados en los próximos 10 minutos.`,
     )
   } catch (e) {
+    // Una respuesta definitiva de la API va con llave nueva al reintentar (keepsIdempotencyKey).
+    if (!keepsIdempotencyKey(e)) idempotencyKey = crypto.randomUUID()
     notifyProblem(toast, e, () => everywhere.refetch())
   } finally {
     bringing.value = null

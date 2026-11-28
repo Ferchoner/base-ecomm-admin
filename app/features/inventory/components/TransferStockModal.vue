@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { FormSubmitEvent } from '@nuxt/ui'
 import { notifySuccess } from '~/shared/api/feedback'
+import { keepsIdempotencyKey } from '~/shared/api/problem'
 import type { ApiProblem } from '~/shared/api/problem'
 import { problemFieldErrors } from '~/shared/utils/form-errors'
 import { useCreateTransfer } from '../api'
@@ -112,8 +113,8 @@ async function onSubmit(event: FormSubmitEvent<TransferForm>) {
     open.value = false
   } catch (e) {
     const p = e as ApiProblem
-    // Un 400 no se guarda con la llave (API_SPEC §2): el siguiente intento va con hora y llave nuevas.
-    if (p.status === 400) newAttempt()
+    // Una respuesta definitiva de la API: el siguiente intento va con hora y llave nuevas.
+    if (!keepsIdempotencyKey(p)) newAttempt()
     const { fieldErrors, otherMessages } = problemFieldErrors(p, ['quantity', 'note'])
     form.value?.setErrors(fieldErrors)
     if (fieldErrors.length === 0 || otherMessages.length > 0) problem.value = p

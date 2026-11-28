@@ -2,6 +2,7 @@
 import type { FormSubmitEvent } from '@nuxt/ui'
 import { ADDRESS_FIELDS, emptyAddress } from '~/shared/address/address-form'
 import { notifySuccess } from '~/shared/api/feedback'
+import { keepsIdempotencyKey } from '~/shared/api/problem'
 import type { ApiProblem } from '~/shared/api/problem'
 import type { Money } from '~/shared/api/types'
 import { isScanCode } from '~/shared/api/variant-lookup'
@@ -379,6 +380,8 @@ async function onSubmit(event: FormSubmitEvent<StoreOrderForm>) {
     )
   } catch (e) {
     const p = e as ApiProblem
+    // Una respuesta definitiva de la API va con llave nueva al reintentar (keepsIdempotencyKey).
+    if (!keepsIdempotencyKey(p)) idempotencyKey = crypto.randomUUID()
     if (['total-mismatch', 'insufficient-stock', 'variant-not-sellable'].includes(p.type))
       void quote.refetch()
     if (p.type === 'total-mismatch') {

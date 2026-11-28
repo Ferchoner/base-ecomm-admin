@@ -172,6 +172,27 @@ export function toApiProblem(error: unknown): ApiProblem {
   })
 }
 
+/**
+ * Si el siguiente intento de una mutación con `Idempotency-Key` debe llevar la misma llave
+ * (API_SPEC §2). Solo cuando no se sabe si la API la procesó: sin respuesta (red, tiempo agotado),
+ * 5xx, 429, 401 o la solicitud aún en proceso. Con la misma llave y el mismo contenido, la API
+ * devuelve el resultado guardado y no duplica nada.
+ *
+ * Cualquier otra respuesta dice con certeza que no se hizo nada, y la API guarda con la llave los
+ * errores de negocio durante 24 horas: reintentar con ella repetiría el error aunque su causa ya se
+ * haya resuelto (un email ya verificado, existencias que ya llegaron). Entonces va una llave nueva.
+ * `idempotency-key-mismatch` conserva la llave: la original pudo procesarse con otro contenido, y
+ * una llave nueva podría duplicarlo.
+ */
+export function keepsIdempotencyKey(error: unknown): boolean {
+  if (!(error instanceof ApiProblem)) return true
+  if (error.type === 'network-error' || error.type === 'timeout') return true
+  if (error.status >= 500 || error.status === 429 || error.status === 401) return true
+  return (
+    error.type === 'idempotency-request-in-progress' || error.type === 'idempotency-key-mismatch'
+  )
+}
+
 /** Errores en los que reintentar una lectura tiene sentido. Las mutaciones nunca se reintentan solas. */
 export function isRetryableRead(problem: ApiProblem): boolean {
   return problem.type === 'network-error' || problem.type === 'timeout' || problem.status >= 500

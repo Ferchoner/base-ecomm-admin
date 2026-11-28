@@ -6,7 +6,7 @@
 
 - [ ] Rama al día con `main`; PR revisado y fusionado.
 - [ ] CI verde en `main` (lint, formato, typecheck, unidad, build, E2E).
-- [ ] Gate local en verde: `npm run lint && npm run format:check && npm run typecheck && npm test && npm run build && npm run test:e2e`.
+- [ ] Gate local en verde: `npm run lint && npm run format:check && npm run typecheck && npm test && npm run build:e2e && npm run test:e2e`.
 - [ ] axe sin violaciones (incluido en `test:e2e`).
 - [ ] `npm audit` revisado; hallazgos nuevos clasificados en QA_REPORT.md.
 - [ ] Sin `v-html`, secretos, tokens reales ni `console.*` con datos (lint + búsqueda).

@@ -18,16 +18,17 @@ npm run dev                 # https://localhost:3003
 
 ## Scripts
 
-| Script                            | Uso                                                                            |
-| --------------------------------- | ------------------------------------------------------------------------------ |
-| `npm run dev`                     | Servidor de desarrollo con HTTPS en `https://localhost:3003`                   |
-| `npm run dev:lan`                 | Igual, expuesto en la red local; ver `docs/DEVELOPER_ONBOARDING.md`            |
-| `npm run build`                   | Build estático en `.output/public`                                             |
-| `npm run typecheck`               | `vue-tsc` en modo estricto                                                     |
-| `npm run lint` / `npm run format` | ESLint / Prettier                                                              |
-| `npm test`                        | Pruebas unitarias (Vitest)                                                     |
-| `npm run test:e2e`                | E2E con Playwright sobre el build (requiere `npm run build`); la API se simula |
-| `npm run api:types`               | Regenera los tipos desde `openapi/v1.json`                                     |
+| Script                            | Uso                                                                                |
+| --------------------------------- | ---------------------------------------------------------------------------------- |
+| `npm run dev`                     | Servidor de desarrollo con HTTPS en `https://localhost:3003`                       |
+| `npm run dev:lan`                 | Igual, expuesto en la red local; ver `docs/DEVELOPER_ONBOARDING.md`                |
+| `npm run build`                   | Build estático en `.output/public`                                                 |
+| `npm run typecheck`               | `vue-tsc` en modo estricto                                                         |
+| `npm run lint` / `npm run format` | ESLint / Prettier                                                                  |
+| `npm test`                        | Pruebas unitarias (Vitest)                                                         |
+| `npm run build:e2e`               | Build con `.env.e2e` (sin el `.env` local), el que usan las E2E                    |
+| `npm run test:e2e`                | E2E con Playwright sobre el build (requiere `npm run build:e2e`); la API se simula |
+| `npm run api:types`               | Regenera los tipos desde `openapi/v1.json`                                         |
 
 ## Variables de entorno
 

@@ -41,7 +41,7 @@ Probar que el backoffice usa el contrato de la API tal como está documentado, q
 ```bash
 npm run lint && npm run format:check && npm run typecheck   # estático
 npm test                                                     # unidad, componente e integración
-npm run build && npm run test:e2e                            # E2E, accesibilidad y PWA sobre el build
+npm run build:e2e && npm run test:e2e                        # E2E, accesibilidad y PWA sobre el build
 ```
 
 En entornos con Chromium ya instalado: `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/ruta/a/chromium npm run test:e2e`. CI (`.github/workflows/ci.yml`) corre la misma secuencia en cada PR.

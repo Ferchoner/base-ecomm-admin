@@ -272,7 +272,8 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
     })
     move(t, [{ variantId: s.variantId, quantity: loan.quantity }])
   }
-  const idempotentTransfers = new Map<string, Record<string, unknown>>()
+  // Como la API (API_SPEC §2): la misma llave con otro cuerpo es 422 `idempotency-key-mismatch`.
+  const idempotentTransfers = new Map<string, { body: string; dto: Record<string, unknown> }>()
   function transfersRoute(
     route: Route,
     method: string,
@@ -300,8 +301,11 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
     }
     if (method === 'POST' && seg.length === 2) {
       const key = route.request().headers()['idempotency-key']
-      if (!key) return problem(route, 400, 'validation-error', 'Falta Idempotency-Key')
-      if (idempotentTransfers.has(key)) return json(route, 201, idempotentTransfers.get(key))
+      if (!key) return problem(route, 400, 'idempotency-key-missing', 'Falta Idempotency-Key')
+      const seen = idempotentTransfers.get(key)
+      if (seen && seen.body !== JSON.stringify(body))
+        return problem(route, 422, 'idempotency-key-mismatch', 'Llave de idempotencia reutilizada')
+      if (seen) return json(route, 201, seen.dto)
       const lines = body!.lines as Array<{ variantId: string; quantity: number }>
       for (const l of lines) {
         const from = stockAt(l.variantId, body!.fromWarehouseId as string)
@@ -313,7 +317,7 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
       const t = newTransfer(body as Parameters<typeof newTransfer>[0])
       move(t, lines)
       const dto = transferDto(t)
-      idempotentTransfers.set(key, dto)
+      idempotentTransfers.set(key, { body: JSON.stringify(body), dto })
       return json(route, 201, dto)
     }
     const t = transfers.find((x) => x.id === seg[2])
@@ -323,7 +327,7 @@ export async function mockPricingInventoryApi(page: Page, seed: PricingInventory
     if (seg[3] === 'cancel') {
       if (!transferDto(t).cancellableUntil)
         return problem(route, 409, 'invalid-state-transition', 'Transición no permitida', {
-          reason: 'cancel-window-closed',
+          reason: 'cancel-window-passed',
         })
       move({ fromWarehouseId: t.toWarehouseId, toWarehouseId: t.fromWarehouseId }, t.lines as never)
       Object.assign(t, {

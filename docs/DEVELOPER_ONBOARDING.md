@@ -58,24 +58,25 @@ Abre `https://localhost:3003`, entra con el superadministrador y cambia la contr
 
 ## 4. Scripts
 
-| Script                                | Uso                                                                                                   |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `npm run dev`                         | Servidor de desarrollo con HTTPS en `https://localhost:3003`                                          |
-| `npm run dev:lan`                     | Igual, expuesto en la red local (`--host`); ver la sección 3                                          |
-| `npm run build`                       | Build estático (`nuxt generate`) en `.output/public`                                                  |
-| `npm run preview`                     | Sirve el build                                                                                        |
-| `npm run lint`                        | ESLint (incluye la regla entre features y `vue/no-v-html`)                                            |
-| `npm run format` / `format:check`     | Prettier                                                                                              |
-| `npm run typecheck`                   | `vue-tsc` estricto                                                                                    |
-| `npm test`                            | Vitest (unidad, componentes y cliente con MSW)                                                        |
-| `npm run test:e2e`                    | Playwright sobre `.output/public`, escritorio y móvil, con la API simulada (requiere `npm run build`) |
-| `npm run api:types`                   | Regenera `app/shared/api/generated/openapi.d.ts` desde `openapi/v1.json`                              |
-| `node scripts/generate-pwa-icons.mjs` | Regenera los iconos de `public/`                                                                      |
+| Script                                | Uso                                                                                                       |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `npm run dev`                         | Servidor de desarrollo con HTTPS en `https://localhost:3003`                                              |
+| `npm run dev:lan`                     | Igual, expuesto en la red local (`--host`); ver la sección 3                                              |
+| `npm run build`                       | Build estático (`nuxt generate`) en `.output/public`                                                      |
+| `npm run preview`                     | Sirve el build                                                                                            |
+| `npm run lint`                        | ESLint (incluye la regla entre features y `vue/no-v-html`)                                                |
+| `npm run format` / `format:check`     | Prettier                                                                                                  |
+| `npm run typecheck`                   | `vue-tsc` estricto                                                                                        |
+| `npm test`                            | Vitest (unidad, componentes y cliente con MSW)                                                            |
+| `npm run build:e2e`                   | Build con `.env.e2e` en lugar del `.env` local: el que usan las E2E                                       |
+| `npm run test:e2e`                    | Playwright sobre `.output/public`, escritorio y móvil, con la API simulada (requiere `npm run build:e2e`) |
+| `npm run api:types`                   | Regenera `app/shared/api/generated/openapi.d.ts` desde `openapi/v1.json`                                  |
+| `node scripts/generate-pwa-icons.mjs` | Regenera los iconos de `public/`                                                                          |
 
 **Gate antes de abrir un PR** (el mismo que corre CI):
 
 ```bash
-npm run lint && npm run format:check && npm run typecheck && npm test && npm run build && npm run test:e2e
+npm run lint && npm run format:check && npm run typecheck && npm test && npm run build:e2e && npm run test:e2e
 ```
 
 ## 5. Mapa del código

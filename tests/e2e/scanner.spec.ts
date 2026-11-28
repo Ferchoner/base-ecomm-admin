@@ -1,18 +1,9 @@
 import { expect, test } from '@playwright/test'
-import type { Page } from '@playwright/test'
 import { login, mockAuthApi, staff } from './mock-api'
 import { mockCatalogApi } from './mock-catalog'
 import { mockPricingInventoryApi } from './mock-pricing-inventory'
 import { mockSalesApi } from './mock-sales'
-
-/**
- * Lector de códigos en modo teclado (PLAN_API_1.7 §3.1): "escribe" el código muy rápido y termina
- * con Enter. Playwright teclea sin pausa, como el lector.
- */
-async function scan(page: Page, code: string) {
-  await page.keyboard.type(code)
-  await page.keyboard.press('Enter')
-}
+import { scan } from './scan'
 
 const V1 = '0192a3b4-0000-7000-8000-00000000d001'
 const V2 = '0192a3b4-0000-7000-8000-00000000d002'

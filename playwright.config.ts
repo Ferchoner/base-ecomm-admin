@@ -22,7 +22,7 @@ export default defineConfig({
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
     { name: 'mobile', use: { ...devices['Pixel 7'] } },
   ],
-  // Requiere `npm run build` antes; la API se simula con page.route (tests/e2e/mock-api.ts).
+  // Requiere `npm run build:e2e` antes (build con `.env.e2e`, no con el `.env` local); la API se simula con page.route (tests/e2e/mock-api.ts).
   webServer: {
     command: `node tests/e2e/serve.mjs`,
     env: { PORT: String(PORT) },

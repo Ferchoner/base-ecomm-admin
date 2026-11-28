@@ -9,6 +9,7 @@
     "dev": "nuxt dev -p 3003 --https",
     "dev:lan": "nuxt dev -p 3003 --https --host",
     "build": "nuxt generate",
+    "build:e2e": "nuxt generate --dotenv .env.e2e",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "typecheck": "nuxt typecheck",

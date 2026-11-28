@@ -38,7 +38,7 @@ Sin secretos, tokens reales ni credenciales. Sin `v-html` con datos de la API.
 
 ## Calidad
 
-`npm run lint && npm run format:check && npm run typecheck && npm test && npm run build && npm run test:e2e` antes de cerrar una fase.
+`npm run lint && npm run format:check && npm run typecheck && npm test && npm run build:e2e && npm run test:e2e` antes de cerrar una fase.
 
 ## Git
 
